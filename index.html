@@ -1,0 +1,3767 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Flipod</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Premium palette */
+  --bg-primary:#0C0C0E;
+  --bg-secondary:#16161A;
+  --bg-card:rgba(255,255,255,0.05);
+  --bg-glass:rgba(28,28,34,0.95);
+  --bg-glass-heavy:rgba(12,12,14,0.97);
+  --border:rgba(255,255,255,0.05);
+  --border-light:rgba(255,255,255,0.05);
+  --text-1:rgba(255,255,255,0.87);
+  --text-2:rgba(255,255,255,0.55);
+  --text-3:rgba(255,255,255,0.30);
+  --text-4:rgba(255,255,255,0.15);
+  --text-inv:rgba(0,0,0,0.85);
+  --accent:#8B9CF7;
+  --accent-bg:rgba(139,156,247,0.12);
+  --heart:#ff4466;
+  --bookmark:#ffc34d;
+  --shadow:none;
+  --word-dim:rgba(255,255,255,0.20);
+  --word-spoken:rgba(255,255,255,0.93);
+  --word-active:#8B9CF7;
+  --cefr-a:rgba(255,255,255,0.87);
+  --cefr-b1:#7AAFC4;
+  --cefr-b2:#C4A96E;
+  --cefr-c1:#C47A6E;
+  --cefr-c2:#c97bdb;
+  --mask-bg:rgba(255,255,255,0.10);
+  --mask-bg-spoken:rgba(255,255,255,0.15);
+  --ctrl-fill:rgba(255,255,255,0.55);
+  --ctrl-fill-hover:rgba(255,255,255,0.87);
+  --prog-bg:rgba(255,255,255,0.15);
+  --prog-fill:#8B9CF7;
+  --ob-gradient:linear-gradient(180deg, #0C0C0E 0%, #16161A 100%);
+
+  /* Premium popup */
+  --p-popup-bg:rgba(28,28,34,0.95);
+  --p-popup-border:rgba(255,255,255,0.07);
+}
+[data-theme="light"]{
+  --bg-primary:#F2F2F7;
+  --bg-secondary:#EEEEF2;
+  --bg-card:#FFFFFF;
+  --bg-glass:rgba(255,255,255,0.88);
+  --bg-glass-heavy:rgba(245,245,250,0.97);
+  --border:rgba(0,0,0,0.06);
+  --border-light:rgba(0,0,0,0.04);
+  --text-1:rgba(0,0,0,0.85);
+  --text-2:rgba(0,0,0,0.6);
+  --text-3:rgba(0,0,0,0.4);
+  --text-4:rgba(0,0,0,0.2);
+  --text-inv:#fff;
+  --accent:#6B7CDB;
+  --accent-bg:rgba(107,124,219,0.1);
+  --heart:#ff3b30;
+  --bookmark:#ff9500;
+  --shadow:0 1px 3px rgba(0,0,0,0.08);
+  --word-dim:rgba(0,0,0,0.2);
+  --word-spoken:rgba(0,0,0,0.85);
+  --word-active:#6B7CDB;
+  --cefr-a:rgba(0,0,0,0.8);
+  --cefr-b1:#5A96A8;
+  --cefr-b2:#A88B4E;
+  --cefr-c1:#A85A4E;
+  --cefr-c2:#9C27B0;
+  --mask-bg:rgba(0,0,0,0.08);
+  --mask-bg-spoken:rgba(0,0,0,0.12);
+  --ctrl-fill:rgba(0,0,0,0.35);
+  --ctrl-fill-hover:rgba(0,0,0,0.6);
+  --prog-bg:rgba(0,0,0,0.08);
+  --prog-fill:#6B7CDB;
+  --ob-gradient:linear-gradient(180deg, #F2F2F7 0%, #E8E8F0 100%);
+  --p-popup-bg:rgba(255,255,255,0.95);
+  --p-popup-border:rgba(0,0,0,0.08);
+}
+*{margin:0;padding:0;box-sizing:border-box;touch-action:manipulation}
+html,body{
+  height:100%;
+  overflow:hidden;
+  background:var(--bg-primary);
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  color:var(--text-1);
+}
+
+#container{
+  height:100%;
+  overflow-y:scroll;
+  scroll-snap-type:y mandatory;
+  -webkit-overflow-scrolling:touch;
+}
+
+.screen{
+  height:100vh;
+  height:100dvh;
+  scroll-snap-align:start;
+  scroll-snap-stop:always;
+  position:relative;
+  overflow:hidden;
+}
+
+/* ── Start screen (Premium Splash) ── */
+#start-screen{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  padding:0 28px;
+  text-align:center;
+  position:relative;
+}
+.start-ambient{
+  width:80px;
+  height:1px;
+  background:var(--accent);
+  opacity:0.15;
+  position:absolute;
+  top:21%;
+  left:50%;
+  transform:translateX(-50%);
+}
+.start-kicker{
+  display:none;
+}
+.start-text{
+  font-size:28px;
+  font-weight:500;
+  line-height:1.3;
+  color:var(--text-1);
+  max-width:320px;
+  margin:0;
+}
+.start-sub{
+  margin-top:10px;
+  font-size:14px;
+  font-weight:400;
+  line-height:1.5;
+  color:var(--text-3);
+  max-width:340px;
+}
+.start-divider{
+  width:40px;
+  height:1px;
+  background:var(--border);
+  margin-top:48px;
+}
+.tap-hint{
+  position:absolute; bottom:80px;
+  font-size:13px;
+  font-weight:400;
+  color:var(--text-4);
+  opacity:1;
+  animation:pulse 2s ease-in-out infinite;
+}
+@keyframes pulse{ 0%,100%{opacity:0.4} 50%{opacity:0.7} }
+
+/* ── Content screen ── */
+.content-screen{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:0 28px;
+}
+
+/* Top info — Premium content meta */
+.top-info{
+  position:absolute;
+  top:calc(env(safe-area-inset-top, 48px) + 42px);
+  left:45px; right:45px;
+  text-align:center;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+}
+.top-info-hint{
+  font-size:11px;
+  letter-spacing:0.5px;
+  color:rgba(255,255,255,0.15);
+  transition:color 0.4s ease;
+}
+.top-info-hint.hint-loading{ color:rgba(255,255,255,0.30); }
+.top-info-hint.hint-rerank{ color:rgba(255,255,255,0.40); }
+.top-info-hint.hint-fallback{ color:rgba(255,255,255,0.15); }
+.hook-title{
+  font-size:16px; font-weight:500;
+  color:var(--text-1);
+  line-height:1.35;
+}
+.source-tag{
+  margin-top:0;
+  font-size:12px;
+  color:var(--text-3);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:8px;
+}
+.source-tag .source-dot{
+  color:var(--text-4);
+}
+.domain-tag{
+  display:inline-block;
+  padding:0;
+  border-radius:0;
+  background:none;
+  color:var(--accent);
+  opacity:0.7;
+  font-size:11px;
+  font-weight:400;
+  letter-spacing:0;
+  text-transform:none;
+}
+/* ── Feed state: loading ── */
+.feed-loading .top-info .hook-title,
+.feed-loading .top-info .source-tag,
+.feed-loading .subtitle-area .subtitle-en,
+.feed-loading .subtitle-area .subtitle-zh-row{ display:none !important; }
+.feed-loading .subtitle-area .subtitle-loading{ display:none !important; }
+.feed-loading .main-play{
+  background:rgba(255,255,255,0.10) !important;
+  pointer-events:none;
+}
+.feed-loading .main-play svg{ color:rgba(255,255,255,0.20) !important; }
+.feed-loading-dots{
+  display:none;
+  justify-content:center;
+  align-items:center;
+  gap:8px;
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+}
+.feed-loading .feed-loading-dots{ display:flex; }
+.feed-loading-dots .loading-dot{
+  width:6px; height:6px;
+  border-radius:50%;
+  background:rgba(255,255,255,0.20);
+  animation:loadPulse 1.2s ease-in-out infinite;
+}
+.feed-loading-dots .loading-dot:nth-child(2){ animation-delay:0.2s; }
+.feed-loading-dots .loading-dot:nth-child(3){ animation-delay:0.4s; }
+
+/* ── Menu button (left) — Premium ── */
+.menu-btn{
+  position:absolute;
+  top:calc(env(safe-area-inset-top, 48px) + 12px); left:20px;
+  width:32px; height:32px;
+  border:none;
+  background:none;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  gap:5px;
+  z-index:10;
+}
+.menu-btn .menu-line{
+  height:1.5px;
+  background:var(--text-3);
+  border-radius:1px;
+}
+.menu-btn .menu-line:first-child{ width:16px; }
+.menu-btn .menu-line:last-child{ width:12px; }
+
+/* ── Help "?" button (right) — Premium ── */
+.help-btn{
+  position:absolute;
+  top:calc(env(safe-area-inset-top, 48px) + 12px); right:20px;
+  width:32px; height:32px;
+  border:none;
+  background:none;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:10;
+}
+.help-btn svg{ width:20px; height:20px; }
+.help-btn circle{ stroke:var(--text-3); }
+.help-btn text{ fill:var(--text-3); }
+.help-btn.disabled{ opacity:0.4; pointer-events:none; }
+
+/* ── AI Reason Tooltip ── */
+.ai-reason-tooltip{
+  position:absolute;
+  top:96px; right:20px;
+  width:240px;
+  padding:12px 16px;
+  background:var(--p-popup-bg);
+  border:1px solid var(--p-popup-border);
+  border-radius:12px;
+  -webkit-backdrop-filter:blur(20px);
+  backdrop-filter:blur(20px);
+  z-index:25;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 0.2s ease;
+}
+.ai-reason-tooltip.show{
+  opacity:1;
+  pointer-events:auto;
+}
+.ai-reason-tooltip .tooltip-text{
+  font-size:13px;
+  line-height:1.5;
+  color:var(--text-2);
+}
+
+.menu-panel{
+  position:absolute;
+  top:96px; left:16px;
+  width:260px;
+  background:var(--bg-glass);
+  -webkit-backdrop-filter:blur(20px);
+  backdrop-filter:blur(20px);
+  border-radius:14px;
+  border:1px solid var(--border);
+  box-shadow:var(--shadow);
+  overflow:hidden;
+  z-index:20;
+  opacity:0;
+  transform:translateY(-8px) scale(0.95);
+  pointer-events:none;
+  transition:opacity 0.2s ease, transform 0.2s ease;
+}
+.menu-panel.open{
+  opacity:1;
+  transform:translateY(0) scale(1);
+  pointer-events:auto;
+}
+.menu-item{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:14px 18px;
+  font-size:14px;
+  color:var(--text-2);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:background 0.15s;
+  border:none;
+  background:none;
+  width:100%;
+  text-align:left;
+}
+.menu-item:active{ background:var(--bg-card); }
+.menu-item+.menu-item{ border-top:1px solid var(--border-light); }
+.menu-item svg{ width:18px; height:18px; fill:var(--text-3); flex-shrink:0; }
+.menu-item.disabled{
+  color:var(--text-4);
+  cursor:default;
+}
+.menu-item.disabled svg{ fill:var(--text-4); }
+.menu-item-label{ flex:1; }
+.menu-item-badge{
+  font-size:10px;
+  color:var(--text-4);
+  background:var(--bg-card);
+  padding:2px 6px;
+  border-radius:8px;
+}
+
+/* Transcript panel */
+.transcript-panel{
+  position:absolute;
+  top:0; left:0; right:0; bottom:0;
+  background:var(--bg-glass-heavy);
+  -webkit-backdrop-filter:blur(20px);
+  backdrop-filter:blur(20px);
+  z-index:30;
+  display:flex;
+  flex-direction:column;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 0.25s ease;
+}
+.transcript-panel.open{
+  opacity:1;
+  pointer-events:auto;
+}
+.transcript-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:20px 20px 16px;
+  border-bottom:1px solid var(--border-light);
+}
+.transcript-title{
+  font-size:16px;
+  font-weight:600;
+  color:var(--text-2);
+}
+.transcript-close{
+  width:32px; height:32px;
+  border:none;
+  background:var(--bg-card);
+  border-radius:50%;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+}
+.transcript-close svg{ width:16px; height:16px; fill:var(--text-3); }
+.transcript-body{
+  flex:1;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  padding:16px 20px 40px;
+}
+.transcript-line{
+  margin-bottom:20px;
+}
+.transcript-en{
+  font-size:15px;
+  line-height:1.6;
+  color:var(--text-2);
+}
+.transcript-zh{
+  margin-top:4px;
+  font-size:13px;
+  line-height:1.5;
+  color:var(--text-3);
+}
+
+/* Subtitle area — Premium */
+.subtitle-area{
+  position:absolute;
+  top:33%;
+  left:32px; right:32px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  gap:16px;
+}
+
+/* Current sentence */
+.subtitle-en{
+  font-size:22px;
+  font-weight:400;
+  line-height:1.5;
+  max-width:326px;
+  min-height:1.5em;
+  transition:opacity 0.15s ease;
+}
+.subtitle-en .w{
+  transition:color 0.1s ease;
+  color:var(--word-dim);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+/* CEFR color: spoken words show difficulty color + bold */
+.subtitle-en .w.spoken{ color:var(--word-spoken); }
+.subtitle-en .w.spoken[data-cefr="A1"],
+.subtitle-en .w.spoken[data-cefr="A2"]{ color:var(--cefr-a); }
+.subtitle-en .w.spoken[data-cefr="B1"]{ color:var(--cefr-b1); font-weight:700; }
+.subtitle-en .w.spoken[data-cefr="B2"]{ color:var(--cefr-b2); font-weight:700; }
+.subtitle-en .w.spoken[data-cefr="C1"]{ color:var(--cefr-c1); font-weight:700; }
+.subtitle-en .w.spoken[data-cefr="C2"]{ color:var(--cefr-c2); font-weight:700; }
+
+.subtitle-en .w.active{
+  color:var(--word-active);
+}
+
+/* Word tap popup — Premium glass morphism */
+.word-popup{
+  position:absolute;
+  bottom:220px;
+  left:50%;
+  transform:translateX(-50%) translateY(6px);
+  z-index:100;
+  background:var(--p-popup-bg);
+  -webkit-backdrop-filter:blur(20px);
+  backdrop-filter:blur(20px);
+  border:1px solid var(--p-popup-border);
+  border-radius:16px;
+  padding:20px 24px;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity 0.2s ease, transform 0.2s ease;
+  max-width:270px;
+  width:270px;
+  box-shadow:0 8px 40px rgba(0,0,0,0.4);
+}
+[data-theme="light"] .word-popup{
+  background:rgba(255,255,255,0.95);
+  border-color:rgba(0,0,0,0.08);
+  box-shadow:0 8px 40px rgba(0,0,0,0.12);
+}
+.word-popup.visible{
+  opacity:1;
+  transform:translateX(-50%) translateY(0);
+  pointer-events:auto;
+}
+.wp-row1{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.wp-word{
+  font-size:20px;
+  font-weight:700;
+  color:var(--text-1);
+}
+.wp-pos{
+  font-size:11px;
+  color:var(--accent);
+}
+.wp-speak{
+  width:28px; height:28px;
+  border:none; background:none;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  display:flex; align-items:center; justify-content:center;
+  margin-left:auto;
+}
+.wp-speak svg{ width:16px; height:16px; fill:var(--text-3); }
+.wp-speak:active svg{ fill:var(--accent); }
+.wp-more{
+  display:none;
+}
+.wp-phonetic{
+  font-size:12px;
+  color:var(--text-3);
+  margin-top:4px;
+}
+.wp-us-badge{
+  display:inline-block;
+  font-size:10px;
+  color:var(--text-3);
+  border:1px solid var(--border);
+  border-radius:4px;
+  padding:1px 4px;
+  margin-right:6px;
+  vertical-align:middle;
+}
+.wp-definition{
+  font-size:13px;
+  color:var(--text-2);
+  margin-top:12px;
+  line-height:1.5;
+  display:-webkit-box;
+  -webkit-line-clamp:3;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+.wp-definition.hidden{ display:none; }
+.wp-definition b{
+  font-weight:700;
+  color:var(--text-1);
+}
+.wp-loading{
+  font-size:13px;
+  color:var(--text-4);
+  margin-top:12px;
+}
+.wp-divider{
+  width:100%;
+  height:1px;
+  background:var(--border);
+  margin-top:12px;
+}
+.wp-actions{
+  display:flex;
+  justify-content:space-between;
+  margin-top:12px;
+}
+.wp-action-btn{
+  flex:none;
+  height:auto;
+  border:none;
+  border-radius:0;
+  background:none;
+  color:var(--text-3);
+  font-size:13px;
+  font-weight:400;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  display:flex; align-items:center; gap:4px;
+  padding:0;
+}
+.wp-action-btn:active{ opacity:0.7; }
+.wp-action-btn svg{ width:14px; height:14px; }
+.wp-action-btn.wp-know svg{ fill:var(--text-3); }
+.wp-action-btn.wp-know.known{ color:var(--accent); }
+.wp-action-btn.wp-know.known svg{ fill:var(--accent); }
+.wp-action-btn.wp-star{ color:var(--text-3); }
+.wp-action-btn.wp-star .star-outline{ display:inline; }
+.wp-action-btn.wp-star .star-filled{ display:none; }
+.wp-action-btn.wp-star.starred{ color:var(--accent); }
+.wp-action-btn.wp-star.starred .star-outline{ display:none; }
+.wp-action-btn.wp-star.starred .star-filled{ display:inline; }
+
+/* Masked mode */
+.subtitle-en.masked .w{
+  color:transparent !important;
+  background:var(--mask-bg);
+  border-radius:4px;
+  padding:1px 2px;
+  margin:1px;
+}
+.subtitle-en.masked .w.spoken,
+.subtitle-en.masked .w.active{
+  color:transparent !important;
+  background:var(--mask-bg-spoken);
+}
+
+.subtitle-zh-row{
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  margin-top:0;
+  max-width:326px;
+  width:100%;
+}
+.subtitle-zh{
+  font-size:14px;
+  line-height:1.4;
+  color:var(--text-3);
+  min-height:1.5em;
+  transition:opacity 0.15s ease;
+  flex:1;
+  text-align:center;
+}
+.subtitle-zh.zh-hidden{
+  color:transparent;
+  background:var(--mask-bg);
+  border-radius:4px;
+  user-select:none;
+}
+.zh-toggle{
+  width:34px; height:34px;
+  border:none;
+  background:var(--bg-card);
+  border-radius:50%;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+  padding:0;
+  transition:background 0.2s;
+}
+.zh-toggle:active{ background:var(--mask-bg-spoken); }
+.zh-toggle svg{
+  width:16px; height:16px;
+  color:var(--text-3);
+  transition:color 0.15s;
+}
+.zh-toggle.zh-revealed svg{ color:var(--accent); }
+
+
+/* Loading indicator */
+.subtitle-loading{
+  display:none;
+  align-items:center;
+  gap:8px;
+  color:var(--text-3);
+  font-size:13px;
+}
+.subtitle-loading.visible{
+  display:flex;
+}
+.loading-dot{
+  width:4px; height:4px;
+  border-radius:50%;
+  background:var(--text-3);
+  animation:loadPulse 1.2s ease-in-out infinite;
+}
+.loading-dot:nth-child(2){ animation-delay:0.2s; }
+.loading-dot:nth-child(3){ animation-delay:0.4s; }
+@keyframes loadPulse{
+  0%,100%{opacity:0.3;transform:scale(1)}
+  50%{opacity:1;transform:scale(1.3)}
+}
+
+/* ── Right side actions (like/bookmark) — Premium ── */
+.side-actions{
+  position:absolute;
+  right:12px;
+  top:520px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:24px;
+  width:28px;
+}
+.side-btn{
+  width:28px; height:28px;
+  border:none;
+  background:none;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:transform 0.15s ease;
+}
+.side-btn:active{ transform:scale(1.2); }
+.side-btn svg{
+  width:20px; height:20px;
+  fill:var(--text-3);
+  transition:fill 0.2s ease, transform 0.3s ease;
+}
+.side-btn.liked svg{
+  fill:var(--heart);
+  transform:scale(1.15);
+}
+.side-btn.bookmarked svg{
+  fill:var(--bookmark);
+  transform:scale(1.15);
+}
+
+@keyframes pop{
+  0%{transform:scale(1)} 50%{transform:scale(1.4)} 100%{transform:scale(1.15)}
+}
+.side-btn.pop svg{ animation:pop 0.3s ease; }
+
+/* ══ Bottom controls — Premium ══ */
+.bottom-controls{
+  position:absolute;
+  bottom:0; left:0; right:0;
+  padding:0 32px calc(env(safe-area-inset-bottom, 20px) + 40px);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:20px;
+}
+
+/* Bottom bar (eye, speed, indicator) */
+.bottom-bar{
+  width:100%;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.ctrl-left{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+/* Play controls (center) — Premium */
+.play-controls{
+  display:flex;
+  align-items:center;
+  gap:40px;
+}
+.play-ctrl-btn{
+  width:40px; height:40px;
+  border:none;
+  background:none;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+}
+.play-ctrl-btn svg{
+  width:22px; height:22px;
+  fill:var(--text-2);
+  transition:fill 0.15s;
+}
+.play-ctrl-btn:active svg{ fill:var(--ctrl-fill-hover); }
+.play-ctrl-btn.main-play{
+  width:56px; height:56px;
+  background:var(--accent);
+  border-radius:50%;
+}
+.play-ctrl-btn.main-play svg{
+  width:24px; height:24px;
+  fill:var(--bg-primary);
+}
+.play-ctrl-btn.main-play:active{
+  opacity:0.85;
+}
+.skip-label{
+  position:absolute;
+  bottom:-2px;
+  font-size:9px;
+  font-weight:700;
+  color:var(--text-3);
+  pointer-events:none;
+}
+
+/* Mask toggle */
+.mask-toggle{
+  width:34px; height:34px;
+  border:none;
+  background:var(--bg-card);
+  border-radius:50%;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+  transition:background 0.2s;
+}
+.mask-toggle:active{ background:var(--mask-bg-spoken); }
+.mask-toggle svg{ width:16px; height:16px; fill:var(--text-3); }
+.mask-toggle.is-masked svg{ fill:var(--text-4); }
+
+/* Speed button */
+.speed-btn{
+  height:26px;
+  padding:0 9px;
+  border:1px solid var(--border);
+  background:none;
+  border-radius:13px;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  color:var(--text-3);
+  font-size:11px;
+  font-weight:600;
+  transition:background 0.2s, color 0.2s;
+}
+.speed-btn:active{ background:var(--bg-card); }
+.speed-btn.non-default{ color:var(--text-2); border-color:var(--text-3); }
+
+.indicator{
+  font-size:12px;
+  color:var(--text-3);
+}
+
+/* Progress bar — Premium */
+.progress-wrap{
+  width:100%;
+  padding:0;
+  height:32px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.progress-time{
+  font-size:11px;
+  color:var(--text-4);
+  min-width:28px;
+  flex-shrink:0;
+}
+.progress-time-left{ text-align:right; }
+.progress-time-right{ text-align:left; }
+.progress-bar{
+  flex:1;
+  height:2px;
+  background:var(--text-4);
+  border-radius:1px;
+  position:relative;
+}
+.progress-fill{
+  height:100%;
+  background:var(--accent);
+  width:0%;
+  border-radius:1px;
+  transition:width 0.25s linear;
+}
+.progress-fill.dragging{
+  transition:none;
+}
+
+/* ── Onboarding ── */
+#onboarding-overlay{
+  position:fixed;
+  top:0; left:0; right:0; bottom:0;
+  background:var(--ob-gradient);
+  z-index:200;
+  display:flex;
+  flex-direction:column;
+  transition:opacity 0.5s ease;
+}
+#onboarding-overlay.hidden{
+  opacity:0;
+  pointer-events:none;
+}
+.ob-screen{
+  position:absolute;
+  top:0; left:0; right:0; bottom:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:60px 24px 40px;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  transition:opacity 0.35s ease, transform 0.35s ease;
+}
+.ob-screen.ob-hidden-left{
+  opacity:0;
+  transform:translateX(-40px);
+  pointer-events:none;
+}
+.ob-screen.ob-hidden-right{
+  opacity:0;
+  transform:translateX(40px);
+  pointer-events:none;
+}
+.ob-title{
+  font-size:22px;
+  font-weight:600;
+  color:var(--text-1);
+  text-align:center;
+  margin-top:24px;
+}
+.ob-subtitle{
+  font-size:14px;
+  color:var(--text-3);
+  margin-top:8px;
+  text-align:center;
+}
+.ob-cards{
+  width:100%;
+  max-width:360px;
+  margin-top:32px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.ob-card{
+  background:var(--bg-card);
+  border:2px solid var(--border);
+  border-radius:16px;
+  padding:16px 18px;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:border-color 0.2s, background 0.2s;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  box-shadow:var(--shadow);
+}
+.ob-card:active{ background:var(--mask-bg); }
+.ob-card.selected{
+  border-color:var(--accent);
+  background:var(--accent-bg);
+}
+.ob-card-check{
+  width:22px; height:22px;
+  border-radius:50%;
+  border:2px solid var(--text-4);
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:border-color 0.2s, background 0.2s;
+}
+.ob-card.selected .ob-card-check{
+  border-color:var(--accent);
+  background:var(--accent);
+}
+.ob-card-check-inner{
+  width:10px; height:10px;
+  opacity:0;
+  transition:opacity 0.2s;
+}
+.ob-card.selected .ob-card-check-inner{ opacity:1; }
+.ob-card-text{ flex:1; }
+.ob-card-label{
+  font-size:16px;
+  font-weight:600;
+  color:var(--text-1);
+}
+.ob-card-desc{
+  font-size:13px;
+  color:var(--text-3);
+  margin-top:4px;
+  line-height:1.4;
+}
+.ob-card-level{
+  font-size:11px;
+  color:var(--accent);
+  font-weight:500;
+  margin-top:2px;
+  opacity:0.7;
+}
+
+/* Tags */
+.ob-tags{
+  width:100%;
+  max-width:360px;
+  margin-top:32px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  justify-content:center;
+}
+.ob-tag{
+  padding:10px 18px;
+  border-radius:24px;
+  background:var(--bg-card);
+  border:1.5px solid var(--border);
+  color:var(--text-2);
+  font-size:14px;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:background 0.2s, border-color 0.2s, color 0.2s;
+  user-select:none;
+}
+.ob-tag:active{ background:var(--mask-bg); }
+.ob-tag.selected{
+  background:var(--accent-bg);
+  border-color:var(--accent);
+  color:var(--text-1);
+}
+
+.ob-btn{
+  margin-top:auto;
+  padding:14px 48px;
+  border:none;
+  border-radius:28px;
+  font-size:16px;
+  font-weight:600;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:background 0.2s, opacity 0.2s;
+  margin-bottom:20px;
+  flex-shrink:0;
+}
+.ob-btn.enabled{
+  background:var(--accent);
+  color:#fff;
+}
+.ob-btn.disabled{
+  background:var(--bg-card);
+  color:var(--text-4);
+  pointer-events:none;
+}
+.ob-dots{
+  display:flex;
+  gap:8px;
+  margin-top:20px;
+  margin-bottom:8px;
+}
+.ob-dot{
+  width:8px; height:8px;
+  border-radius:50%;
+  background:var(--text-4);
+  transition:background 0.3s;
+}
+.ob-dot.active{
+  background:var(--accent);
+}
+
+/* Transition screen */
+.ob-transition{
+  justify-content:center;
+  opacity:0;
+  transition:opacity 0.5s ease;
+}
+.ob-transition.ob-trans-visible{ opacity:1; }
+.ob-trans-hi{
+  font-size:32px;
+  font-weight:700;
+  color:var(--text-1);
+  animation:fadeSlideIn 0.5s ease forwards;
+}
+.ob-trans-sub{
+  font-size:15px;
+  color:var(--text-3);
+  margin-top:12px;
+  opacity:0;
+  animation:fadeSlideIn 0.5s ease 0.5s forwards;
+}
+.ob-trans-dots{
+  display:flex;
+  gap:6px;
+  margin-top:20px;
+  opacity:0;
+  animation:fadeSlideIn 0.5s ease 0.7s forwards;
+}
+.ob-trans-dots span{
+  width:6px; height:6px;
+  border-radius:50%;
+  background:var(--text-3);
+  animation:loadPulse 1.2s ease-in-out infinite;
+}
+.ob-trans-dots span:nth-child(2){ animation-delay:0.2s; }
+.ob-trans-dots span:nth-child(3){ animation-delay:0.4s; }
+@keyframes fadeSlideIn{
+  from{ opacity:0; transform:translateY(10px); }
+  to{ opacity:1; transform:translateY(0); }
+}
+
+/* Summary card */
+.summary-card{
+  text-align:center;
+  padding:24px 20px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:20px;
+  max-width:280px;
+  margin:0 auto;
+  box-shadow:var(--shadow);
+}
+.summary-title{
+  font-size:18px;
+  font-weight:700;
+  color:var(--text-1);
+  margin-bottom:8px;
+}
+.summary-stat{
+  font-size:14px;
+  color:var(--text-3);
+}
+.summary-words{
+  font-size:14px;
+  color:var(--cefr-b1);
+  margin-top:12px;
+}
+.summary-replay-btn{
+  margin-top:20px;
+  padding:10px 32px;
+  border:none;
+  border-radius:24px;
+  background:var(--accent);
+  color:#fff;
+  font-size:15px;
+  font-weight:600;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:background 0.2s;
+}
+.summary-replay-btn:active{ background:#5a6fd6; }
+
+.ob-hint{
+  font-size:12px;
+  color:var(--text-4);
+  text-align:center;
+  margin-top:auto;
+  margin-bottom:8px;
+  padding:0 20px;
+}
+
+/* ── Slide Panel ── */
+.hamburger-btn{
+  position:fixed;
+  top:calc(env(safe-area-inset-top, 48px) + 12px);
+  left:20px;
+  width:32px; height:32px;
+  border:none; background:none;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  z-index:50;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  gap:5px;
+}
+.hamburger-btn svg{ display:none; }
+.hamburger-btn::before,
+.hamburger-btn::after{
+  content:'';
+  display:block;
+  height:1.5px;
+  border-radius:1px;
+  background:var(--text-3);
+}
+.hamburger-btn::before{ width:16px; }
+.hamburger-btn::after{ width:12px; }
+
+.slide-overlay{
+  position:fixed;
+  top:0; left:0; right:0; bottom:0;
+  background:rgba(0,0,0,0.5);
+  z-index:150;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 0.3s ease;
+}
+.slide-overlay.open{ opacity:1; pointer-events:auto; }
+
+.slide-panel{
+  position:fixed;
+  top:0; left:0; bottom:0;
+  width:280px;
+  max-width:80vw;
+  background:var(--bg-glass);
+  -webkit-backdrop-filter:blur(24px);
+  backdrop-filter:blur(24px);
+  border-right:1px solid var(--border);
+  z-index:160;
+  transform:translateX(-100%);
+  transition:transform 0.3s ease;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.slide-panel.open{ transform:translateX(0); }
+
+.sp-header{
+  padding:calc(env(safe-area-inset-top, 48px) + 16px) 20px 20px;
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+}
+.sp-user-info{ flex:1; }
+.sp-greeting{
+  font-size:22px;
+  font-weight:700;
+  color:var(--accent);
+}
+.sp-meta{
+  font-size:13px;
+  color:var(--text-3);
+  margin-top:4px;
+}
+.sp-close{
+  width:28px; height:28px;
+  border:none;
+  background:var(--bg-card);
+  border-radius:50%;
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+  flex-shrink:0;
+}
+.sp-close svg{ width:14px; height:14px; fill:var(--text-3); }
+
+.sp-menu{
+  padding:8px 0;
+  border-top:1px solid var(--border-light);
+  border-bottom:1px solid var(--border-light);
+}
+.sp-menu-item{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:14px 20px;
+  font-size:15px;
+  color:var(--text-2);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:background 0.15s;
+  border:none;
+  background:none;
+  width:100%;
+  text-align:left;
+}
+.sp-menu-item:active{ background:var(--bg-card); }
+.sp-menu-item svg{ width:20px; height:20px; fill:var(--text-3); flex-shrink:0; }
+.sp-menu-badge{
+  margin-left:auto;
+  font-size:12px;
+  color:var(--text-3);
+  background:var(--bg-card);
+  padding:2px 8px;
+  border-radius:10px;
+  min-width:24px;
+  text-align:center;
+}
+
+.sp-profile-card{
+  margin:auto 16px 20px;
+  padding:16px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:16px;
+  box-shadow:var(--shadow);
+}
+.sp-profile-label{
+  font-size:13px;
+  color:var(--text-3);
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.sp-profile-level{
+  font-size:13px;
+  color:var(--accent);
+  font-weight:600;
+  margin-top:6px;
+}
+.sp-profile-tags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:10px;
+}
+.sp-profile-tag{
+  font-size:11px;
+  padding:3px 10px;
+  border-radius:10px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  color:var(--text-3);
+}
+
+/* ── Sub panels (Favorites, Vocab) ── */
+.sub-panel{
+  position:fixed;
+  top:0; left:0; right:0; bottom:0;
+  background:var(--bg-primary);
+  z-index:170;
+  transform:translateX(100%);
+  transition:transform 0.3s ease;
+  display:flex;
+  flex-direction:column;
+}
+.sub-panel.open{ transform:translateX(0); }
+
+.sub-header{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:calc(env(safe-area-inset-top, 48px) + 12px) 16px 16px;
+  border-bottom:1px solid var(--border-light);
+}
+.sub-back{
+  width:32px; height:32px;
+  border:none; background:none;
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+}
+.sub-back svg{ width:20px; height:20px; fill:var(--text-2); }
+.sub-title{
+  font-size:18px;
+  font-weight:700;
+  color:var(--text-1);
+}
+.sub-body{
+  flex:1;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  padding:16px;
+}
+
+/* Favorites list */
+.fav-item{
+  padding:14px 16px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  margin-bottom:10px;
+  box-shadow:var(--shadow);
+}
+.fav-title{
+  font-size:15px;
+  font-weight:600;
+  color:var(--text-1);
+}
+.fav-source{
+  font-size:12px;
+  color:var(--text-3);
+  margin-top:4px;
+}
+.fav-meta{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-top:8px;
+}
+.fav-tag{
+  font-size:10px;
+  padding:2px 8px;
+  border-radius:8px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  color:var(--text-3);
+  text-transform:uppercase;
+  font-weight:500;
+  letter-spacing:0.5px;
+}
+.fav-time{
+  font-size:11px;
+  color:var(--text-4);
+}
+
+/* Vocab list */
+.vocab-stats{
+  padding:16px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  margin-bottom:16px;
+  text-align:center;
+  box-shadow:var(--shadow);
+}
+.vocab-stats-title{
+  font-size:16px;
+  font-weight:700;
+  color:var(--text-1);
+  margin-bottom:10px;
+}
+.vocab-cefr-bar{
+  display:flex;
+  height:6px;
+  border-radius:3px;
+  overflow:hidden;
+  background:var(--prog-bg);
+  margin-bottom:8px;
+}
+.vocab-cefr-bar span{
+  height:100%;
+  transition:width 0.3s;
+}
+.vocab-cefr-legend{
+  display:flex;
+  justify-content:center;
+  gap:12px;
+  font-size:11px;
+  font-weight:600;
+}
+.vocab-cefr-legend span{ display:flex; align-items:center; gap:3px; }
+
+.vocab-item{
+  padding:12px 16px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  margin-bottom:8px;
+  box-shadow:var(--shadow);
+}
+.vocab-word-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.vocab-word{
+  font-size:16px;
+  font-weight:700;
+  color:var(--text-1);
+}
+.vocab-cefr-badge{
+  font-size:10px;
+  font-weight:700;
+  padding:2px 7px;
+  border-radius:6px;
+}
+.vocab-context{
+  font-size:12px;
+  color:var(--text-3);
+  margin-top:4px;
+  line-height:1.4;
+}
+
+.sub-empty{
+  text-align:center;
+  padding:60px 20px;
+  color:var(--text-3);
+  font-size:14px;
+}
+
+/* ── Feed Function Cards ── */
+.feed-card-screen{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:40px 24px;
+}
+
+/* Progress Card */
+.progress-card{
+  width:100%;
+  max-width:300px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:28px 24px;
+  text-align:center;
+  box-shadow:var(--shadow);
+}
+.pc-icon{
+  width:32px; height:32px;
+  margin:0 auto 8px;
+  opacity:0.4;
+}
+.pc-icon svg{ width:32px; height:32px; fill:var(--text-3); }
+.pc-label{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:1px;
+  color:var(--text-3);
+  margin-bottom:16px;
+}
+.pc-big{
+  font-size:28px;
+  font-weight:700;
+  color:var(--text-1);
+}
+.pc-sub{
+  font-size:13px;
+  color:var(--text-3);
+  margin-top:4px;
+}
+.pc-stats{
+  display:flex;
+  justify-content:center;
+  gap:16px;
+  margin-top:12px;
+  font-size:14px;
+}
+.pc-stats span{ color:var(--text-2); }
+.pc-stats .pc-new-words{ color:var(--cefr-b2); font-weight:600; }
+.pc-cefr-bar{
+  display:flex;
+  height:4px;
+  border-radius:2px;
+  overflow:hidden;
+  background:var(--prog-bg);
+  margin-top:16px;
+}
+.pc-cefr-bar span{ height:100%; }
+.pc-cefr-legend{
+  display:flex;
+  justify-content:space-between;
+  margin-top:6px;
+  font-size:10px;
+  font-weight:600;
+}
+.pc-btn{
+  margin-top:20px;
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:24px;
+  background:var(--accent);
+  color:#fff;
+  font-size:15px;
+  font-weight:600;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.pc-btn:active{ opacity:0.85; }
+
+/* Review Card */
+.review-card{
+  width:100%;
+  max-width:320px;
+  text-align:center;
+}
+.rc-icon{
+  width:36px; height:36px;
+  margin:0 auto 8px;
+}
+.rc-icon svg{ width:36px; height:36px; fill:var(--text-3); }
+.rc-label{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:1px;
+  color:var(--text-3);
+  margin-bottom:20px;
+}
+.rc-word{
+  font-size:28px;
+  font-weight:700;
+  color:var(--accent);
+}
+.rc-phonetic{
+  font-size:13px;
+  color:var(--text-3);
+  margin-top:6px;
+}
+.rc-context-label{
+  font-size:12px;
+  color:var(--text-4);
+  margin-top:20px;
+}
+.rc-context{
+  font-size:14px;
+  color:var(--text-2);
+  font-style:italic;
+  margin-top:6px;
+  line-height:1.5;
+  max-width:280px;
+}
+.rc-play-btn{
+  margin-top:24px;
+  width:100%;
+  max-width:280px;
+  padding:14px;
+  border:none;
+  border-radius:24px;
+  background:var(--accent);
+  color:#fff;
+  font-size:15px;
+  font-weight:600;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+.rc-play-btn:active{ opacity:0.85; }
+.rc-play-btn svg{ width:18px; height:18px; fill:#fff; }
+.rc-actions{
+  display:flex;
+  gap:12px;
+  margin-top:16px;
+  width:100%;
+  max-width:280px;
+}
+.rc-action-btn{
+  flex:1;
+  padding:12px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:var(--bg-card);
+  color:var(--text-2);
+  font-size:14px;
+  font-weight:500;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  box-shadow:var(--shadow);
+}
+.rc-action-btn:active{ background:var(--mask-bg); }
+
+/* Recommendation Card */
+.reco-card{
+  width:100%;
+  max-width:300px;
+  text-align:center;
+}
+.reco-icon{
+  width:36px; height:36px;
+  margin:0 auto 12px;
+  opacity:0.5;
+}
+.reco-label{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:1px;
+  color:var(--text-3);
+  margin-bottom:12px;
+}
+.reco-title{
+  font-size:16px;
+  color:var(--text-2);
+  line-height:1.5;
+}
+.reco-title strong{
+  display:block;
+  font-size:18px;
+  color:var(--text-1);
+  font-weight:700;
+}
+.reco-tags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  justify-content:center;
+  margin-top:16px;
+}
+.reco-tag{
+  padding:6px 14px;
+  border-radius:16px;
+  border:1px solid var(--border);
+  background:var(--bg-card);
+  color:var(--text-2);
+  font-size:13px;
+}
+.reco-tag.highlight{
+  border-color:var(--accent);
+  background:var(--accent-bg);
+  color:var(--text-1);
+}
+.reco-question{
+  font-size:14px;
+  color:var(--text-3);
+  margin-top:16px;
+}
+.reco-actions{
+  display:flex;
+  gap:12px;
+  margin-top:16px;
+  width:100%;
+}
+.reco-yes{
+  flex:1;
+  padding:12px;
+  border:none;
+  border-radius:14px;
+  background:var(--accent);
+  color:#fff;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+}
+.reco-no{
+  flex:1;
+  padding:12px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:var(--bg-card);
+  color:var(--text-2);
+  font-size:14px;
+  font-weight:500;
+  cursor:pointer;
+}
+
+</style>
+</head>
+<body>
+
+<!-- Onboarding overlay -->
+<div id="onboarding-overlay">
+  <!-- Screen 1: CEFR Level -->
+  <div class="ob-screen" id="ob-screen-1">
+    <div class="ob-dots"><div class="ob-dot active"></div><div class="ob-dot"></div></div>
+    <div class="ob-title">你现在听英语播客的感受？</div>
+    <div class="ob-subtitle">选择最接近你的描述</div>
+    <div class="ob-cards" id="ob-level-cards">
+      <div class="ob-card" data-level="A1-A2">
+        <div class="ob-card-check"><svg class="ob-card-check-inner" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+        <div class="ob-card-text">
+          <div class="ob-card-label">基本听不懂，偶尔抓到几个词</div>
+          <div class="ob-card-level">A1-A2</div>
+        </div>
+      </div>
+      <div class="ob-card" data-level="B1">
+        <div class="ob-card-check"><svg class="ob-card-check-inner" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+        <div class="ob-card-text">
+          <div class="ob-card-label">能听懂大意，细节经常漏</div>
+          <div class="ob-card-level">B1</div>
+        </div>
+      </div>
+      <div class="ob-card" data-level="B2">
+        <div class="ob-card-check"><svg class="ob-card-check-inner" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+        <div class="ob-card-text">
+          <div class="ob-card-label">大部分能跟上，复杂话题偶尔吃力</div>
+          <div class="ob-card-level">B2</div>
+        </div>
+      </div>
+      <div class="ob-card" data-level="C1-C2">
+        <div class="ob-card-check"><svg class="ob-card-check-inner" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+        <div class="ob-card-text">
+          <div class="ob-card-label">基本无障碍，想挑战更难的</div>
+          <div class="ob-card-level">C1-C2</div>
+        </div>
+      </div>
+    </div>
+    <div class="ob-hint">不确定也没关系，AI 会根据你的表现自动调整</div>
+    <button class="ob-btn disabled" id="ob-next-btn">下一步</button>
+  </div>
+
+  <!-- Screen 2: Interests -->
+  <div class="ob-screen ob-hidden-right" id="ob-screen-2">
+    <div class="ob-dots"><div class="ob-dot"></div><div class="ob-dot active"></div></div>
+    <div class="ob-title">你对什么话题感兴趣？</div>
+    <div class="ob-subtitle">选择 3 个你感兴趣的领域</div>
+    <div class="ob-tags" id="ob-interest-tags">
+      <div class="ob-tag" data-tag="science">🔬 Science</div>
+      <div class="ob-tag" data-tag="business">💼 Business</div>
+      <div class="ob-tag" data-tag="psychology">🧠 Psychology</div>
+      <div class="ob-tag" data-tag="story">📖 Story</div>
+      <div class="ob-tag" data-tag="history">🏛 History</div>
+      <div class="ob-tag" data-tag="culture">🎵 Culture</div>
+      <div class="ob-tag" data-tag="tech">💻 Tech</div>
+      <div class="ob-tag" data-tag="society">🌍 Society</div>
+    </div>
+    <div class="ob-hint">随便选几个就行，AI 会从你的行为中学习</div>
+    <button class="ob-btn disabled" id="ob-start-btn">开始探索</button>
+  </div>
+</div>
+
+<!-- Hamburger button (global) -->
+<button class="hamburger-btn" id="hamburger-btn">
+  <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+</button>
+
+<!-- Slide panel overlay -->
+<div class="slide-overlay" id="slide-overlay"></div>
+
+<!-- Slide panel -->
+<div class="slide-panel" id="slide-panel">
+  <div class="sp-header">
+    <div class="sp-user-info">
+      <div class="sp-greeting" id="sp-greeting">Hi, Learner</div>
+      <div class="sp-meta" id="sp-meta">-- · 已听 0 个片段</div>
+    </div>
+    <button class="sp-close" id="sp-close">
+      <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </div>
+  <div class="sp-menu">
+    <button class="sp-menu-item" data-panel="fav-panel">
+      <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+      我的收藏
+      <span class="sp-menu-badge" id="sp-fav-count">0</span>
+    </button>
+    <button class="sp-menu-item" data-panel="vocab-panel">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 9H7v-2h6v2zm3 4H7v-2h9v2zm-3-8V3.5L18.5 9H13z"/></svg>
+      词汇本
+      <span class="sp-menu-badge" id="sp-vocab-count">0</span>
+    </button>
+    <button class="sp-menu-item" id="sp-theme-btn">
+      <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+      <span id="sp-theme-label">切换浅色</span>
+    </button>
+    <button class="sp-menu-item" id="sp-reset-btn">
+      <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      重置引导
+    </button>
+  </div>
+  <div class="sp-profile-card">
+    <div class="sp-profile-label">📚 学习偏好</div>
+    <div class="sp-profile-level" id="sp-level">等级：--</div>
+    <div class="sp-profile-tags" id="sp-tags"></div>
+  </div>
+</div>
+
+<!-- Favorites sub-panel -->
+<div class="sub-panel" id="fav-panel">
+  <div class="sub-header">
+    <button class="sub-back" data-close="fav-panel">
+      <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    </button>
+    <div class="sub-title">我的收藏</div>
+  </div>
+  <div class="sub-body" id="fav-list"></div>
+</div>
+
+<!-- Vocab sub-panel -->
+<div class="sub-panel" id="vocab-panel">
+  <div class="sub-header">
+    <button class="sub-back" data-close="vocab-panel">
+      <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    </button>
+    <div class="sub-title">词汇本</div>
+  </div>
+  <div class="sub-body" id="vocab-list"></div>
+</div>
+
+  <div id="container">
+  <div class="screen" id="start-screen">
+    <div class="start-ambient"></div>
+    <div class="start-text">先听这一条</div>
+    <div class="start-sub">我挑了几段适合现在开始的内容</div>
+    <div class="start-divider"></div>
+    <div class="tap-hint">Tap to begin</div>
+  </div>
+  <!-- content screens inserted here by JS -->
+</div>
+
+<!-- SVG templates -->
+<template id="icon-eye-open">
+  <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+</template>
+<template id="icon-eye-closed">
+  <svg viewBox="0 0 24 24"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></svg>
+</template>
+<template id="icon-heart">
+  <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+</template>
+<template id="icon-bookmark">
+  <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+</template>
+<template id="icon-transcript">
+  <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 9H7v-2h6v2zm3 4H7v-2h9v2zm-3-8V3.5L18.5 9H13z"/></svg>
+</template>
+<template id="icon-podcast">
+  <svg viewBox="0 0 24 24"><path d="M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z"/></svg>
+</template>
+<template id="icon-feedback">
+  <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+</template>
+<template id="icon-close">
+  <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+</template>
+<template id="icon-rewind">
+  <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+</template>
+<template id="icon-forward">
+  <svg viewBox="0 0 24 24"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/></svg>
+</template>
+<template id="icon-play">
+  <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+</template>
+<template id="icon-pause">
+  <svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+</template>
+<template id="icon-star-outline">
+  <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+</template>
+
+<!-- Word tap popup -->
+<div class="word-popup" id="word-popup">
+  <div class="wp-row1">
+    <span class="wp-word" id="wp-word"></span>
+    <span class="wp-pos" id="wp-pos"></span>
+    <button class="wp-speak" id="wp-speak">
+      <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+    </button>
+  </div>
+  <div class="wp-phonetic" id="wp-phonetic"></div>
+  <div class="wp-definition" id="wp-definition"></div>
+  <div class="wp-loading" id="wp-loading" style="display:none">正在加载释义...</div>
+  <div class="wp-divider"></div>
+  <div class="wp-actions">
+    <button class="wp-action-btn wp-know" id="wp-know">认识</button>
+    <button class="wp-action-btn wp-star" id="wp-star"><svg class="star-outline" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><svg class="star-filled" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> 收藏</button>
+  </div>
+</div>
+
+<script>
+// ── Onboarding logic (2 screens: Level → Interests → Transition) ──
+(function(){
+  const overlay = document.getElementById('onboarding-overlay');
+  if (localStorage.getItem('onboardingDone') === 'true') {
+    overlay.remove();
+    return;
+  }
+
+  const screen1 = document.getElementById('ob-screen-1');
+  const screen2 = document.getElementById('ob-screen-2');
+  const nextBtn = document.getElementById('ob-next-btn');
+  const startBtn = document.getElementById('ob-start-btn');
+  const levelCards = document.querySelectorAll('#ob-level-cards .ob-card');
+  const tagChips = document.querySelectorAll('#ob-interest-tags .ob-tag');
+
+  let selectedLevel = null;
+  const selectedTags = [];
+
+  // Level card selection
+  levelCards.forEach(card => {
+    card.addEventListener('click', () => {
+      levelCards.forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      selectedLevel = card.dataset.level;
+      nextBtn.classList.remove('disabled');
+      nextBtn.classList.add('enabled');
+    });
+  });
+
+  // Screen 1 → Screen 2
+  nextBtn.addEventListener('click', () => {
+    if (!selectedLevel) return;
+    screen1.classList.add('ob-hidden-left');
+    screen2.classList.remove('ob-hidden-right');
+  });
+
+  function updateStartBtn() {
+    const ok = selectedTags.length === 3;
+    startBtn.classList.toggle('disabled', !ok);
+    startBtn.classList.toggle('enabled', ok);
+  }
+
+  // Tag selection — exactly 3, FIFO replace
+  tagChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      const tag = chip.dataset.tag;
+      const idx = selectedTags.indexOf(tag);
+      if (idx >= 0) {
+        selectedTags.splice(idx, 1);
+        chip.classList.remove('selected');
+      } else {
+        if (selectedTags.length >= 3) {
+          const evicted = selectedTags.shift();
+          tagChips.forEach(c => { if (c.dataset.tag === evicted) c.classList.remove('selected'); });
+        }
+        selectedTags.push(tag);
+        chip.classList.add('selected');
+      }
+      updateStartBtn();
+    });
+  });
+
+  // Start exploring — save, show transition, then dismiss
+  startBtn.addEventListener('click', () => {
+    if (selectedTags.length < 3) return;
+    localStorage.setItem('flipodLevel', selectedLevel);
+    localStorage.setItem('flipodInterests', JSON.stringify(selectedTags));
+    localStorage.setItem('onboardingDone', 'true');
+
+    screen2.style.opacity = '0';
+    screen2.style.pointerEvents = 'none';
+    const trans = document.createElement('div');
+    trans.className = 'ob-screen ob-transition';
+    trans.innerHTML = `
+      <div class="ob-trans-sub" style="opacity:1;animation:none">正在为你准备内容...</div>
+      <div class="ob-trans-dots"><span></span><span></span><span></span></div>
+    `;
+    overlay.appendChild(trans);
+    requestAnimationFrame(() => { trans.classList.add('ob-trans-visible'); });
+
+    setTimeout(() => {
+      overlay.classList.add('hidden');
+      setTimeout(() => overlay.remove(), 500);
+    }, 1500);
+  });
+})();
+
+// ── Theme system ──
+(function(){
+  const saved = localStorage.getItem('flipodTheme');
+  if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+})();
+
+// ── Slide Panel logic ──
+(function(){
+  const panel = document.getElementById('slide-panel');
+  const overlay = document.getElementById('slide-overlay');
+  const hamburger = document.getElementById('hamburger-btn');
+  const closeBtn = document.getElementById('sp-close');
+  const themeBtn = document.getElementById('sp-theme-btn');
+  const themeLabel = document.getElementById('sp-theme-label');
+  const resetBtn = document.getElementById('sp-reset-btn');
+
+  function openPanel() {
+    panel.classList.add('open');
+    overlay.classList.add('open');
+    refreshPanelData();
+  }
+  function closePanel() {
+    panel.classList.remove('open');
+    overlay.classList.remove('open');
+    // Also close any sub-panels
+    document.querySelectorAll('.sub-panel.open').forEach(p => p.classList.remove('open'));
+  }
+
+  hamburger.addEventListener('click', (e) => { e.stopPropagation(); openPanel(); });
+  closeBtn.addEventListener('click', closePanel);
+  overlay.addEventListener('click', closePanel);
+
+  // Theme toggle
+  function updateThemeLabel() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    themeLabel.textContent = isLight ? '切换深色' : '切换浅色';
+  }
+  updateThemeLabel();
+
+  themeBtn.addEventListener('click', () => {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    if (isLight) {
+      document.documentElement.removeAttribute('data-theme');
+      localStorage.setItem('flipodTheme', 'dark');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+      localStorage.setItem('flipodTheme', 'light');
+    }
+    updateThemeLabel();
+  });
+
+  // Reset onboarding
+  resetBtn.addEventListener('click', () => {
+    localStorage.removeItem('onboardingDone');
+    localStorage.removeItem('flipodLevel');
+    localStorage.removeItem('flipodInterests');
+    window.location.reload();
+  });
+
+  // Sub-panels
+  document.querySelectorAll('.sp-menu-item[data-panel]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const panelId = btn.dataset.panel;
+      const subPanel = document.getElementById(panelId);
+      if (subPanel) {
+        subPanel.classList.add('open');
+        if (panelId === 'fav-panel') renderFavorites();
+        if (panelId === 'vocab-panel') renderVocab();
+      }
+    });
+  });
+
+  document.querySelectorAll('.sub-back').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const panelId = btn.dataset.close;
+      document.getElementById(panelId).classList.remove('open');
+    });
+  });
+
+  // Refresh panel data
+  function refreshPanelData() {
+    const level = localStorage.getItem('flipodLevel') || '--';
+    const interests = (() => { try { return JSON.parse(localStorage.getItem('flipodInterests') || '[]'); } catch { return []; } })();
+    const bookmarks = (() => { try { return JSON.parse(localStorage.getItem('flipodBookmarks') || '[]'); } catch { return []; } })();
+    const vocab = (() => { try { return JSON.parse(localStorage.getItem('flipodVocab') || '[]'); } catch { return []; } })();
+
+    document.getElementById('sp-greeting').textContent = 'Hi, Learner';
+    document.getElementById('sp-meta').textContent = `${level} · 已听 ${bookmarks.length > 0 ? bookmarks.length : 0} 个片段`;
+    document.getElementById('sp-level').textContent = `等级：${level}`;
+    document.getElementById('sp-fav-count').textContent = bookmarks.length;
+    document.getElementById('sp-vocab-count').textContent = vocab.length;
+
+    const tagsEl = document.getElementById('sp-tags');
+    tagsEl.innerHTML = interests.map(t => `<span class="sp-profile-tag">${t}</span>`).join('');
+  }
+
+  // Render favorites list
+  function renderFavorites() {
+    const bookmarks = (() => { try { return JSON.parse(localStorage.getItem('flipodBookmarks') || '[]'); } catch { return []; } })();
+    const listEl = document.getElementById('fav-list');
+    if (bookmarks.length === 0) {
+      listEl.innerHTML = '<div class="sub-empty">还没有收藏内容<br>播放时点击书签图标收藏</div>';
+      return;
+    }
+    listEl.innerHTML = bookmarks.map((b, i) => {
+      const ago = timeAgo(b.timestamp);
+      return `<div class="fav-item" data-fav-idx="${i}">
+        <div class="fav-title">${b.title || 'Untitled'}</div>
+        <div class="fav-source">${b.source || ''}</div>
+        <div class="fav-meta">
+          ${b.tag ? `<span class="fav-tag">${b.tag}</span>` : '<span></span>'}
+          <span class="fav-time">${ago}</span>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Click to navigate (will be wired after clips load via window event)
+    listEl.querySelectorAll('.fav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const audio = bookmarks[parseInt(item.dataset.favIdx)]?.audio;
+        if (audio) {
+          closePanel();
+          window.dispatchEvent(new CustomEvent('navigateToClip', { detail: { audio } }));
+        }
+      });
+    });
+  }
+
+  // Render vocab list
+  function renderVocab() {
+    const vocab = (() => { try { return JSON.parse(localStorage.getItem('flipodVocab') || '[]'); } catch { return []; } })();
+    const listEl = document.getElementById('vocab-list');
+    if (vocab.length === 0) {
+      listEl.innerHTML = '<div class="sub-empty">还没有收藏单词<br>播放时点击单词，再点星标收藏</div>';
+      return;
+    }
+
+    // CEFR stats
+    const cefrCounts = { A: 0, B1: 0, B2: 0, C: 0 };
+    vocab.forEach(v => {
+      const c = (v.cefr || '').toUpperCase();
+      if (c.startsWith('A')) cefrCounts.A++;
+      else if (c === 'B1') cefrCounts.B1++;
+      else if (c === 'B2') cefrCounts.B2++;
+      else if (c.startsWith('C')) cefrCounts.C++;
+    });
+    const tot = vocab.length || 1;
+
+    const statsHtml = `<div class="vocab-stats">
+      <div class="vocab-stats-title">已收藏 ${vocab.length} 个单词</div>
+      <div class="vocab-cefr-bar">
+        <span style="width:${cefrCounts.A/tot*100}%;background:var(--cefr-a)"></span>
+        <span style="width:${cefrCounts.B1/tot*100}%;background:var(--cefr-b1)"></span>
+        <span style="width:${cefrCounts.B2/tot*100}%;background:var(--cefr-b2)"></span>
+        <span style="width:${cefrCounts.C/tot*100}%;background:var(--cefr-c1)"></span>
+      </div>
+      <div class="vocab-cefr-legend">
+        <span style="color:var(--cefr-a)">${cefrCounts.A}</span>
+        <span style="color:var(--cefr-b1)">${cefrCounts.B1}</span>
+        <span style="color:var(--cefr-b2)">${cefrCounts.B2}</span>
+        <span style="color:var(--cefr-c1)">${cefrCounts.C}</span>
+      </div>
+    </div>`;
+
+    const itemsHtml = vocab.map(v => {
+      const cefrClass = v.cefr ? `cefr-${v.cefr}` : '';
+      return `<div class="vocab-item">
+        <div class="vocab-word-row">
+          <span class="vocab-word">${v.word}</span>
+          ${v.cefr ? `<span class="vocab-cefr-badge ${cefrClass}">${v.cefr}</span>` : ''}
+        </div>
+        ${v.context ? `<div class="vocab-context">${v.context}</div>` : ''}
+      </div>`;
+    }).join('');
+
+    listEl.innerHTML = statsHtml + itemsHtml;
+  }
+
+  function timeAgo(ts) {
+    if (!ts) return '';
+    const diff = Date.now() - ts;
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}分前`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}小时前`;
+    const days = Math.floor(hrs / 24);
+    return `${days}天前`;
+  }
+
+  // Expose openPanel for external use
+  window._slidePanel = { open: openPanel, close: closePanel };
+})();
+
+(async function(){
+  const container = document.getElementById('container');
+  const startScreen = document.getElementById('start-screen');
+  let clips;
+  try {
+    const resp = await fetch('data.json');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    ({clips} = await resp.json());
+    // Trim truncated last lines (no sentence-ending punctuation)
+    clips.forEach(c => {
+      if (c.lines && c.lines.length > 1) {
+        const last = c.lines[c.lines.length - 1].en.trim();
+        if (last && !/[.!?"]$/.test(last)) c.lines.pop();
+      }
+    });
+  } catch (e) {
+    document.getElementById('start-screen').querySelector('.start-text').textContent = '内容加载失败，请刷新重试';
+    document.getElementById('start-screen').querySelector('.start-sub').textContent = e.message;
+    return;
+  }
+
+  // ── REFACTOR 3: Validate clips & audio mapping ──
+  console.log('Loaded clips:', clips.map((c, i) => i + ': ' + c.audio + ' - ' + c.title));
+
+  let total = clips.length;
+  const audios = [];
+  const screens = [];
+  let masked = false;
+  const speeds = [0.75, 1.0, 1.25, 1.5];
+  let playbackRate = parseFloat(localStorage.getItem('flipodSpeed')) || 1.0;
+  if (!speeds.includes(playbackRate)) playbackRate = 1.0;
+  let isPlaying = true; // track play/pause state
+  let sessionClipsPlayed = 0;
+  let sessionDuration = 0; // seconds
+  const tappedWordsThisSession = new Set(); // track unique words viewed in session
+
+  // ── AI Feed State System ──
+  // States: 'loading' | 'normal' | 'rerank' | 'fallback'
+  let feedState = 'loading';
+  let aiReasons = {}; // clip index → reason string from API
+  const RERANK_AFTER_CLIPS = 5;
+  let lastRerankAt = 0;
+
+  function setFeedState(state, opts = {}) {
+    feedState = state;
+    const hintEls = document.querySelectorAll('.top-info-hint');
+    const helpBtns = document.querySelectorAll('.help-btn');
+    const contentScreens = document.querySelectorAll('.content-screen');
+
+    const hintText = {
+      loading: 'AI 正在为你排列内容...',
+      normal: '已根据你的偏好排列',
+      rerank: '刚刚根据你的表现重新调整了顺序',
+      fallback: '这几条已经替你排好了',
+    };
+
+    hintEls.forEach(el => {
+      el.textContent = hintText[state];
+      el.className = 'top-info-hint';
+      if (state === 'loading') el.classList.add('hint-loading');
+      else if (state === 'rerank') el.classList.add('hint-rerank');
+      else if (state === 'fallback') el.classList.add('hint-fallback');
+    });
+
+    // "?" help button visibility per state
+    helpBtns.forEach(el => {
+      if (state === 'fallback') {
+        el.style.display = 'none';
+      } else {
+        el.style.display = 'flex';
+        el.classList.toggle('disabled', state === 'loading');
+      }
+    });
+
+    // Close any open tooltips on state change
+    document.querySelectorAll('.ai-reason-tooltip.show').forEach(el => el.classList.remove('show'));
+
+    // Loading state: hide content, show dots, disable play
+    contentScreens.forEach(el => {
+      if (state === 'loading') el.classList.add('feed-loading');
+      else el.classList.remove('feed-loading');
+    });
+
+    // Re-rank highlight auto-clear after 3s
+    if (state === 'rerank') {
+      setTimeout(() => {
+        if (feedState === 'rerank') setFeedState('normal');
+      }, 3000);
+    }
+  }
+
+  function updateAiReasons(feed) {
+    // feed is array of { id, reason } from API
+    if (!feed || !Array.isArray(feed)) return;
+    // Map clip index to reason
+    feed.forEach(item => {
+      const idx = clips.findIndex((c, i) => i === item.id);
+      if (idx >= 0) {
+        aiReasons[idx] = item.reason;
+        const tooltip = document.getElementById('tooltip-' + idx);
+        if (tooltip) {
+          const textEl = tooltip.querySelector('.tooltip-text');
+          if (textEl) textEl.textContent = item.reason;
+        }
+      }
+    });
+  }
+
+  async function callRankApi() {
+    const level = localStorage.getItem('flipodLevel') || 'B1';
+    const interests = (() => {
+      try { return JSON.parse(localStorage.getItem('flipodInterests') || '[]'); } catch { return []; }
+    })();
+    const listened = [];
+    const skipped = [];
+    // Collect listened/skipped from session
+    for (let i = 0; i < sessionClipsPlayed && i < total; i++) listened.push(i);
+
+    const body = {
+      level,
+      interests,
+      listened,
+      skipped,
+      vocab_clicked: Array.from(tappedWordsThisSession),
+      session_duration: sessionDuration,
+    };
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
+      const resp = await fetch('/api/rank', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      updateAiReasons(data.feed);
+      return data;
+    } catch (e) {
+      console.warn('Rank API failed:', e.message);
+      return null;
+    }
+  }
+
+  async function initFeedRanking() {
+    setFeedState('loading');
+    const result = await callRankApi();
+    if (result && result.feed) {
+      setFeedState('normal');
+    } else {
+      setFeedState('fallback');
+    }
+    // Now safe to start playback
+    if (currentIdx < 0) playClip(0);
+  }
+
+  async function maybeRerank() {
+    if (sessionClipsPlayed - lastRerankAt < RERANK_AFTER_CLIPS) return;
+    lastRerankAt = sessionClipsPlayed;
+    const result = await callRankApi();
+    if (result && result.feed) {
+      setFeedState('rerank');
+    }
+  }
+
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function getClipKeyByClip(clip) {
+    return clip.cdnAudio || clip.audio || '';
+  }
+
+  function getClipAudioSrcByClip(clip) {
+    return getClipKeyByClip(clip);
+  }
+
+  // ── Filter & sort clips by user interests ──
+  {
+    const raw = localStorage.getItem('flipodInterests');
+    const interests = raw ? JSON.parse(raw).map(t => t.toLowerCase()) : [];
+    if (interests.length > 0) {
+      const matchedClips = clips.filter(c => interests.includes((c.tag || '').toLowerCase()));
+      const otherClips = clips.filter(c => !interests.includes((c.tag || '').toLowerCase()));
+
+      if (matchedClips.length > 0) {
+        // Shuffle helper
+        const shuffle = arr => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
+
+        // Group matched clips by tag, shuffle within each group
+        const byTag = {};
+        for (const c of matchedClips) {
+          const t = (c.tag || '').toLowerCase();
+          if (!byTag[t]) byTag[t] = [];
+          byTag[t].push(c);
+        }
+        for (const t in byTag) shuffle(byTag[t]);
+
+        // Interleave: max 2 consecutive from same tag, then switch
+        const sorted = [];
+        const tagKeys = shuffle(Object.keys(byTag));
+        const tagPtrs = {};
+        for (const t of tagKeys) tagPtrs[t] = 0;
+        let lastTag = null;
+        let consecutive = 0;
+
+        while (sorted.length < matchedClips.length) {
+          let placed = false;
+          for (const t of tagKeys) {
+            if (tagPtrs[t] >= byTag[t].length) continue;
+            if (t === lastTag && consecutive >= 2) continue;
+            sorted.push(byTag[t][tagPtrs[t]++]);
+            consecutive = (t === lastTag) ? consecutive + 1 : 1;
+            lastTag = t;
+            placed = true;
+            break;
+          }
+          if (!placed) {
+            for (const t of tagKeys) {
+              while (tagPtrs[t] < byTag[t].length) sorted.push(byTag[t][tagPtrs[t]++]);
+            }
+          }
+        }
+
+        // Insert 1 exploration clip every 6-8 matched clips
+        shuffle(otherClips);
+        const final = [];
+        let explorationIdx = 0;
+        for (let i = 0; i < sorted.length; i++) {
+          final.push(sorted[i]);
+          const interval = 6 + Math.floor(Math.random() * 3);
+          if ((i + 1) % interval === 0 && explorationIdx < otherClips.length) {
+            final.push(otherClips[explorationIdx++]);
+          }
+        }
+        // Append remaining exploration clips at the end
+        while (explorationIdx < otherClips.length) {
+          final.push(otherClips[explorationIdx++]);
+        }
+
+        clips = final;
+      }
+    }
+    total = clips.length;
+  }
+
+  const levelLabel = localStorage.getItem('flipodLevel') || '';
+  const interestTags = (() => {
+    try { return JSON.parse(localStorage.getItem('flipodInterests') || '[]'); } catch { return []; }
+  })();
+
+  function buildAiReason(clip, idx) {
+    const tag = (clip.tag || '').toLowerCase();
+    const source = typeof clip.source === 'object' ? (clip.source.podcast || '') : (clip.source || '');
+    if (idx === 0) {
+      return `我先用一条<strong>${escapeHtml(clip.tag || '精选')}</strong>内容开始，帮你快速进入状态。`;
+    }
+    if (interestTags.some(t => String(t).toLowerCase() === tag)) {
+      return `你在 onboarding 里选过<strong>${escapeHtml(clip.tag || '这个主题')}</strong>，我先延续这个方向。`;
+    }
+    if (levelLabel && /^A1|A2|B1|B2|C1|C2/.test(levelLabel)) {
+      return `这条来自<strong>${escapeHtml(source)}</strong>，难度会更贴近你当前的 <strong>${escapeHtml(levelLabel)}</strong> 听感区间。`;
+    }
+    return `这条的开头信息密度高，适合先用来判断你现在更适合哪种节奏。`;
+  }
+
+  // ── REFACTOR 1: Build screens with flex bottom-controls ──
+  clips.forEach((clip, idx) => {
+    const div = document.createElement('div');
+    div.className = 'screen content-screen';
+    div.dataset.idx = idx;
+
+    // Build transcript HTML
+    const transcriptHtml = clip.lines.map(l =>
+      `<div class="transcript-line"><div class="transcript-en">${l.en}</div><div class="transcript-zh">${l.zh}</div></div>`
+    ).join('');
+
+    div.innerHTML = `
+      <div class="top-info">
+        <div class="top-info-hint hint-loading">AI 正在为你排列内容...</div>
+        <div class="hook-title">${clip.title}</div>
+        <div class="source-tag">
+          <span>${typeof clip.source === 'object' ? (clip.source.podcast || '') : (clip.source || '')}</span>
+          ${clip.tag ? `<span class="source-dot">·</span><span class="domain-tag">${clip.tag}</span>` : ''}
+        </div>
+      </div>
+      <div class="feed-loading-dots">
+        <div class="loading-dot"></div>
+        <div class="loading-dot"></div>
+        <div class="loading-dot"></div>
+      </div>
+      <button class="menu-btn" data-idx="${idx}">
+        <span class="menu-line"></span>
+        <span class="menu-line"></span>
+      </button>
+      <button class="help-btn" data-idx="${idx}" id="help-${idx}">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="12" y="16" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">?</text>
+        </svg>
+      </button>
+      <div class="ai-reason-tooltip" id="tooltip-${idx}">
+        <div class="tooltip-text">${buildAiReason(clip, idx)}</div>
+      </div>
+      <div class="menu-panel" id="menu-panel-${idx}">
+        <button class="menu-item" data-action="transcript" data-idx="${idx}">
+          ${document.getElementById('icon-transcript').innerHTML}
+          <span class="menu-item-label">查看完整 Transcript</span>
+        </button>
+        <button class="menu-item disabled">
+          ${document.getElementById('icon-podcast').innerHTML}
+          <span class="menu-item-label">收听原始播客</span>
+          <span class="menu-item-badge">即将上线</span>
+        </button>
+        <button class="menu-item disabled">
+          ${document.getElementById('icon-feedback').innerHTML}
+          <span class="menu-item-label">反馈</span>
+          <span class="menu-item-badge">即将上线</span>
+        </button>
+      </div>
+      <div class="transcript-panel" id="transcript-panel-${idx}">
+        <div class="transcript-header">
+          <div class="transcript-title">${clip.title}</div>
+          <button class="transcript-close" data-idx="${idx}">
+            ${document.getElementById('icon-close').innerHTML}
+          </button>
+        </div>
+        <div class="transcript-body">${transcriptHtml}</div>
+      </div>
+      <div class="subtitle-area">
+        <div class="subtitle-loading" id="loading-${idx}">
+          <div class="loading-dot"></div>
+          <div class="loading-dot"></div>
+          <div class="loading-dot"></div>
+          <span>加载中</span>
+        </div>
+        <div class="subtitle-en" id="en-${idx}"></div>
+        <div class="subtitle-zh-row">
+          <div class="subtitle-zh zh-hidden" id="zh-${idx}"></div>
+        </div>
+      </div>
+      <div class="side-actions">
+        <button class="side-btn like-btn" data-idx="${idx}">
+          ${document.getElementById('icon-heart').innerHTML}
+        </button>
+        <button class="side-btn bookmark-btn" data-idx="${idx}">
+          ${document.getElementById('icon-bookmark').innerHTML}
+        </button>
+      </div>
+      <div class="bottom-controls">
+        <div class="progress-wrap" id="progwrap-${idx}">
+          <span class="progress-time progress-time-left" id="ptime-cur-${idx}">0:00</span>
+          <div class="progress-bar"><div class="progress-fill" id="prog-${idx}"></div></div>
+          <span class="progress-time progress-time-right" id="ptime-dur-${idx}">0:00</span>
+        </div>
+        <div class="play-controls">
+          <button class="play-ctrl-btn rewind-btn" data-idx="${idx}">
+            ${document.getElementById('icon-rewind').innerHTML}
+          </button>
+          <button class="play-ctrl-btn main-play play-pause-btn" data-idx="${idx}">
+            ${document.getElementById('icon-pause').innerHTML}
+          </button>
+          <button class="play-ctrl-btn forward-btn" data-idx="${idx}">
+            ${document.getElementById('icon-forward').innerHTML}
+          </button>
+        </div>
+        <div class="bottom-bar">
+          <div class="ctrl-left">
+            <button class="mask-toggle" id="mask-${idx}">
+              ${document.getElementById('icon-eye-open').innerHTML}
+            </button>
+            <button class="zh-toggle" data-idx="${idx}">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="12" y="16" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">A</text></svg>
+            </button>
+            <button class="speed-btn" id="speed-${idx}">1.0x</button>
+          </div>
+          <div class="indicator">${idx + 1} / ${total}</div>
+        </div>
+      </div>
+    `;
+    container.appendChild(div);
+    screens.push(div);
+
+    const audioSrc = getClipAudioSrcByClip(clip);
+    const audio = new Audio(audioSrc);
+    audio.crossOrigin = 'anonymous';
+    audio.preload = idx < 2 ? 'auto' : 'none';
+    audios.push(audio);
+  });
+
+  // ── Insert feed function cards between clips ──
+  {
+    // Progress card every 5 clips
+    const progressInterval = 5;
+    // Recommendation card: check if recent likes/bookmarks skew > 60% one tag
+    let recoShown = false;
+    const recentLikes = (() => { try { return JSON.parse(localStorage.getItem('flipodLikes') || '[]'); } catch { return []; } })();
+    let recoTag = null;
+    if (recentLikes.length >= 5) {
+      const last10 = recentLikes.slice(-10);
+      const tagCount = {};
+      last10.forEach(l => { const t = (l.tag || '').toLowerCase(); if (t) tagCount[t] = (tagCount[t] || 0) + 1; });
+      const top = Object.entries(tagCount).sort((a, b) => b[1] - a[1])[0];
+      if (top && top[1] / last10.length > 0.6) recoTag = top[0];
+    }
+
+    // ── Review Card: spaced repetition ──
+    const reviewData = (() => { try { return JSON.parse(localStorage.getItem('flipodReview') || '{}'); } catch { return {}; } })();
+    const vocabAll = (() => { try { return JSON.parse(localStorage.getItem('flipodVocab') || '[]'); } catch { return []; } })();
+    const now = Date.now();
+    const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
+    const ONE_DAY = 24 * 60 * 60 * 1000;
+    // Words eligible for review: saved >= 3 days ago AND (no review record OR nextReview <= now)
+    const reviewEligible = vocabAll.filter(v => {
+      if (now - v.timestamp < THREE_DAYS) return false;
+      const r = reviewData[v.word];
+      if (!r) return true; // never reviewed
+      return r.nextReview <= now;
+    });
+    // Shuffle so we don't always show the same words
+    for (let ri = reviewEligible.length - 1; ri > 0; ri--) {
+      const rj = Math.floor(Math.random() * (ri + 1));
+      [reviewEligible[ri], reviewEligible[rj]] = [reviewEligible[rj], reviewEligible[ri]];
+    }
+    let reviewIdx = 0; // index into reviewEligible
+    const reviewInterval = 4; // insert review card every ~4 clips, starting at clip 4
+
+    // Find context sentence for a word from clips data
+    function findWordContext(word) {
+      const w = word.toLowerCase();
+      for (let ci = 0; ci < clips.length; ci++) {
+        const clip = clips[ci];
+        for (let li = 0; li < clip.lines.length; li++) {
+          const line = clip.lines[li];
+          if (line.words && line.words.some(ww => ww.word.toLowerCase() === w)) {
+            return { clipIdx: ci, lineIdx: li, en: line.en, zh: line.zh || '', start: line.start, end: line.end, audio: getClipAudioSrcByClip(clip) };
+          }
+        }
+      }
+      return null;
+    }
+
+    // Track inserted cards for observer to skip
+    const feedCardScreens = [];
+    let clipCounter = 0;
+
+    // Walk through existing screens and insert cards after every N clips
+    const allScreens = Array.from(container.querySelectorAll('.content-screen'));
+    allScreens.forEach((screen, i) => {
+      clipCounter++;
+
+      // Review card every ~4 clips (at 4, 8, 12...) if eligible words exist
+      if (clipCounter > 0 && clipCounter % reviewInterval === 0 && reviewIdx < reviewEligible.length && i < allScreens.length - 1) {
+        const vocabItem = reviewEligible[reviewIdx++];
+        const ctx = findWordContext(vocabItem.word);
+        const card = document.createElement('div');
+        card.className = 'screen feed-card-screen';
+        card.dataset.feedCard = 'review';
+        card.innerHTML = `<div class="review-card">
+          <div class="rc-icon"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></div>
+          <div class="rc-label">QUICK REVIEW</div>
+          <div class="rc-word">${vocabItem.word}</div>
+          <div class="rc-phonetic">${vocabItem.cefr || ''}</div>
+          ${ctx ? `<div class="rc-context-label">出现在</div>
+          <div class="rc-context">"${ctx.en}"</div>` : ''}
+          <button class="rc-play-btn" data-review-word="${vocabItem.word}" ${ctx ? `data-review-audio="${ctx.audio}" data-review-start="${ctx.start}" data-review-end="${ctx.end}"` : ''}>
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            再听一遍
+          </button>
+          <div class="rc-actions">
+            <button class="rc-action-btn" data-review-action="forgot" data-review-word="${vocabItem.word}">忘了</button>
+            <button class="rc-action-btn" data-review-action="remember" data-review-word="${vocabItem.word}">记得</button>
+          </div>
+        </div>`;
+        screen.after(card);
+        feedCardScreens.push(card);
+
+        // Play sentence audio
+        card.querySelector('.rc-play-btn')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const btn = e.currentTarget;
+          const audioSrc = btn.dataset.reviewAudio;
+          const start = parseFloat(btn.dataset.reviewStart);
+          const end = parseFloat(btn.dataset.reviewEnd);
+          if (!audioSrc || isNaN(start)) return;
+          const tempAudio = new Audio(audioSrc);
+          tempAudio.currentTime = start;
+          tempAudio.play().catch(() => {});
+          const stopAt = () => {
+            if (tempAudio.currentTime >= end) {
+              tempAudio.pause();
+              tempAudio.removeEventListener('timeupdate', stopAt);
+            }
+          };
+          tempAudio.addEventListener('timeupdate', stopAt);
+        });
+
+        // Remember / Forgot actions
+        card.querySelectorAll('.rc-action-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const action = btn.dataset.reviewAction;
+            const word = btn.dataset.reviewWord;
+            const rd = (() => { try { return JSON.parse(localStorage.getItem('flipodReview') || '{}'); } catch { return {}; } })();
+            if (action === 'remember') {
+              const prev = rd[word] || { interval: THREE_DAYS };
+              const newInterval = prev.interval * 2;
+              rd[word] = { nextReview: now + newInterval, interval: newInterval };
+            } else {
+              // forgot → reset to tomorrow
+              rd[word] = { nextReview: now + ONE_DAY, interval: THREE_DAYS };
+            }
+            localStorage.setItem('flipodReview', JSON.stringify(rd));
+            // Visual feedback
+            const reviewCard = card.querySelector('.review-card');
+            reviewCard.innerHTML = `<div style="color:var(--text-3);font-size:15px;text-align:center">${action === 'remember' ? '太棒了！下次复习间隔已翻倍' : '没关系，明天再复习'}</div>`;
+            setTimeout(() => {
+              const next = card.nextElementSibling;
+              if (next) next.scrollIntoView({ behavior: 'smooth' });
+            }, 1000);
+          });
+        });
+      }
+
+      // Progress card every 5 clips
+      if (clipCounter > 0 && clipCounter % progressInterval === 0 && i < allScreens.length - 1) {
+        const card = document.createElement('div');
+        card.className = 'screen feed-card-screen';
+        card.dataset.feedCard = 'progress';
+        card.innerHTML = buildProgressCardHTML(clipCounter, Math.round(sessionDuration / 60) || clipCounter, tappedWordsThisSession.size, 'TODAY\'S PROGRESS', '继续刷 →');
+        screen.after(card);
+        feedCardScreens.push(card);
+        card.querySelector('.pc-btn')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const next = allScreens[i + 1];
+          if (next) {
+            next.scrollIntoView({ behavior: 'smooth' });
+            setTimeout(() => playClip(parseInt(next.dataset.idx)), 400);
+          }
+        });
+      }
+
+      // Recommendation card after clip 8 (if applicable, once per session)
+      if (clipCounter === 8 && recoTag && !recoShown && i < allScreens.length - 1) {
+        recoShown = true;
+        const interests = (() => { try { return JSON.parse(localStorage.getItem('flipodInterests') || '[]'); } catch { return []; } })();
+        const card = document.createElement('div');
+        card.className = 'screen feed-card-screen';
+        card.dataset.feedCard = 'reco';
+        const tagLabel = recoTag.charAt(0).toUpperCase() + recoTag.slice(1);
+        card.innerHTML = `<div class="reco-card">
+          <div class="reco-label">WE NOTICED</div>
+          <div class="reco-title">你最近收藏了很多<br><strong>${tagLabel}类内容</strong></div>
+          <div class="reco-tags">
+            ${interests.map(t => `<span class="reco-tag${t.toLowerCase() === recoTag ? ' highlight' : ''}">${t}</span>`).join('')}
+          </div>
+          <div class="reco-question">要多推一些${tagLabel}内容吗？</div>
+          <div class="reco-actions">
+            <button class="reco-yes" data-reco-tag="${recoTag}">好的 👍</button>
+            <button class="reco-no">保持现状</button>
+          </div>
+        </div>`;
+        // Insert after the progress card if one was just added, else after current screen
+        const insertAfter = screen.nextElementSibling?.dataset?.feedCard ? screen.nextElementSibling : screen;
+        insertAfter.after(card);
+        feedCardScreens.push(card);
+        card.querySelector('.reco-yes')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const tag = e.target.dataset.recoTag;
+          const prefs = (() => { try { return JSON.parse(localStorage.getItem('flipodPreferences') || '{}'); } catch { return {}; } })();
+          prefs[tag] = (prefs[tag] || 0) + 1;
+          localStorage.setItem('flipodPreferences', JSON.stringify(prefs));
+          card.innerHTML = '<div style="color:var(--text-3);font-size:15px;text-align:center">已更新推荐偏好 ✓</div>';
+          setTimeout(() => {
+            const next = card.nextElementSibling;
+            if (next) next.scrollIntoView({ behavior: 'smooth' });
+          }, 800);
+        });
+        card.querySelector('.reco-no')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          card.innerHTML = '<div style="color:var(--text-3);font-size:15px;text-align:center">好的，保持现状</div>';
+          setTimeout(() => {
+            const next = card.nextElementSibling;
+            if (next) next.scrollIntoView({ behavior: 'smooth' });
+          }, 800);
+        });
+      }
+    });
+
+    // Observe feed cards for scroll-snap (they just pause any playing clip)
+    feedCardScreens.forEach(card => {
+      const obs = new MutationObserver(() => {});
+      // We'll add them to the main observer later
+      card._isFeedCard = true;
+    });
+  }
+
+  // ── Init saved speed on buttons ──
+  if (playbackRate !== 1.0) {
+    document.querySelectorAll('.speed-btn').forEach(b => {
+      b.textContent = playbackRate + 'x';
+      b.classList.add('non-default');
+    });
+  }
+
+  // ── Hamburger menu ──
+  document.querySelectorAll('.menu-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = btn.dataset.idx;
+      const panel = document.getElementById('menu-panel-' + idx);
+      document.querySelectorAll('.menu-panel.open').forEach(p => {
+        if (p !== panel) p.classList.remove('open');
+      });
+      panel.classList.toggle('open');
+    });
+  });
+
+  // ── Help "?" button → AI reason tooltip ──
+  document.querySelectorAll('.help-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = btn.dataset.idx;
+      const tooltip = document.getElementById('tooltip-' + idx);
+      // Close other tooltips
+      document.querySelectorAll('.ai-reason-tooltip.show').forEach(t => {
+        if (t !== tooltip) t.classList.remove('show');
+      });
+      tooltip.classList.toggle('show');
+    });
+  });
+
+  // Close menu & tooltip on outside click
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.menu-panel') || e.target.closest('.menu-btn')) return;
+    document.querySelectorAll('.menu-panel.open').forEach(p => p.classList.remove('open'));
+    if (e.target.closest('.ai-reason-tooltip') || e.target.closest('.help-btn')) return;
+    document.querySelectorAll('.ai-reason-tooltip.show').forEach(t => t.classList.remove('show'));
+  });
+
+  // Transcript open
+  document.querySelectorAll('[data-action="transcript"]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = btn.dataset.idx;
+      document.getElementById('menu-panel-' + idx).classList.remove('open');
+      document.getElementById('transcript-panel-' + idx).classList.add('open');
+    });
+  });
+
+  // Transcript close
+  document.querySelectorAll('.transcript-close').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('transcript-panel-' + btn.dataset.idx).classList.remove('open');
+    });
+  });
+
+  // ── Chinese subtitle toggle ──
+  document.querySelectorAll('.zh-toggle').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const zhEl = document.getElementById('zh-' + btn.dataset.idx);
+      if (!zhEl) return;
+      const hidden = zhEl.classList.toggle('zh-hidden');
+      btn.classList.toggle('zh-revealed', !hidden);
+    });
+  });
+
+  // ── Play controls ──
+  document.querySelectorAll('.play-pause-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (currentIdx < 0 || currentIdx >= total) return;
+      const audio = audios[currentIdx];
+      if (audio.paused) {
+        audio.play().catch(() => { isPlaying = false; updatePlayPauseIcons(); });
+        isPlaying = true;
+      } else {
+        audio.pause();
+        isPlaying = false;
+      }
+      updatePlayPauseIcons();
+    });
+  });
+
+  function updatePlayPauseIcons() {
+    const icon = isPlaying
+      ? document.getElementById('icon-pause').innerHTML
+      : document.getElementById('icon-play').innerHTML;
+    document.querySelectorAll('.play-pause-btn').forEach(b => {
+      b.innerHTML = icon;
+    });
+  }
+
+  // Rewind 5s
+  document.querySelectorAll('.rewind-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (currentIdx < 0 || currentIdx >= total) return;
+      safeSeek(currentIdx, Math.max(0, audios[currentIdx].currentTime - 5));
+      delete lastRenderedLine[currentIdx];
+      updateSubtitle(currentIdx);
+    });
+  });
+
+  // Forward 5s
+  document.querySelectorAll('.forward-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (currentIdx < 0 || currentIdx >= total) return;
+      const audio = audios[currentIdx];
+      safeSeek(currentIdx, Math.min(getClipDuration(currentIdx), audio.currentTime + 5));
+      delete lastRenderedLine[currentIdx];
+      updateSubtitle(currentIdx);
+    });
+  });
+
+  // ── Like / Bookmark (with persistence) ──
+  function getLikedClips() { try { return JSON.parse(localStorage.getItem('flipodLikedClips') || '[]'); } catch { return []; } }
+  function getLikes() { try { return JSON.parse(localStorage.getItem('flipodLikes') || '[]'); } catch { return []; } }
+  function getBookmarks() { try { return JSON.parse(localStorage.getItem('flipodBookmarks') || '[]'); } catch { return []; } }
+
+  function getClipKey(idx) { return getClipKeyByClip(clips[idx]); }
+
+  // Restore like/bookmark state on load
+  {
+    const likedSet = new Set(getLikedClips());
+    const bmSet = new Set(getBookmarks().map(b => b.audio));
+    document.querySelectorAll('.like-btn').forEach(btn => {
+      const key = getClipKey(parseInt(btn.dataset.idx));
+      if (likedSet.has(key)) btn.classList.add('liked');
+    });
+    document.querySelectorAll('.bookmark-btn').forEach(btn => {
+      const key = getClipKey(parseInt(btn.dataset.idx));
+      if (bmSet.has(key)) btn.classList.add('bookmarked');
+    });
+  }
+
+  document.querySelectorAll('.like-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.idx);
+      const key = getClipKey(idx);
+      const isLiked = btn.classList.toggle('liked');
+      btn.classList.add('pop');
+      setTimeout(() => btn.classList.remove('pop'), 300);
+
+      let likedClips = getLikedClips();
+      let likes = getLikes();
+      if (isLiked) {
+        if (!likedClips.includes(key)) likedClips.push(key);
+        likes.push({ tag: clips[idx].tag || '', timestamp: Date.now() });
+      } else {
+        likedClips = likedClips.filter(k => k !== key);
+      }
+      localStorage.setItem('flipodLikedClips', JSON.stringify(likedClips));
+      localStorage.setItem('flipodLikes', JSON.stringify(likes));
+    });
+  });
+
+  document.querySelectorAll('.bookmark-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.idx);
+      const key = getClipKey(idx);
+      const isBm = btn.classList.toggle('bookmarked');
+      btn.classList.add('pop');
+      setTimeout(() => btn.classList.remove('pop'), 300);
+
+      let bookmarks = getBookmarks();
+      if (isBm) {
+        if (!bookmarks.some(b => b.audio === key)) {
+          bookmarks.push({
+            title: clips[idx].title || '',
+            source: typeof clips[idx].source === 'object' ? (clips[idx].source.podcast || '') : (clips[idx].source || ''),
+            tag: clips[idx].tag || '',
+            audio: key,
+            timestamp: Date.now()
+          });
+        }
+      } else {
+        bookmarks = bookmarks.filter(b => b.audio !== key);
+      }
+      localStorage.setItem('flipodBookmarks', JSON.stringify(bookmarks));
+    });
+  });
+
+  // ── Speed toggle ──
+  document.querySelectorAll('.speed-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      let si = speeds.indexOf(playbackRate);
+      si = (si + 1) % speeds.length;
+      playbackRate = speeds[si];
+      document.querySelectorAll('.speed-btn').forEach(b => {
+        b.textContent = playbackRate + 'x';
+        b.classList.toggle('non-default', playbackRate !== 1.0);
+      });
+      audios.forEach(a => { a.playbackRate = playbackRate; });
+      localStorage.setItem('flipodSpeed', playbackRate);
+    });
+  });
+
+  // ── Mask toggle ──
+  document.querySelectorAll('.mask-toggle').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      masked = !masked;
+      document.querySelectorAll('.mask-toggle').forEach(b => {
+        b.innerHTML = masked
+          ? document.getElementById('icon-eye-closed').innerHTML
+          : document.getElementById('icon-eye-open').innerHTML;
+        b.classList.toggle('is-masked', masked);
+      });
+      document.querySelectorAll('.subtitle-en').forEach(el => {
+        el.classList.toggle('masked', masked);
+      });
+    });
+  });
+
+  // ── Unified duration helper ──
+  function getClipDuration(idx) {
+    const audio = audios[idx];
+    const clip = clips[idx];
+    if (audio.duration && isFinite(audio.duration)) return audio.duration;
+    if (clip.lines.length > 0) return clip.lines[clip.lines.length - 1].end;
+    return 30;
+  }
+
+  // Safe seek: waits for metadata if readyState < 1. Returns a Promise.
+  function safeSeek(idx, time) {
+    const audio = audios[idx];
+    if (audio.readyState >= 1) {
+      audio.currentTime = time;
+      return Promise.resolve();
+    }
+    return new Promise(resolve => {
+      const handler = () => {
+        audio.currentTime = time;
+        audio.removeEventListener('loadedmetadata', handler);
+        resolve();
+      };
+      audio.addEventListener('loadedmetadata', handler);
+      setTimeout(() => {
+        audio.removeEventListener('loadedmetadata', handler);
+        if (audio.readyState >= 1) audio.currentTime = time;
+        resolve();
+      }, 5000);
+    });
+  }
+
+  // ── Find line at given time ──
+  function findLineAtTime(clip, t) {
+    for (let i = 0; i < clip.lines.length; i++) {
+      if (t >= clip.lines[i].start && t < clip.lines[i].end) return i;
+    }
+    if (t > 0 && clip.lines.length) {
+      const last = clip.lines[clip.lines.length - 1];
+      if (t >= last.start) return clip.lines.length - 1;
+    }
+    return -1;
+  }
+
+  // ── Interactive progress bar ──
+  let progDragging = false;
+  let dragPendingTime = null;
+
+  document.querySelectorAll('.progress-wrap').forEach(wrap => {
+    const idx = parseInt(wrap.id.replace('progwrap-', ''));
+    const bar = wrap.querySelector('.progress-bar');
+    const fill = wrap.querySelector('.progress-fill');
+
+    // Click seek: set audio.currentTime directly, invalidate cache
+    wrap.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (idx !== currentIdx) return;
+      const rect = bar.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      safeSeek(idx, pct * getClipDuration(idx));
+      delete lastRenderedLine[idx];
+      updateSubtitle(idx);
+    });
+
+    // Drag: pause audio, only update visuals + preview subtitle
+    wrap.addEventListener('touchstart', (e) => {
+      if (idx !== currentIdx) return;
+      progDragging = true;
+      fill.classList.add('dragging');
+      if (isPlaying) audios[idx].pause();
+      handleDrag(idx, e.touches[0].clientX);
+    }, { passive: true });
+
+    wrap.addEventListener('touchmove', (e) => {
+      if (!progDragging) return;
+      handleDrag(idx, e.touches[0].clientX);
+    }, { passive: true });
+
+    wrap.addEventListener('touchend', () => {
+      if (!progDragging) return;
+      progDragging = false;
+      fill.classList.remove('dragging');
+      // Apply final time
+      if (dragPendingTime !== null) {
+        safeSeek(idx, dragPendingTime);
+        dragPendingTime = null;
+      }
+      // Force cache invalidation + immediate subtitle sync
+      delete lastRenderedLine[idx];
+      updateSubtitle(idx);
+      // Resume playback
+      if (isPlaying) tryPlay(audios[idx]);
+    });
+  });
+
+  function handleDrag(idx, clientX) {
+    const bar = document.querySelector(`#progwrap-${idx} .progress-bar`);
+    const rect = bar.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const dur = getClipDuration(idx);
+    dragPendingTime = pct * dur;
+    // Update fill visually only (don't set audio.currentTime)
+    const fill = document.getElementById('prog-' + idx);
+    if (fill) fill.style.width = (pct * 100) + '%';
+    // Preview subtitle at drag position
+    previewSubtitleAt(idx, dragPendingTime);
+  }
+
+  // ── Drag subtitle preview (no fade animation) ──
+  function previewSubtitleAt(idx, time) {
+    const clip = clips[idx];
+    const lineIdx = findLineAtTime(clip, time);
+    if (lineIdx >= 0 && lineIdx !== lastRenderedLine[idx]) {
+      lastRenderedLine[idx] = lineIdx;
+      const line = clip.lines[lineIdx];
+      const enEl = document.getElementById('en-' + idx);
+      const zhEl = document.getElementById('zh-' + idx);
+      // Direct replacement, no fade (too slow for scrubbing)
+      renderWords(enEl, line);
+      zhEl.textContent = line.zh || '';
+    }
+  }
+
+  // ── Render words with spans (restore punctuation from line.en) ──
+  function renderWords(enEl, line) {
+    if (!line.words || line.words.length === 0) {
+      enEl.textContent = line.en;
+      return;
+    }
+    // Whisper word-level output has no punctuation, but line.en does.
+    // Strategy: walk through line.en, match each word, capture trailing punctuation.
+    const fullText = line.en || '';
+    let searchPos = 0;
+    const wordsWithPunct = line.words.map((w, i) => {
+      const bareWord = w.word.trim();
+      // Find this word in the full sentence text
+      const wordIdx = fullText.toLowerCase().indexOf(bareWord.toLowerCase(), searchPos);
+      let trailing = '';
+      if (wordIdx >= 0) {
+        const afterWord = wordIdx + bareWord.length;
+        searchPos = afterWord;
+        // Grab any trailing punctuation (commas, periods, quotes, etc.)
+        const afterMatch = fullText.slice(afterWord).match(/^([^a-zA-Z0-9\s]*)/);
+        if (afterMatch && afterMatch[1]) trailing = afterMatch[1];
+      }
+      return `<span class="w" data-start="${w.start}" data-end="${w.end}" data-cefr="${w.cefr || ''}">${bareWord}${trailing}</span>`;
+    });
+    enEl.innerHTML = wordsWithPunct.join(' ');
+    if (masked) enEl.classList.add('masked');
+  }
+
+  // ── REFACTOR 2: Unified subtitle sync ──
+  let currentIdx = -1;
+  const lastRenderedLine = {};  // idx -> last rendered line number
+
+  // ── Audio resource management (free network connections) ──
+  const releasedAudios = new Set();
+  function releaseAudio(i) {
+    if (i < 0 || i >= total || releasedAudios.has(i)) return;
+    audios[i].pause();
+    audios[i].removeAttribute('src');
+    audios[i].load();
+    releasedAudios.add(i);
+  }
+  function restoreAudio(i) {
+    if (i < 0 || i >= total || !releasedAudios.has(i)) return;
+    audios[i].src = getClipAudioSrcByClip(clips[i]);
+    releasedAudios.delete(i);
+  }
+
+  function updateSubtitle(idx) {
+    const audio = audios[idx];
+    const clip = clips[idx];
+    const t = audio.currentTime;
+    const enEl = document.getElementById('en-' + idx);
+    const zhEl = document.getElementById('zh-' + idx);
+    const progEl = document.getElementById('prog-' + idx);
+
+    // 1. Find current line
+    const lineIdx = findLineAtTime(clip, t);
+
+    // 2. Re-render DOM only when line changes
+    if (lineIdx >= 0 && lineIdx !== lastRenderedLine[idx]) {
+      lastRenderedLine[idx] = lineIdx;
+      const line = clip.lines[lineIdx];
+
+      // Empty subtitle defense: skip lines with empty en or zh
+      if (!line.en || !line.en.trim()) return;
+
+      enEl.style.opacity = '0';
+      zhEl.style.opacity = '0';
+      setTimeout(() => {
+        renderWords(enEl, line);
+        zhEl.textContent = line.zh || '';
+        enEl.style.opacity = '1';
+        zhEl.style.opacity = '1';
+      }, 80);
+    }
+
+    // 3. Always update word-level karaoke highlighting
+    if (lineIdx >= 0) {
+      const wordSpans = enEl.querySelectorAll('.w');
+      wordSpans.forEach(span => {
+        const ws = parseFloat(span.dataset.start);
+        const we = parseFloat(span.dataset.end);
+        span.classList.toggle('spoken', t >= we);
+        span.classList.toggle('active', t >= ws && t < we);
+      });
+    }
+
+    // 4. Update progress bar and time labels
+    if (progEl && !progDragging) {
+      const dur = getClipDuration(idx);
+      progEl.style.width = Math.min(100, (t / dur) * 100) + '%';
+    }
+    // Update time labels
+    const curTimeEl = document.getElementById('ptime-cur-' + idx);
+    const durTimeEl = document.getElementById('ptime-dur-' + idx);
+    if (curTimeEl) curTimeEl.textContent = fmtTime(t);
+    if (durTimeEl) {
+      const dur = getClipDuration(idx);
+      durTimeEl.textContent = fmtTime(dur);
+    }
+  }
+  function fmtTime(s) {
+    if (!s || !isFinite(s)) return '0:00';
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return m + ':' + (sec < 10 ? '0' : '') + sec;
+  }
+
+  audios.forEach((audio, idx) => {
+    audio.addEventListener('timeupdate', () => {
+      if (currentIdx === idx) updateSubtitle(idx);
+    });
+
+    // Show/hide loading on buffering stalls
+    audio.addEventListener('waiting', () => {
+      if (currentIdx === idx) showLoading(idx, true);
+    });
+    audio.addEventListener('playing', () => {
+      if (currentIdx === idx) showLoading(idx, false);
+    });
+
+    audio.addEventListener('ended', () => {
+      if (currentIdx !== idx) return;
+      if (idx + 1 < total) {
+        screens[idx + 1].scrollIntoView({ behavior: 'smooth' });
+        setTimeout(() => playClip(idx + 1), 400);
+      } else {
+        // Last clip ended — show enhanced progress card
+        isPlaying = false;
+        updatePlayPauseIcons();
+        const enEl = document.getElementById('en-' + idx);
+        const zhEl = document.getElementById('zh-' + idx);
+        const totalMin = Math.round(sessionDuration / 60);
+        const newWords = tappedWordsThisSession.size;
+        if (enEl) {
+          enEl.classList.remove('masked');
+          enEl.innerHTML = buildProgressCardHTML(sessionClipsPlayed, totalMin, newWords, '今天的内容听完了', '再刷一轮 →');
+          enEl.querySelector('.pc-btn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            screens[0].scrollIntoView({ behavior: 'smooth' });
+            setTimeout(() => playClip(0), 400);
+          });
+        }
+        if (zhEl) { zhEl.textContent = ''; }
+      }
+    });
+
+    // Stalled recovery: audio download interrupted (common on tunnel)
+    audio.addEventListener('stalled', () => {
+      if (currentIdx !== idx || audio.paused) return;
+      showLoading(idx, true);
+      console.warn('Audio stalled for clip', idx, '— will attempt recovery');
+      setTimeout(() => {
+        if (currentIdx !== idx) return;
+        if (audio.paused && isPlaying) {
+          const pos = audio.currentTime;
+          audio.load();
+          safeSeek(idx, pos).then(() => tryPlay(audio));
+        }
+      }, 3000);
+    });
+
+    // Error recovery: reload and retry
+    audio.addEventListener('error', () => {
+      if (currentIdx !== idx) return;
+      console.error('Audio error for clip', idx);
+      showLoading(idx, true);
+      setTimeout(() => {
+        if (currentIdx !== idx) return;
+        const pos = audio.currentTime || 0;
+        audio.src = getClipAudioSrcByClip(clips[idx]);
+        audio.load();
+        safeSeek(idx, pos).then(() => tryPlay(audio));
+      }, 2000);
+    });
+  });
+
+  // ── Loading state ──
+  function showLoading(idx, show) {
+    const el = document.getElementById('loading-' + idx);
+    if (el) el.classList.toggle('visible', show);
+  }
+
+  // ── Build progress card HTML ──
+  function buildProgressCardHTML(clipCount, minutes, newWords, title, btnText) {
+    const vocab = (() => { try { return JSON.parse(localStorage.getItem('flipodVocab') || '[]'); } catch { return []; } })();
+    const cefrCounts = { A: 0, B1: 0, B2: 0, C: 0 };
+    vocab.forEach(v => {
+      const c = (v.cefr || '').toUpperCase();
+      if (c.startsWith('A')) cefrCounts.A++;
+      else if (c === 'B1') cefrCounts.B1++;
+      else if (c === 'B2') cefrCounts.B2++;
+      else if (c.startsWith('C')) cefrCounts.C++;
+    });
+    const tot = vocab.length || 1;
+    const level = localStorage.getItem('flipodLevel') || '';
+    return `<div class="progress-card">
+      <div class="pc-label">${title || 'TODAY\'S PROGRESS'}</div>
+      <div class="pc-big">${clipCount} 个片段</div>
+      <div class="pc-sub">已收听</div>
+      <div class="pc-stats">
+        <span>${minutes} 分钟</span>
+        ${newWords > 0 ? `<span class="pc-new-words">${newWords} 新词</span>` : ''}
+      </div>
+      ${vocab.length > 0 ? `
+      <div class="pc-cefr-bar">
+        <span style="width:${cefrCounts.A/tot*100}%;background:var(--cefr-a)"></span>
+        <span style="width:${cefrCounts.B1/tot*100}%;background:var(--cefr-b1)"></span>
+        <span style="width:${cefrCounts.B2/tot*100}%;background:var(--cefr-b2)"></span>
+        <span style="width:${cefrCounts.C/tot*100}%;background:var(--cefr-c1)"></span>
+      </div>
+      <div class="pc-cefr-legend">
+        <span style="color:var(--cefr-a)">A1/A2</span>
+        <span style="color:var(--cefr-b1)">B1</span>
+        <span style="color:var(--cefr-b2)">${level || 'B2+'}</span>
+      </div>` : ''}
+      <button class="pc-btn">${btnText || '继续刷 →'}</button>
+    </div>`;
+  }
+
+  // ── Pre-render first line (before audio plays) ──
+  function preRenderFirstLine(idx) {
+    const clip = clips[idx];
+    if (!clip.lines || !clip.lines.length) return;
+    const line = clip.lines[0];
+    if (!line.en || !line.en.trim()) return;
+    const enEl = document.getElementById('en-' + idx);
+    const zhEl = document.getElementById('zh-' + idx);
+    // Render first line in "waiting" state (all words dim)
+    renderWords(enEl, line);
+    zhEl.textContent = line.zh || '';
+    lastRenderedLine[idx] = 0;
+  }
+
+  // ── Play with retry (more retries for slow tunnel) ──
+  function tryPlay(audio, retries = 4) {
+    audio.play().catch(() => {
+      if (retries > 0) {
+        setTimeout(() => tryPlay(audio, retries - 1), 1500);
+      } else {
+        isPlaying = false;
+        updatePlayPauseIcons();
+      }
+    });
+  }
+
+  // ── Play/pause ──
+  function playClip(idx) {
+    if (idx === currentIdx) return;
+    // Don't play during feed loading state
+    if (feedState === 'loading') return;
+    // Only pause the previously playing clip
+    if (currentIdx >= 0 && currentIdx < total) {
+      audios[currentIdx].pause();
+      showLoading(currentIdx, false);
+      const e = document.getElementById('en-' + currentIdx);
+      const z = document.getElementById('zh-' + currentIdx);
+      const p = document.getElementById('prog-' + currentIdx);
+      if (e) { e.innerHTML = ''; z.textContent = ''; }
+      if (p) p.style.width = '0%';
+      delete lastRenderedLine[currentIdx];
+    }
+    // Release non-adjacent audio to free network connections
+    for (let i = 0; i < total; i++) {
+      if (Math.abs(i - idx) > 1) releaseAudio(i);
+    }
+    // Ensure current ±1 clips have their sources
+    restoreAudio(idx);
+    if (idx + 1 < total) restoreAudio(idx + 1);
+    if (idx - 1 >= 0) restoreAudio(idx - 1);
+
+    currentIdx = idx;
+    isPlaying = true;
+    sessionClipsPlayed++;
+    if (clips[idx].lines?.length) {
+      sessionDuration += clips[idx].lines[clips[idx].lines.length - 1].end;
+    }
+    // Check if we should re-rank after N clips
+    maybeRerank();
+    updatePlayPauseIcons();
+    if (idx >= 0 && idx < total) {
+      const audio = audios[idx];
+      audio.preload = 'auto';
+      audio.currentTime = 0;
+      audio.playbackRate = playbackRate;
+
+      // Pre-render first line immediately (don't wait for timeupdate)
+      preRenderFirstLine(idx);
+
+      // Check if audio is ready to play
+      if (audio.readyState >= 3) {
+        // HAVE_FUTURE_DATA or HAVE_ENOUGH_DATA — play immediately
+        tryPlay(audio);
+      } else {
+        // Audio still loading — show loading indicator
+        showLoading(idx, true);
+        let settled = false;
+        const settle = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(loadTimeout);
+          audio.removeEventListener('canplay', onCanPlay);
+          if (currentIdx !== idx) return; // user scrolled away
+          showLoading(idx, false);
+          tryPlay(audio);
+        };
+        const onCanPlay = () => settle();
+        audio.addEventListener('canplay', onCanPlay);
+        // Timeout: don't wait forever on slow tunnel — force play after 8s
+        const loadTimeout = setTimeout(() => {
+          if (settled || currentIdx !== idx) return;
+          console.warn('Audio load timeout for clip', idx, '— forcing play attempt');
+          // Reload audio and retry
+          audio.load();
+          setTimeout(() => settle(), 500);
+        }, 8000);
+        // Also try play() immediately (some browsers buffer enough quickly)
+        audio.play().then(() => settle()).catch(() => {});
+      }
+
+      // Preload next clip
+      if (idx + 1 < total && audios[idx + 1].preload === 'none') {
+        audios[idx + 1].preload = 'auto';
+      }
+    }
+  }
+
+  function stopAll() {
+    audios.forEach(a => a.pause());
+    currentIdx = -1;
+  }
+
+  // ── Word tap popup ──
+  const wordPopup = document.getElementById('word-popup');
+  const wpWord = document.getElementById('wp-word');
+  const wpPos = document.getElementById('wp-pos');
+  const wpPhonetic = document.getElementById('wp-phonetic');
+  const wpDefinition = document.getElementById('wp-definition');
+  const wpLoading = document.getElementById('wp-loading');
+  const wpSpeak = document.getElementById('wp-speak');
+  const wpKnow = document.getElementById('wp-know');
+  const wpStar = document.getElementById('wp-star');
+  let popupWasPlaying = false;
+  let popupCurrentWord = null;
+  let popupCurrentCefr = '';
+  let popupCurrentContext = '';
+  let popupCurrentContextZh = '';
+  let popupCurrentPhonetic = '';
+  let popupAudioUrl = null;
+  const wordCache = new Map(); // dictionary API cache
+
+  function getVocab() {
+    try { return JSON.parse(localStorage.getItem('flipodVocab') || '[]'); } catch { return []; }
+  }
+  function saveVocab(arr) { localStorage.setItem('flipodVocab', JSON.stringify(arr)); }
+  function getKnownWords() {
+    try { return new Set(JSON.parse(localStorage.getItem('flipodKnownWords') || '[]')); } catch { return new Set(); }
+  }
+  function saveKnownWords(s) { localStorage.setItem('flipodKnownWords', JSON.stringify([...s])); }
+
+  async function fetchWordData(word) {
+    if (wordCache.has(word)) return wordCache.get(word);
+    try {
+      // Google Translate dict mode: dt=bd (dictionary), dt=t (translation), dt=rm (phonetic)
+      const res = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=bd&dt=t&dt=rm&q=' + encodeURIComponent(word));
+      if (!res.ok) throw new Error('gt fail');
+      const gt = await res.json();
+
+      // Phonetic from English dictionary API (more reliable)
+      let phonetic = '', audioUrl = '';
+      try {
+        const dictRes = await fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word));
+        if (dictRes.ok) {
+          const dictData = await dictRes.json();
+          const entry = dictData[0] || {};
+          phonetic = entry.phonetic || (entry.phonetics?.find(p => p.text)?.text) || '';
+          audioUrl = entry.phonetics?.find(p => p.audio)?.audio || '';
+        }
+      } catch {}
+
+      // gt[1] = dictionary entries: [["noun", ["学校","学院",...]], ["verb", ["教育",...]]]
+      const dictEntries = gt[1] || [];
+      let pos = '', def = '';
+      if (dictEntries.length > 0) {
+        const parts = dictEntries.map(entry => {
+          const posName = entry[0] || '';
+          const translations = (entry[1] || []).slice(0, 3).join('、');
+          return posName + ' ' + translations;
+        });
+        pos = dictEntries.map(e => e[0]).join('/');
+        def = parts.join('；');
+      } else {
+        // Fallback: simple translation
+        def = gt?.[0]?.[0]?.[0] || word;
+      }
+
+      const result = { phonetic, audioUrl, pos, def };
+      wordCache.set(word, result);
+      return result;
+    } catch {
+      const result = { phonetic: '', audioUrl: '', pos: '', def: '', error: true };
+      wordCache.set(word, result);
+      return result;
+    }
+  }
+
+  function showWordPopup(span) {
+    const word = span.textContent.replace(/[^a-zA-Z'-]/g, '').toLowerCase();
+    const cefr = span.dataset.cefr || '';
+    if (!word) return;
+
+    // Get context sentence (safe when no clip is playing)
+    const idx = currentIdx;
+    const clip = idx >= 0 && idx < clips.length ? clips[idx] : null;
+    popupCurrentContext = '';
+    popupCurrentContextZh = '';
+    if (clip) {
+      const t = parseFloat(span.dataset.start);
+      const lineIdx = findLineAtTime(clip, t);
+      popupCurrentContext = lineIdx >= 0 ? (clip.lines[lineIdx].en || '') : '';
+      popupCurrentContextZh = lineIdx >= 0 ? (clip.lines[lineIdx].zh || '') : '';
+    }
+
+    tappedWordsThisSession.add(word);
+
+    // Pause audio
+    popupWasPlaying = false;
+    if (idx >= 0 && idx < total && audios[idx]) {
+      popupWasPlaying = isPlaying && !audios[idx].paused;
+      if (popupWasPlaying) audios[idx].pause();
+    }
+
+    // Fill basic content
+    wpWord.textContent = span.textContent.replace(/[.,!?;:"')\]]+$/, '');
+    wpPos.textContent = '';
+    wpPhonetic.textContent = '';
+    wpDefinition.textContent = '';
+    wpDefinition.classList.add('hidden');
+    wpLoading.style.display = 'block';
+    popupCurrentWord = word;
+    popupCurrentCefr = cefr;
+    popupAudioUrl = null;
+    popupCurrentPhonetic = '';
+
+    // Check known / starred state
+    const knownWords = getKnownWords();
+    wpKnow.classList.toggle('known', knownWords.has(word));
+    const vocab = getVocab();
+    const isStarred = vocab.some(v => v.word === word);
+    wpStar.classList.toggle('starred', isStarred);
+
+    // Position popup — fixed at bottom center per design spec
+    wordPopup.style.left = '';
+    wordPopup.style.top = '';
+    wordPopup.style.transform = '';
+    wordPopup.classList.add('visible');
+
+    // Fetch dictionary data
+    fetchWordData(word).then(data => {
+      if (popupCurrentWord !== word) return; // popup changed
+      wpLoading.style.display = 'none';
+      if (data.error) {
+        wpDefinition.classList.remove('hidden');
+        wpDefinition.innerHTML = '<span style="color:var(--text-4)">释义加载失败</span>';
+      } else {
+        popupCurrentPhonetic = data.phonetic;
+        popupAudioUrl = data.audioUrl;
+        wpPos.textContent = '';
+        wpPhonetic.textContent = data.phonetic || '';
+        wpDefinition.classList.remove('hidden');
+        wpDefinition.textContent = data.def || '';
+      }
+    });
+  }
+
+  function hideWordPopup() {
+    if (!wordPopup.classList.contains('visible')) return;
+    wordPopup.classList.remove('visible');
+    if (popupWasPlaying && currentIdx >= 0 && currentIdx < total) {
+      tryPlay(audios[currentIdx]);
+    }
+    popupWasPlaying = false;
+    popupCurrentWord = null;
+  }
+
+  // Click on word spans (delegated)
+  document.addEventListener('click', (e) => {
+    const span = e.target.closest('.subtitle-en .w');
+    if (span) {
+      e.stopPropagation();
+      hideWordPopup();
+      setTimeout(() => showWordPopup(span), 10);
+      return;
+    }
+    if (!e.target.closest('.word-popup')) {
+      hideWordPopup();
+    }
+  });
+
+  // Speak button
+  wpSpeak.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (popupAudioUrl) {
+      new Audio(popupAudioUrl).play().catch(() => {});
+    } else if (popupCurrentWord) {
+      const u = new SpeechSynthesisUtterance(popupCurrentWord);
+      u.lang = 'en-US';
+      speechSynthesis.speak(u);
+    }
+  });
+
+  // "认识" button
+  wpKnow.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!popupCurrentWord) return;
+    const known = getKnownWords();
+    if (known.has(popupCurrentWord)) {
+      known.delete(popupCurrentWord);
+      wpKnow.classList.remove('known');
+    } else {
+      known.add(popupCurrentWord);
+      wpKnow.classList.add('known');
+    }
+    saveKnownWords(known);
+    hideWordPopup();
+  });
+
+  // "收藏" (star) button
+  wpStar.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!popupCurrentWord) return;
+    let vocab = getVocab();
+    const existIdx = vocab.findIndex(v => v.word === popupCurrentWord);
+    if (existIdx >= 0) {
+      vocab.splice(existIdx, 1);
+      wpStar.classList.remove('starred');
+    } else {
+      vocab.push({
+        word: popupCurrentWord,
+        cefr: popupCurrentCefr,
+        phonetic: popupCurrentPhonetic,
+        context: popupCurrentContext,
+        contextZh: popupCurrentContextZh,
+        timestamp: Date.now()
+      });
+      wpStar.classList.add('starred');
+    }
+    saveVocab(vocab);
+  });
+
+  // Auto-close popup on line change
+  const origUpdateSubtitle = updateSubtitle;
+  updateSubtitle = function(idx) {
+    const prevLine = lastRenderedLine[idx];
+    origUpdateSubtitle(idx);
+    if (lastRenderedLine[idx] !== prevLine && wordPopup.classList.contains('visible')) {
+      hideWordPopup();
+    }
+  };
+
+  // ── Intersection Observer ──
+  let started = false;
+  const observer = new IntersectionObserver((entries) => {
+    if (!started) return;
+    for (const entry of entries) {
+      if (!entry.isIntersecting || entry.intersectionRatio < 0.5) continue;
+      const el = entry.target;
+      if (el.classList.contains('content-screen')) {
+        const idx = parseInt(el.dataset.idx);
+        if (idx !== currentIdx) {
+          playClip(idx);
+        }
+      } else if (el.dataset.feedCard) {
+        // Feed card — pause audio
+        if (currentIdx >= 0 && currentIdx < total) {
+          audios[currentIdx].pause();
+        }
+      } else if (el.id === 'start-screen') {
+        stopAll();
+      }
+    }
+  }, { threshold: 0.5 });
+  screens.forEach(s => observer.observe(s));
+  observer.observe(startScreen);
+  // Also observe feed cards
+  document.querySelectorAll('[data-feed-card]').forEach(c => observer.observe(c));
+
+  // ── Start ──
+  startScreen.addEventListener('click', () => {
+    started = true;
+
+    // iOS audio unlock: touch only first audio in user gesture context
+    // (playing multiple audios simultaneously causes resource contention)
+    audios[0].play().then(() => {
+      audios[0].pause();
+      audios[0].currentTime = 0;
+    }).catch(() => {});
+
+    // Kick off AI feed ranking (async, non-blocking)
+    initFeedRanking();
+
+    setTimeout(() => screens[0].scrollIntoView({ behavior: 'smooth' }), 100);
+    setTimeout(() => playClip(0), 400);
+  });
+
+  // ── Navigate to clip from slide panel ──
+  window.addEventListener('navigateToClip', (e) => {
+    const targetAudio = e.detail.audio;
+    const idx = clips.findIndex(c => getClipKeyByClip(c) === targetAudio || c.audio === targetAudio);
+    if (idx >= 0) {
+      started = true;
+      screens[idx].scrollIntoView({ behavior: 'smooth' });
+      setTimeout(() => playClip(idx), 400);
+    }
+  });
+})();
+</script>
+</body>
+</html>

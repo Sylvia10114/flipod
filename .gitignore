@@ -1,0 +1,38 @@
+# Audio files (too large for git)
+*.mp3
+*.mp3.bad
+
+# Data backups
+data.json.bak*
+
+# Python
+__pycache__/
+*.pyc
+
+# Build / deploy artifacts
+.cf-pages-dist/
+.wrangler/
+
+# Processing intermediates
+output/
+output2/
+raw/
+tmp/
+new_clips/
+
+# Logs
+processing_log.json
+
+# OS
+.DS_Store
+
+# Secrets
+.env
+
+# Claude Code internal
+.claude/settings.json
+.claude/settings.local.json
+.claude/launch.json
+.claude/worktrees/
+.claude/scheduled-tasks/
+.claude/projects/
