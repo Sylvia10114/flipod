@@ -28,6 +28,14 @@ processing_log.json
 
 # Secrets
 .env
+.env.local
+node_modules/
+mobile/node_modules/
+mobile/.expo/
+mobile/ios/
+mobile/android/
+mobile/dist/
+mobile/web-build/
 
 # Claude Code internal
 .claude/settings.json

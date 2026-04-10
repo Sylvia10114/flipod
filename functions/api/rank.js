@@ -39,6 +39,47 @@ const CLIP_META = [
   { id: 21, title: "强到不能公开？这个AI先被拿去找漏洞", tag: "tech", source: "The AI Podcast", duration: 65, difficulty: "medium" },
 ];
 
+function preferredDifficulties(level) {
+  if (level === "A1-A2") return ["easy"];
+  if (level === "B2") return ["medium", "hard", "easy"];
+  if (level === "C1-C2") return ["hard", "medium"];
+  return ["easy", "medium"];
+}
+
+function buildFallbackReason(clip, interests, preferred) {
+  if (interests.includes((clip.tag || "").toLowerCase())) {
+    return `延续你偏好的 ${clip.tag} 方向，先给你一条更容易进入状态的内容。`;
+  }
+  if (preferred.includes(clip.difficulty)) {
+    return `难度更贴近你当前水平，适合顺着听下去。`;
+  }
+  return `换个题材保持新鲜感，同时避免 feed 太单一。`;
+}
+
+function buildFallbackFeed(userProfile, clipMeta) {
+  const interests = (userProfile.interests || []).map(item => String(item).toLowerCase());
+  const listened = new Set(userProfile.listened || []);
+  const skipped = new Set((userProfile.skipped || []).map(item => Number(item)));
+  const preferred = preferredDifficulties(userProfile.level || "B1");
+
+  const scored = clipMeta
+    .filter(clip => !listened.has(clip.id))
+    .map((clip, index) => {
+      let score = 0;
+      if (interests.includes((clip.tag || "").toLowerCase())) score += 4;
+      if (preferred.includes(clip.difficulty)) score += 3 - preferred.indexOf(clip.difficulty);
+      if (skipped.has(clip.id)) score -= 3;
+      score += Math.max(0, 2 - (index % 3));
+      return { clip, score };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  return scored.map(({ clip }) => ({
+    id: clip.id,
+    reason: buildFallbackReason(clip, interests, preferred),
+  }));
+}
+
 function buildPrompt(userProfile, clipMeta) {
   const availableClips = clipMeta
     .filter(c => !(userProfile.listened || []).includes(c.id))
@@ -92,8 +133,8 @@ export async function onRequestPost(context) {
     const apiKey = env.AZURE_API_KEY;
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: "AZURE_API_KEY not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ feed: buildFallbackFeed(userProfile, CLIP_META), clip_count: CLIP_META.length, mode: "fallback" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -128,7 +169,11 @@ export async function onRequestPost(context) {
     } catch {
       // If GPT returned markdown-wrapped JSON, try to extract it
       const jsonMatch = content.match(/\[[\s\S]*\]/);
-      feed = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+      feed = jsonMatch ? JSON.parse(jsonMatch[0]) : buildFallbackFeed(userProfile, CLIP_META);
+    }
+
+    if (!Array.isArray(feed) || feed.length === 0) {
+      feed = buildFallbackFeed(userProfile, CLIP_META);
     }
 
     return new Response(
@@ -138,8 +183,8 @@ export async function onRequestPost(context) {
 
   } catch (err) {
     return new Response(
-      JSON.stringify({ error: err.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ feed: buildFallbackFeed({}, CLIP_META), clip_count: CLIP_META.length, error: err.message, mode: "fallback" }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 }

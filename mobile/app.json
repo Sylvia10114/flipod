@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "Flipod",
+    "slug": "flipod-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.flipod.mobile"
+    },
+    "android": {
+      "package": "com.flipod.mobile"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
