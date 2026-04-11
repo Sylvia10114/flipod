@@ -1,6 +1,6 @@
 import { Audio, type AVPlaybackStatus } from 'expo-av';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { findLineAtTime, resolveClipAudioUrl } from '../clip-utils';
+import { findLineAtTime, findNextSentenceStart, findPrevSentenceStart, resolveClipAudioUrl } from '../clip-utils';
 import type { Clip } from '../types';
 
 type PlayerState = {
@@ -11,6 +11,7 @@ type PlayerState = {
   durationMillis: number;
   activeLineIndex: number;
   playbackRate: number;
+  errorMessage: string | null;
 };
 
 const initialState: PlayerState = {
@@ -21,17 +22,34 @@ const initialState: PlayerState = {
   durationMillis: 0,
   activeLineIndex: 0,
   playbackRate: 1,
+  errorMessage: null,
 };
 
-export function useFeedPlayer(clips: Clip[]) {
+export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
   const soundRef = useRef<Audio.Sound | null>(null);
   const clipsRef = useRef<Clip[]>(clips);
   const activeIndexRef = useRef(0);
-  const [state, setState] = useState<PlayerState>(initialState);
+  const playbackRateRef = useRef(initialPlaybackRate);
+  const [state, setState] = useState<PlayerState>({
+    ...initialState,
+    playbackRate: initialPlaybackRate,
+  });
 
   useEffect(() => {
     clipsRef.current = clips;
   }, [clips]);
+
+  useEffect(() => {
+    playbackRateRef.current = initialPlaybackRate;
+    setState(prev => {
+      if (prev.playbackRate === initialPlaybackRate) return prev;
+      return { ...prev, playbackRate: initialPlaybackRate };
+    });
+  }, [initialPlaybackRate]);
+
+  useEffect(() => {
+    playbackRateRef.current = state.playbackRate;
+  }, [state.playbackRate]);
 
   const unloadCurrent = useCallback(async () => {
     if (!soundRef.current) return;
@@ -49,6 +67,7 @@ export function useFeedPlayer(clips: Clip[]) {
         ...prev,
         isLoading: false,
         isPlaying: false,
+        errorMessage: status.error ? '音频暂时不可用' : prev.errorMessage,
       }));
       return;
     }
@@ -64,6 +83,7 @@ export function useFeedPlayer(clips: Clip[]) {
       positionMillis: status.positionMillis,
       durationMillis: status.durationMillis || prev.durationMillis,
       activeLineIndex,
+      errorMessage: null,
     }));
   }, []);
 
@@ -95,6 +115,7 @@ export function useFeedPlayer(clips: Clip[]) {
         positionMillis: 0,
         durationMillis: 0,
         activeLineIndex: 0,
+        errorMessage: '当前片段没有可播放音频',
       }));
       return;
     }
@@ -106,6 +127,7 @@ export function useFeedPlayer(clips: Clip[]) {
       positionMillis: 0,
       durationMillis: 0,
       activeLineIndex: 0,
+      errorMessage: null,
     }));
 
     await unloadCurrent();
@@ -114,14 +136,37 @@ export function useFeedPlayer(clips: Clip[]) {
     soundRef.current = sound;
     sound.setOnPlaybackStatusUpdate(status => handleStatus(clipIndex, status));
 
-    await sound.loadAsync(
-      { uri: audioUrl },
-      {
-        shouldPlay,
-        progressUpdateIntervalMillis: 250,
-        positionMillis: 0,
+    try {
+      await sound.loadAsync(
+        { uri: audioUrl },
+        {
+          shouldPlay,
+          rate: playbackRateRef.current,
+          shouldCorrectPitch: true,
+          progressUpdateIntervalMillis: 250,
+          positionMillis: 0,
+        }
+      );
+    } catch {
+      if (soundRef.current === sound) {
+        sound.setOnPlaybackStatusUpdate(null);
+        soundRef.current = null;
       }
-    );
+      try {
+        await sound.unloadAsync();
+      } catch {
+      }
+      setState(prev => ({
+        ...prev,
+        activeIndex: clipIndex,
+        isPlaying: false,
+        isLoading: false,
+        positionMillis: 0,
+        durationMillis: 0,
+        activeLineIndex: 0,
+        errorMessage: '音频加载失败，请稍后重试',
+      }));
+    }
   }, [handleStatus, unloadCurrent]);
 
   const playIndex = useCallback(async (clipIndex: number) => {
@@ -181,6 +226,39 @@ export function useFeedPlayer(clips: Clip[]) {
     }
   }, []);
 
+  const seekToSentence = useCallback(async (lineIndex: number) => {
+    const clip = clipsRef.current[state.activeIndex];
+    const line = clip?.lines?.[lineIndex];
+    if (!clip || !line || !soundRef.current) return;
+
+    try {
+      await soundRef.current.setPositionAsync(Math.max(0, Math.floor(line.start * 1000)));
+    } catch {
+    }
+  }, [state.activeIndex]);
+
+  const seekPrevSentence = useCallback(async () => {
+    const clip = clipsRef.current[state.activeIndex];
+    if (!clip || !soundRef.current) return;
+
+    const target = findPrevSentenceStart(clip, state.positionMillis / 1000);
+    try {
+      await soundRef.current.setPositionAsync(Math.max(0, Math.floor(target * 1000)));
+    } catch {
+    }
+  }, [state.activeIndex, state.positionMillis]);
+
+  const seekNextSentence = useCallback(async () => {
+    const clip = clipsRef.current[state.activeIndex];
+    if (!clip || !soundRef.current) return;
+
+    const target = findNextSentenceStart(clip, state.positionMillis / 1000);
+    try {
+      await soundRef.current.setPositionAsync(Math.max(0, Math.floor(target * 1000)));
+    } catch {
+    }
+  }, [state.activeIndex, state.positionMillis]);
+
   useEffect(() => {
     if (!clips.length) return;
     void loadClip(0, false);
@@ -199,6 +277,9 @@ export function useFeedPlayer(clips: Clip[]) {
     togglePlay,
     seekToRatio,
     seekBy,
+    seekToSentence,
+    seekPrevSentence,
+    seekNextSentence,
     setRate,
   };
 }

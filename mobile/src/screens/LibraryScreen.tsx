@@ -6,15 +6,15 @@ import type { Bookmark } from '../types';
 type Props = {
   bookmarks: Bookmark[];
   onRemove: (clipKey: string) => void;
-  onBack: () => void;
+  onOpenMenu: () => void;
 };
 
-export function LibraryScreen({ bookmarks, onRemove, onBack }: Props) {
+export function LibraryScreen({ bookmarks, onRemove, onOpenMenu }: Props) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Pressable onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backButtonText}>返回 Feed</Text>
+        <Pressable onPress={onOpenMenu} style={styles.backButton}>
+          <Text style={styles.backButtonText}>菜单</Text>
         </Pressable>
         <Text style={styles.title}>收藏夹</Text>
         <Text style={styles.count}>{bookmarks.length}</Text>

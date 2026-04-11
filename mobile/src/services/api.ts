@@ -2,6 +2,8 @@ import type { Bookmark, Profile, RankResponse, SessionResponse, VocabEntry } fro
 
 const runtimeEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
 export const API_BASE_URL = runtimeEnv?.EXPO_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8788';
+export const CONTENT_BASE_URL =
+  runtimeEnv?.EXPO_PUBLIC_CONTENT_BASE_URL || 'https://listendemo-1407168198.cos.ap-beijing.myqcloud.com';
 
 async function request<T>(path: string, init: RequestInit = {}, deviceId?: string): Promise<T> {
   const headers = new Headers(init.headers || {});

@@ -21,6 +21,8 @@ type Props = {
   currentTime: number;
   isActive: boolean;
   showZh: boolean;
+  masked?: boolean;
+  practiced?: boolean;
   onWordTap: (word: ClipLineWord, line: ClipLine) => void;
 };
 
@@ -40,7 +42,15 @@ function restorePunctuation(words: ClipLineWord[], fullText: string) {
   });
 }
 
-export function WordLine({ line, currentTime, isActive, showZh, onWordTap }: Props) {
+export function WordLine({
+  line,
+  currentTime,
+  isActive,
+  showZh,
+  masked = false,
+  practiced = false,
+  onWordTap,
+}: Props) {
   if (!line.words || line.words.length === 0) {
     return (
       <View style={styles.container}>
@@ -57,13 +67,17 @@ export function WordLine({ line, currentTime, isActive, showZh, onWordTap }: Pro
       <View style={styles.wordRow}>
         {enriched.map((w, i) => {
           const active = isActive && currentTime >= w.start && currentTime <= w.end;
+          const spoken = isActive && currentTime > w.end;
+          const dimmed = masked && !active && !spoken;
           return (
             <Pressable key={`${w.word}-${i}`} onPress={() => onWordTap(w, line)}>
               <Text
                 style={[
                   styles.word,
-                  { color: cefrColor(w.cefr) },
+                  { color: dimmed ? 'rgba(255,255,255,0.20)' : cefrColor(w.cefr) },
+                  spoken && styles.wordSpoken,
                   active && styles.wordActive,
+                  practiced && styles.wordPracticed,
                 ]}
               >
                 {w.display || w.word}{' '}
@@ -93,9 +107,18 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   wordActive: {
-    backgroundColor: 'rgba(139,156,247,0.36)',
+    color: '#8B9CF7',
+    backgroundColor: 'rgba(139,156,247,0.18)',
     borderRadius: 4,
     overflow: 'hidden',
+  },
+  wordSpoken: {
+    color: 'rgba(255,255,255,0.93)',
+  },
+  wordPracticed: {
+    textDecorationLine: 'underline',
+    textDecorationStyle: 'dotted',
+    textDecorationColor: '#8B9CF7',
   },
   plainEn: {
     color: '#FFFFFF',

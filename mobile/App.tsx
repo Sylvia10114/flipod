@@ -1,14 +1,40 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Audio } from 'expo-av';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { toBookmark } from './src/clip-utils';
+import { buildClipKey, findClipIndexByKey, resolveDataUrl, toBookmark } from './src/clip-utils';
+import { AppToast } from './src/components/AppToast';
+import { PracticeSessionModal } from './src/components/PracticeSessionModal';
+import { type MenuScreen, SlideMenu } from './src/components/SlideMenu';
 import { demoClips } from './src/demo-clips';
 import { FeedScreen } from './src/screens/FeedScreen';
 import { LibraryScreen } from './src/screens/LibraryScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
-import { API_BASE_URL, api } from './src/services/api';
-import { getOrCreateDeviceId, loadProfile, saveProfile } from './src/storage';
-import type { Bookmark, Clip, Profile, VocabEntry } from './src/types';
+import { PracticeScreen } from './src/screens/PracticeScreen';
+import { VocabScreen } from './src/screens/VocabScreen';
+import { api } from './src/services/api';
+import {
+  DEFAULT_SETTINGS,
+  getOrCreateDeviceId,
+  loadBookmarks,
+  loadLikeEvents,
+  loadLikedClips,
+  loadKnownWords,
+  loadPracticeData,
+  loadProfile,
+  loadSettings,
+  loadVocab,
+  type LikeEvent,
+  saveBookmarks,
+  saveLikeEvents,
+  saveLikedClips,
+  saveKnownWords,
+  savePracticeData,
+  saveProfile,
+  saveSettings,
+  saveVocab,
+} from './src/storage';
+import type { AppSettings, Bookmark, Clip, PracticeMap, Profile, VocabEntry } from './src/types';
 
 const defaultProfile: Profile = {
   level: null,
@@ -58,48 +84,173 @@ async function maybeRankWithApi(clips: Clip[], profile: Profile) {
       ranked.push({ ...clip, _aiReason: byId.get(index) || clip._aiReason });
     });
 
-    return ranked.length > 0 ? ranked : fallback;
+    return {
+      clips: ranked.length > 0 ? ranked : fallback,
+      source: 'remote' as const,
+    };
   } catch {
-    return fallback;
+    return {
+      clips: fallback,
+      source: 'fallback' as const,
+    };
   }
+}
+
+function mergeBookmarks(local: Bookmark[], remote: Bookmark[]) {
+  const byKey = new Map<string, Bookmark>();
+  [...remote, ...local].forEach(item => {
+    if (!item?.clipKey) return;
+    byKey.set(item.clipKey, { ...byKey.get(item.clipKey), ...item });
+  });
+  return Array.from(byKey.values());
+}
+
+function mergeVocab(local: VocabEntry[], remote: VocabEntry[]) {
+  const byWord = new Map<string, VocabEntry>();
+  [...remote, ...local].forEach(item => {
+    const key = item?.word?.toLowerCase();
+    if (!key) return;
+    byWord.set(key, { ...byWord.get(key), ...item, word: key });
+  });
+  return Array.from(byWord.values());
+}
+
+function deriveRecoTag(events: LikeEvent[]) {
+  if (events.length < 5) return null;
+  const recent = events.slice(-10);
+  const counts = new Map<string, number>();
+
+  for (const event of recent) {
+    const tag = event.tag?.toLowerCase();
+    if (!tag) continue;
+    counts.set(tag, (counts.get(tag) || 0) + 1);
+  }
+
+  let bestTag: string | null = null;
+  let bestCount = 0;
+  for (const [tag, count] of counts.entries()) {
+    if (count > bestCount) {
+      bestTag = tag;
+      bestCount = count;
+    }
+  }
+
+  return bestTag && bestCount / recent.length > 0.6 ? bestTag : null;
 }
 
 export default function App() {
   const [booting, setBooting] = useState(true);
-  const [deviceId, setDeviceId] = useState<string>('');
+  const [deviceId, setDeviceId] = useState('');
   const [profile, setProfile] = useState<Profile>(defaultProfile);
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [practiceData, setPracticeData] = useState<PracticeMap>({});
   const [clipsData, setClipsData] = useState<Clip[]>(demoClips);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [vocabList, setVocabList] = useState<VocabEntry[]>([]);
+  const [likedClipKeys, setLikedClipKeys] = useState<string[]>([]);
+  const [likeEvents, setLikeEvents] = useState<LikeEvent[]>([]);
   const [knownWords, setKnownWords] = useState<string[]>([]);
   const [clipsPlayed, setClipsPlayed] = useState(0);
-  const [activeTab, setActiveTab] = useState<'feed' | 'library'>('feed');
+  const [activeScreen, setActiveScreen] = useState<MenuScreen>('feed');
+  const [menuOpen, setMenuOpen] = useState(false);
   const [rankedClips, setRankedClips] = useState<Clip[]>([]);
+  const [feedState, setFeedState] = useState<'loading' | 'normal' | 'rerank' | 'fallback'>('loading');
+  const [practiceClipKey, setPracticeClipKey] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastVisible, setToastVisible] = useState(false);
+  const playedKeysRef = useRef<Set<string>>(new Set());
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastRerankAtRef = useRef(0);
+
+  const showToast = useCallback((message: string) => {
+    setToastMessage(message);
+    setToastVisible(true);
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = setTimeout(() => {
+      setToastVisible(false);
+    }, 2600);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    void Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+      shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     async function bootstrap() {
       try {
-        const nextDeviceId = await getOrCreateDeviceId();
-        const localProfile = (await loadProfile()) || defaultProfile;
+        const [
+          nextDeviceId,
+          localProfile,
+          localSettings,
+          localPractice,
+          localKnownWords,
+          localBookmarks,
+          localVocab,
+          localLikedClips,
+          localLikeEvents,
+        ] = await Promise.all([
+          getOrCreateDeviceId(),
+          loadProfile(),
+          loadSettings(),
+          loadPracticeData(),
+          loadKnownWords(),
+          loadBookmarks(),
+          loadVocab(),
+          loadLikedClips(),
+          loadLikeEvents(),
+        ]);
 
         if (cancelled) return;
         setDeviceId(nextDeviceId);
+        setSettings(localSettings);
+        setPracticeData(localPractice);
+        setKnownWords(localKnownWords);
+        setBookmarks(localBookmarks);
+        setVocabList(localVocab);
+        setLikedClipKeys(localLikedClips);
+        setLikeEvents(localLikeEvents);
 
         try {
           const session = await api.createSession(nextDeviceId);
           const remoteProfile = session.profile;
-          const mergedProfile = remoteProfile?.onboardingDone ? remoteProfile : localProfile;
-          const remoteBookmarks = await api.listBookmarks(nextDeviceId);
+          const mergedProfile = remoteProfile?.onboardingDone ? remoteProfile : (localProfile || defaultProfile);
+          const [remoteBookmarks, remoteVocab] = await Promise.all([
+            api.listBookmarks(nextDeviceId),
+            api.listVocab(nextDeviceId),
+          ]);
+
+          const mergedBookmarks = mergeBookmarks(localBookmarks, remoteBookmarks.bookmarks || []);
+          const mergedVocab = mergeVocab(localVocab, remoteVocab.vocab || []);
+
           if (!cancelled) {
             setProfile(mergedProfile);
-            setBookmarks(remoteBookmarks.bookmarks || []);
+            setBookmarks(mergedBookmarks);
+            setVocabList(mergedVocab);
           }
           await saveProfile(mergedProfile);
+          await saveBookmarks(mergedBookmarks);
+          await saveVocab(mergedVocab);
         } catch {
           if (!cancelled) {
-            setProfile(localProfile);
+            setProfile(localProfile || defaultProfile);
           }
         }
       } finally {
@@ -109,7 +260,7 @@ export default function App() {
       }
     }
 
-    bootstrap();
+    void bootstrap();
     return () => {
       cancelled = true;
     };
@@ -120,7 +271,7 @@ export default function App() {
 
     async function loadClips() {
       try {
-        const response = await fetch(`${API_BASE_URL}/data.json`);
+        const response = await fetch(resolveDataUrl());
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
@@ -135,34 +286,72 @@ export default function App() {
       }
     }
 
-    loadClips();
+    void loadClips();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const clips = useMemo(() => {
-    return rankClips(clipsData, profile.interests);
-  }, [clipsData, profile.interests]);
-
+  const clips = useMemo(() => rankClips(clipsData, profile.interests), [clipsData, profile.interests]);
+  const currentClips = rankedClips.length > 0 ? rankedClips : clips;
   const bookmarkedKeys = useMemo(() => bookmarks.map(item => item.clipKey), [bookmarks]);
+  const likedKeys = useMemo(() => new Set(likedClipKeys), [likedClipKeys]);
   const vocabWords = useMemo(() => vocabList.map(item => item.word), [vocabList]);
+  const recoTag = useMemo(() => deriveRecoTag(likeEvents), [likeEvents]);
+  const practiceCount = useMemo(() => {
+    return bookmarks.filter(item => !practiceData[item.clipKey]?.done).length || bookmarks.length;
+  }, [bookmarks, practiceData]);
+
+  const practiceClipIndex = practiceClipKey ? findClipIndexByKey(currentClips, practiceClipKey) : -1;
+  const practiceClip = practiceClipIndex >= 0 ? currentClips[practiceClipIndex] : null;
 
   useEffect(() => {
     let cancelled = false;
 
     async function refreshRank() {
+      setFeedState('loading');
       const next = await maybeRankWithApi(clipsData, profile);
       if (!cancelled) {
-        setRankedClips(next);
+        setRankedClips(next.clips);
+        setFeedState(next.source === 'remote' ? 'normal' : 'fallback');
+        lastRerankAtRef.current = 0;
       }
     }
 
-    refreshRank();
+    void refreshRank();
     return () => {
       cancelled = true;
     };
   }, [clipsData, profile]);
+
+  useEffect(() => {
+    if (clipsPlayed === 0 || clipsPlayed - lastRerankAtRef.current < 5) return;
+    let cancelled = false;
+
+    async function rerankFeed() {
+      const next = await maybeRankWithApi(clipsData, profile);
+      if (cancelled) return;
+      setRankedClips(next.clips);
+      setFeedState(next.source === 'remote' ? 'rerank' : 'fallback');
+      lastRerankAtRef.current = clipsPlayed;
+
+      if (next.source === 'remote') {
+        setTimeout(() => {
+          setFeedState(prev => (prev === 'rerank' ? 'normal' : prev));
+        }, 3000);
+      }
+    }
+
+    void rerankFeed();
+    return () => {
+      cancelled = true;
+    };
+  }, [clipsData, clipsPlayed, profile]);
+
+  const persistSettings = useCallback(async (nextSettings: AppSettings) => {
+    setSettings(nextSettings);
+    await saveSettings(nextSettings);
+  }, []);
 
   const handleProfileSubmit = async (nextProfile: Profile) => {
     setProfile(nextProfile);
@@ -180,8 +369,32 @@ export default function App() {
     }
   };
 
+  const handlePromoteInterest = async (tag: string) => {
+    const normalized = tag.trim();
+    if (!normalized) return;
+
+    const nextProfile = {
+      ...profile,
+      interests: profile.interests.includes(normalized)
+        ? profile.interests
+        : [...profile.interests, normalized].slice(-3),
+    };
+    setProfile(nextProfile);
+    await saveProfile(nextProfile);
+
+    if (deviceId) {
+      try {
+        await api.saveProfile(deviceId, nextProfile);
+      } catch {
+      }
+    }
+  };
+
   const handleResetProfile = async () => {
     setProfile(defaultProfile);
+    setActiveScreen('feed');
+    setMenuOpen(false);
+    setPracticeClipKey(null);
     await saveProfile(defaultProfile);
     if (deviceId) {
       try {
@@ -196,109 +409,246 @@ export default function App() {
     const exists = bookmarkedKeys.includes(nextBookmark.clipKey);
 
     if (exists) {
-      setBookmarks(prev => prev.filter(item => item.clipKey !== nextBookmark.clipKey));
+      const nextBookmarks = bookmarks.filter(item => item.clipKey !== nextBookmark.clipKey);
+      setBookmarks(nextBookmarks);
+      await saveBookmarks(nextBookmarks);
       if (deviceId) {
         try {
           await api.removeBookmark(deviceId, nextBookmark.clipKey);
         } catch {
-          setBookmarks(prev => {
-            if (prev.some(item => item.clipKey === nextBookmark.clipKey)) return prev;
-            return [nextBookmark, ...prev];
-          });
         }
       }
       return;
     }
 
-    setBookmarks(prev => [nextBookmark, ...prev.filter(item => item.clipKey !== nextBookmark.clipKey)]);
+    const nextBookmarks = [nextBookmark, ...bookmarks.filter(item => item.clipKey !== nextBookmark.clipKey)];
+    setBookmarks(nextBookmarks);
+    await saveBookmarks(nextBookmarks);
+    if (!settings.bookmarkPracticeHintSeen) {
+      const nextSettings = { ...settings, bookmarkPracticeHintSeen: true };
+      void persistSettings(nextSettings);
+      showToast('已收藏 · 可以在侧边菜单「听力练习」里精听这段');
+    }
+
     if (deviceId) {
       try {
         await api.saveBookmark(deviceId, nextBookmark);
       } catch {
-        setBookmarks(prev => prev.filter(item => item.clipKey !== nextBookmark.clipKey));
       }
     }
   };
 
   const handleSaveVocab = async (entry: VocabEntry) => {
-    setVocabList(prev => {
-      if (prev.some(item => item.word === entry.word)) return prev;
-      return [entry, ...prev];
-    });
+    const normalizedEntry = { ...entry, word: entry.word.toLowerCase() };
+    const nextVocab = vocabList.some(item => item.word === normalizedEntry.word)
+      ? vocabList.map(item => item.word === normalizedEntry.word ? { ...item, ...normalizedEntry } : item)
+      : [normalizedEntry, ...vocabList];
+    setVocabList(nextVocab);
+    await saveVocab(nextVocab);
+
     if (deviceId) {
       try {
-        await api.saveVocab(deviceId, entry);
+        await api.saveVocab(deviceId, normalizedEntry);
       } catch {
       }
     }
   };
 
-  const handleMarkKnown = (word: string) => {
+  const handleMarkKnown = async (word: string) => {
+    const normalized = word.toLowerCase();
     setKnownWords(prev => {
-      if (prev.includes(word)) return prev;
-      return [...prev, word];
+      if (prev.includes(normalized)) return prev;
+      const next = [...prev, normalized];
+      void saveKnownWords(next);
+      return next;
     });
   };
 
-  const handleAdjustInterests = async (_interests: string[]) => {
-    const reset = { ...profile, onboardingDone: false };
-    setProfile(reset);
-    await saveProfile(reset);
-  };
-
   const handleRemoveBookmark = async (clipKey: string) => {
-    const target = bookmarks.find(item => item.clipKey === clipKey);
-    setBookmarks(prev => prev.filter(item => item.clipKey !== clipKey));
+    const nextBookmarks = bookmarks.filter(item => item.clipKey !== clipKey);
+    setBookmarks(nextBookmarks);
+    await saveBookmarks(nextBookmarks);
 
     if (deviceId) {
       try {
         await api.removeBookmark(deviceId, clipKey);
       } catch {
-        if (target) {
-          setBookmarks(prev => [target, ...prev]);
-        }
       }
     }
   };
 
+  const handleToggleLike = async (clip: Clip, index: number) => {
+    const clipKey = buildClipKey(clip, index);
+    const isLiked = likedKeys.has(clipKey);
+
+    if (isLiked) {
+      const nextLikedClips = likedClipKeys.filter(item => item !== clipKey);
+      setLikedClipKeys(nextLikedClips);
+      await saveLikedClips(nextLikedClips);
+      return;
+    }
+
+    const nextLikedClips = [...likedClipKeys, clipKey];
+    const nextLikeEvents = [...likeEvents, { tag: clip.tag || '', timestamp: Date.now() }];
+    setLikedClipKeys(nextLikedClips);
+    setLikeEvents(nextLikeEvents);
+    await Promise.all([
+      saveLikedClips(nextLikedClips),
+      saveLikeEvents(nextLikeEvents),
+    ]);
+  };
+
+  const handleClipPlayed = (clipKey: string) => {
+    if (playedKeysRef.current.has(clipKey)) return;
+    playedKeysRef.current.add(clipKey);
+    setClipsPlayed(prev => prev + 1);
+  };
+
+  const handlePlaybackRateChange = (rate: number) => {
+    const nextSettings = { ...settings, playbackRate: rate };
+    void persistSettings(nextSettings);
+  };
+
+  const handleToggleHand = () => {
+    const nextSettings = {
+      ...settings,
+      dominantHand: settings.dominantHand === 'left' ? 'right' : 'left',
+    };
+    void persistSettings(nextSettings);
+  };
+
+  const handleDismissPracticeIntro = () => {
+    if (settings.practiceIntroSeen) return;
+    const nextSettings = { ...settings, practiceIntroSeen: true };
+    void persistSettings(nextSettings);
+  };
+
+  const handlePracticeComplete = (clipKey: string, record: PracticeMap[string]) => {
+    setPracticeData(prev => {
+      const next = { ...prev, [clipKey]: record };
+      void savePracticeData(next);
+      return next;
+    });
+  };
+
+  const handleStartPractice = (clipIndex: number) => {
+    const clip = currentClips[clipIndex];
+    if (!clip) return;
+    setPracticeClipKey(buildClipKey(clip, clipIndex));
+  };
+
+  const handleClosePractice = () => {
+    setPracticeClipKey(null);
+  };
+
+  const handleReturnFeed = () => {
+    setPracticeClipKey(null);
+    setActiveScreen('feed');
+  };
+
+  let content: React.ReactNode;
+
+  if (booting) {
+    content = (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#8B9CF7" />
+        <Text style={styles.loadingText}>正在初始化 Flipod RN...</Text>
+      </View>
+    );
+  } else if (!profile.onboardingDone) {
+    content = <OnboardingScreen initialProfile={profile} onSubmit={handleProfileSubmit} />;
+  } else if (activeScreen === 'library') {
+    content = (
+      <LibraryScreen
+        bookmarks={bookmarks}
+        onRemove={handleRemoveBookmark}
+        onOpenMenu={() => setMenuOpen(true)}
+      />
+    );
+  } else if (activeScreen === 'practice') {
+    content = (
+      <PracticeScreen
+        bookmarks={bookmarks}
+        clips={currentClips}
+        practiceData={practiceData}
+        showIntro={!settings.practiceIntroSeen}
+        onDismissIntro={handleDismissPracticeIntro}
+        onOpenMenu={() => setMenuOpen(true)}
+        onStartPractice={handleStartPractice}
+      />
+    );
+  } else if (activeScreen === 'vocab') {
+    content = <VocabScreen vocabList={vocabList} onOpenMenu={() => setMenuOpen(true)} />;
+  } else {
+    content = (
+      <FeedScreen
+        clips={currentClips}
+        profile={profile}
+        dominantHand={settings.dominantHand}
+        playbackRate={settings.playbackRate}
+        feedState={feedState}
+        bookmarkedKeys={bookmarkedKeys}
+        likedKeys={likedClipKeys}
+        recoTag={recoTag}
+        vocabWords={vocabWords}
+        knownWords={knownWords}
+        clipsPlayed={clipsPlayed}
+        onToggleLike={handleToggleLike}
+        onToggleBookmark={handleToggleBookmark}
+        onSaveVocab={handleSaveVocab}
+        onMarkKnown={handleMarkKnown}
+        onOpenMenu={() => setMenuOpen(true)}
+        onResetProfile={handleResetProfile}
+        onPromoteInterest={handlePromoteInterest}
+        onPlaybackRateChange={handlePlaybackRateChange}
+        onClipPlayed={handleClipPlayed}
+      />
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <View style={styles.root}>
-        {booting ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" color="#8B9CF7" />
-            <Text style={styles.loadingText}>正在初始化 Flipod RN...</Text>
-          </View>
-        ) : profile.onboardingDone ? (
-          activeTab === 'feed' ? (
-            <FeedScreen
-              clips={rankedClips.length > 0 ? rankedClips : clips}
+        {content}
+
+        {profile.onboardingDone && !booting ? (
+          <>
+            <SlideMenu
+              visible={menuOpen}
               profile={profile}
-              bookmarkedKeys={bookmarkedKeys}
+              dominantHand={settings.dominantHand}
+              activeScreen={activeScreen}
+              bookmarksCount={bookmarks.length}
+              practiceCount={practiceCount}
+              vocabCount={vocabList.length}
+              clipsPlayed={clipsPlayed}
+              onClose={() => setMenuOpen(false)}
+              onNavigate={screen => {
+                setActiveScreen(screen);
+                setMenuOpen(false);
+              }}
+              onToggleHand={handleToggleHand}
+              onResetOnboarding={() => {
+                setMenuOpen(false);
+                void handleResetProfile();
+              }}
+            />
+
+            <PracticeSessionModal
+              visible={Boolean(practiceClipKey && practiceClip)}
+              clip={practiceClip}
+              clipIndex={practiceClipIndex}
               vocabWords={vocabWords}
               knownWords={knownWords}
-              clipsPlayed={clipsPlayed}
-              onToggleBookmark={handleToggleBookmark}
               onSaveVocab={handleSaveVocab}
               onMarkKnown={handleMarkKnown}
-              onResetProfile={handleResetProfile}
-              onAdjustInterests={handleAdjustInterests}
+              onComplete={handlePracticeComplete}
+              onDismiss={handleClosePractice}
+              onReturnFeed={handleReturnFeed}
             />
-          ) : (
-            <LibraryScreen
-              bookmarks={bookmarks}
-              onRemove={handleRemoveBookmark}
-              onBack={() => setActiveTab('feed')}
-            />
-          )
-        ) : (
-          <OnboardingScreen initialProfile={profile} onSubmit={handleProfileSubmit} />
-        )}
-        {profile.onboardingDone && !booting ? (
-          <View style={styles.tabBar}>
-            <Text onPress={() => setActiveTab('feed')} style={[styles.tabItem, activeTab === 'feed' && styles.tabItemActive]}>Feed</Text>
-            <Text onPress={() => setActiveTab('library')} style={[styles.tabItem, activeTab === 'library' && styles.tabItemActive]}>Saved</Text>
-          </View>
+
+            <AppToast message={toastMessage} visible={toastVisible} />
+          </>
         ) : null}
       </View>
     </SafeAreaProvider>
@@ -320,30 +670,5 @@ const styles = StyleSheet.create({
     marginTop: 16,
     color: 'rgba(255,255,255,0.72)',
     fontSize: 15,
-  },
-  tabBar: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    bottom: 28,
-    borderRadius: 999,
-    padding: 6,
-    backgroundColor: 'rgba(12,12,18,0.92)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    flexDirection: 'row',
-  },
-  tabItem: {
-    flex: 1,
-    paddingVertical: 12,
-    textAlign: 'center',
-    color: 'rgba(255,255,255,0.52)',
-    fontWeight: '600',
-  },
-  tabItemActive: {
-    color: '#09090B',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 999,
-    overflow: 'hidden',
   },
 });

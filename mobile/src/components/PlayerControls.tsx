@@ -10,11 +10,16 @@ type Props = {
   positionMillis: number;
   durationMillis: number;
   playbackRate: number;
+  sentenceIndicator: string;
+  clipIndicator: string;
   showZh: boolean;
+  masked: boolean;
   onTogglePlay: () => void;
-  onSeekBy: (deltaMs: number) => void;
+  onSeekPrevSentence: () => void;
+  onSeekNextSentence: () => void;
   onSetRate: (rate: number) => void;
   onToggleZh: () => void;
+  onToggleMask: () => void;
 };
 
 export function PlayerControls({
@@ -23,11 +28,16 @@ export function PlayerControls({
   positionMillis,
   durationMillis,
   playbackRate,
+  sentenceIndicator,
+  clipIndicator,
   showZh,
+  masked,
   onTogglePlay,
-  onSeekBy,
+  onSeekPrevSentence,
+  onSeekNextSentence,
   onSetRate,
   onToggleZh,
+  onToggleMask,
 }: Props) {
   const nextRate = () => {
     const idx = SPEED_OPTIONS.indexOf(playbackRate as typeof SPEED_OPTIONS[number]);
@@ -43,28 +53,36 @@ export function PlayerControls({
       </View>
 
       <View style={styles.mainRow}>
-        <Pressable onPress={() => onSeekBy(-5000)} style={styles.smallButton}>
-          <Text style={styles.smallButtonText}>-5s</Text>
+        <Pressable onPress={onSeekPrevSentence} style={styles.smallButton}>
+          <Text style={styles.smallButtonText}>上句</Text>
         </Pressable>
 
         <Pressable onPress={onTogglePlay} style={[styles.playButton, isPlaying && styles.playButtonActive]}>
-          <Text style={styles.playButtonText}>
-            {isLoading ? '...' : isPlaying ? '暂停' : '播放'}
-          </Text>
+          <Text style={styles.playButtonText}>{isLoading ? '...' : isPlaying ? '暂停' : '播放'}</Text>
         </Pressable>
 
-        <Pressable onPress={() => onSeekBy(5000)} style={styles.smallButton}>
-          <Text style={styles.smallButtonText}>+5s</Text>
+        <Pressable onPress={onSeekNextSentence} style={styles.smallButton}>
+          <Text style={styles.smallButtonText}>下句</Text>
         </Pressable>
       </View>
 
-      <View style={styles.extraRow}>
-        <Pressable onPress={nextRate} style={styles.chipButton}>
-          <Text style={styles.chipText}>{playbackRate}x</Text>
-        </Pressable>
-        <Pressable onPress={onToggleZh} style={[styles.chipButton, !showZh && styles.chipButtonDim]}>
-          <Text style={styles.chipText}>{showZh ? '中文' : '遮罩'}</Text>
-        </Pressable>
+      <View style={styles.bottomRow}>
+        <View style={styles.indicatorGroup}>
+          <Text style={styles.sentenceIndicator}>{sentenceIndicator}</Text>
+          <Text style={styles.clipIndicator}>{clipIndicator}</Text>
+        </View>
+
+        <View style={styles.extraRow}>
+          <Pressable onPress={onToggleMask} style={[styles.chipButton, masked && styles.chipButtonActive]}>
+            <Text style={[styles.chipText, masked && styles.chipTextActive]}>{masked ? '遮罩开' : '遮罩'}</Text>
+          </Pressable>
+          <Pressable onPress={onToggleZh} style={[styles.chipButton, showZh && styles.chipButtonActive]}>
+            <Text style={[styles.chipText, showZh && styles.chipTextActive]}>{showZh ? '中文开' : '中文'}</Text>
+          </Pressable>
+          <Pressable onPress={nextRate} style={[styles.chipButton, playbackRate !== 1 && styles.chipButtonActive]}>
+            <Text style={[styles.chipText, playbackRate !== 1 && styles.chipTextActive]}>{playbackRate}x</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -72,7 +90,7 @@ export function PlayerControls({
 
 const styles = StyleSheet.create({
   container: {
-    gap: 10,
+    gap: 12,
   },
   timeRow: {
     flexDirection: 'row',
@@ -90,16 +108,17 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   smallButton: {
-    width: 52,
+    minWidth: 68,
     height: 52,
     borderRadius: 26,
     backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 12,
   },
   smallButtonText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
   playButton: {
@@ -118,9 +137,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  indicatorGroup: {
+    gap: 4,
+  },
+  sentenceIndicator: {
+    color: 'rgba(255,255,255,0.62)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  clipIndicator: {
+    color: 'rgba(255,255,255,0.32)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   extraRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
     gap: 10,
   },
   chipButton: {
@@ -129,12 +166,17 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  chipButtonDim: {
-    opacity: 0.5,
+  chipButtonActive: {
+    backgroundColor: 'rgba(139,156,247,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,156,247,0.28)',
   },
   chipText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',
+  },
+  chipTextActive: {
+    color: '#DDE3FF',
   },
 });

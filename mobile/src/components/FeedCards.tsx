@@ -10,7 +10,7 @@ type ReviewCardProps = {
 export function ReviewCard({ reviewWords, onDismiss }: ReviewCardProps) {
   return (
     <View style={styles.card}>
-      <Text style={styles.kicker}>复习时间</Text>
+      <Text style={styles.kicker}>QUICK REVIEW</Text>
       <Text style={styles.cardTitle}>快速回顾一下这些词</Text>
       <View style={styles.wordList}>
         {reviewWords.slice(0, 5).map(item => (
@@ -37,12 +37,12 @@ type ProgressCardProps = {
 export function ProgressCard({ clipsPlayed, wordsLearned, minutesListened, onContinue }: ProgressCardProps) {
   return (
     <View style={styles.card}>
-      <Text style={styles.kicker}>本次进度</Text>
+      <Text style={styles.kicker}>TODAY'S PROGRESS</Text>
       <Text style={styles.cardTitle}>你正在稳步前进</Text>
       <View style={styles.statsRow}>
         <View style={styles.stat}>
           <Text style={styles.statValue}>{clipsPlayed}</Text>
-          <Text style={styles.statLabel}>clips</Text>
+          <Text style={styles.statLabel}>个片段</Text>
         </View>
         <View style={styles.stat}>
           <Text style={styles.statValue}>{wordsLearned}</Text>
@@ -54,7 +54,7 @@ export function ProgressCard({ clipsPlayed, wordsLearned, minutesListened, onCon
         </View>
       </View>
       <Pressable onPress={onContinue} style={styles.cardAction}>
-        <Text style={styles.cardActionText}>继续听</Text>
+        <Text style={styles.cardActionText}>继续刷</Text>
       </Pressable>
     </View>
   );
@@ -62,22 +62,32 @@ export function ProgressCard({ clipsPlayed, wordsLearned, minutesListened, onCon
 
 type RecoCardProps = {
   interests: string[];
-  onAdjust: (interests: string[]) => void;
+  recoTag: string | null;
+  onAccept: (tag: string) => void;
   onDismiss: () => void;
 };
 
-export function RecoCard({ interests, onAdjust, onDismiss }: RecoCardProps) {
+export function RecoCard({ interests, recoTag, onAccept, onDismiss }: RecoCardProps) {
+  const tagLabel = recoTag ? `${recoTag[0].toUpperCase()}${recoTag.slice(1)}` : '这个主题';
+
   return (
     <View style={styles.card}>
-      <Text style={styles.kicker}>推荐调整</Text>
-      <Text style={styles.cardTitle}>当前偏好：{interests.join(', ')}</Text>
-      <Text style={styles.cardDesc}>如果你觉得最近的内容不够对味，可以重新调整兴趣方向。</Text>
+      <Text style={styles.kicker}>WE NOTICED</Text>
+      <Text style={styles.cardTitle}>你最近明显更喜欢 {tagLabel} 内容</Text>
+      <Text style={styles.cardDesc}>
+        当前偏好：{interests.join(' · ') || '未设置'}。要不要多推一些 {tagLabel} 方向？
+      </Text>
       <View style={styles.actionsRow}>
         <Pressable onPress={onDismiss} style={styles.cardAction}>
-          <Text style={styles.cardActionText}>暂不调整</Text>
+          <Text style={styles.cardActionText}>保持现状</Text>
         </Pressable>
-        <Pressable onPress={() => onAdjust(interests)} style={[styles.cardAction, styles.cardActionPrimary]}>
-          <Text style={[styles.cardActionText, styles.cardActionTextPrimary]}>重新选择</Text>
+        <Pressable
+          onPress={() => {
+            if (recoTag) onAccept(recoTag);
+          }}
+          style={[styles.cardAction, styles.cardActionPrimary]}
+        >
+          <Text style={[styles.cardActionText, styles.cardActionTextPrimary]}>好的，多推一些</Text>
         </Pressable>
       </View>
     </View>

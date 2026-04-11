@@ -32,6 +32,15 @@ export type Profile = {
   onboardingDone: boolean;
 };
 
+export type DominantHand = 'left' | 'right';
+
+export type AppSettings = {
+  dominantHand: DominantHand;
+  playbackRate: number;
+  practiceIntroSeen: boolean;
+  bookmarkPracticeHintSeen: boolean;
+};
+
 export type SessionResponse = {
   user: {
     id: string;
@@ -68,7 +77,20 @@ export type VocabEntry = {
   phonetic?: string;
   context?: string;
   contextZh?: string;
+  clipKey?: string;
+  clipTitle?: string;
+  sourceType?: 'feed' | 'practice';
+  practiced?: boolean;
   known?: boolean;
   createdAt?: string;
   updatedAt?: string;
 };
+
+export type PracticeRecord = {
+  done: boolean;
+  words: number;
+  hard: number;
+  ts: number;
+};
+
+export type PracticeMap = Record<string, PracticeRecord>;
