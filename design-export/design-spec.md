@@ -1,297 +1,370 @@
-# Premium Redesign — Design Spec (Updated 2026-04-10)
+# Flipod Premium — Complete Design Spec (2026-04-10)
 
-Screenshots: `OoJgY.png` (Splash), `6v4it.png` (Player Normal), `7KDpf.png` (Re-rank), `XoeDa.png` (Loading), `MnCzB.png` (Fallback)
+## Screenshot Index
 
-## Design Tokens (CSS Custom Properties)
+### Core Screens
+| File | Screen |
+|------|--------|
+| `OoJgY.png` | Splash — Curated Entry |
+| `6v4it.png` | Player — Normal |
+| `7KDpf.png` | Player — After Re-rank |
+| `XoeDa.png` | Player — Feed Loading |
+| `MnCzB.png` | Player — Fallback (No AI) |
+
+### V2 Interaction Cards
+| File | Screen |
+|------|--------|
+| `cBQGc.png` | Clip Recap — Folded |
+| `8AVgg.png` | Clip Recap — Expanded |
+| `xUiUQ.png` | Fill Blank — Default |
+| `iMo7P.png` | Fill Blank — Correct |
+| `duKAC.png` | Fill Blank — Wrong |
+| `0xRkn.png` | Player V2 — Sentence Nav |
+| `az4Ki.png` | Relisten — Default |
+| `jNOpf.png` | Relisten — Revealed |
+
+---
+
+## Design Tokens
 
 ```css
 :root {
-  /* Premium palette */
   --bg-primary: #0C0C0E;
   --bg-secondary: #16161A;
-  --accent: #8B9CF7;              /* muted lavender */
+  --accent: #8B9CF7;
   --border: rgba(255,255,255,0.05);
 
-  /* Text hierarchy */
   --text-1: rgba(255,255,255,0.87);
   --text-2: rgba(255,255,255,0.55);
   --text-3: rgba(255,255,255,0.30);
   --text-4: rgba(255,255,255,0.15);
 
-  /* Subtitle */
   --word-spoken: rgba(255,255,255,0.93);
   --word-dim: rgba(255,255,255,0.20);
 
-  /* CEFR levels (subtitle word colors only) */
   --cefr-b1: #7AAFC4;
   --cefr-b2: #C4A96E;
   --cefr-c1: #C47A6E;
 
-  /* Word popup */
   --p-popup-bg: rgba(28,28,34,0.95);
   --p-popup-border: rgba(255,255,255,0.07);
-
-  /* Progress bar */
-  --prog-fill: #8B9CF7;           /* accent */
 }
 ```
 
-## Font
-
-- Family: `Inter` (Google Fonts CDN)
-- Weights used: 400 (normal), 500 (medium), 600 (semibold), 700 (bold)
-- Fallback: `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`
-
-## Screen Size
-
-- 390 x 844 (iPhone 14/15 logical)
+Font: `Inter`, weights 400/500/600/700. Screen: 390x844 (iPhone 14/15).
 
 ---
 
-## Screen 1: Splash — Curated Entry
+## Splash — Curated Entry
 
-Flex center layout on `--bg-primary` background.
-
-| Element | Position | Style |
-|---------|----------|-------|
-| Ambient line | center x, top 21% | 80x1, `--accent` at 15% opacity |
-| Title "先听这一条" | center | 28px medium, `--text-1` |
-| Subtitle "我挑了几段适合现在开始的内容" | below title, 10px gap | 14px normal, `--text-3` |
-| Divider | center, 48px below subtitle | 40x1, `--border` |
-| "Tap to begin" | absolute, bottom 80px | 13px normal, `--text-4`, pulse animation |
+| Element | Style |
+|---------|-------|
+| Ambient line | 80x1, `--accent` 15% opacity, center, top 21% |
+| Title "先听这一条" | 28px medium, `--text-1`, center |
+| Subtitle "我挑了几段适合现在开始的内容" | 14px, `--text-3`, center |
+| Divider | 40x1, `--border`, center |
+| "Tap to begin" | 13px, `--text-4`, bottom 80px, pulse animation |
 
 ---
 
-## Screen 2: Player — Immersive Feed
-
-Absolute positioned layout on `--bg-primary`.
+## Player — Immersive Feed
 
 ### Top Bar
+- **Menu** (left:20): 2 horizontal lines (16x1.5 + 12x1.5), `--text-3`
+- **"?" icon** (right:20): 20px circle (1.5px stroke `--text-3`) + "?" text (12px semibold `--text-3`). Tap → AI reason tooltip
 
-- **Menu** (left:20px): 32x32, CSS pseudo-elements — two horizontal lines (16x1.5 and 12x1.5), `--text-3`, rounded 1px
-- **"?" help icon** (right:20px): 32x32, circle (20x20, 1.5px stroke `--text-3`) with "?" text (12px semibold `--text-3`) centered. Clicking opens AI reason tooltip/panel.
+### Content Meta (center, y:100)
+- Hint text — 11px, letter-spacing 0.5, state-dependent (see Feed States)
+- Title — 16px medium, `--text-1`, center
+- Source row — podcast name 12px `--text-3` · tag 11px `--accent` 70%
 
-### Content Meta (center, top offset ~100px)
+### Subtitle Area (x:32, width:326)
+- English — 22px, line-height 1.5, `--word-spoken`, center, wraps
+- Chinese — 14px, `--text-3`, center. Default masked with overlay
+- ~~Next sentence~~ **REMOVED**
 
-Vertical layout, gap 8, center-aligned.
+### Side Actions (x:350, y:520)
+Heart + bookmark icons, 20x20, `--text-3`, gap 24. **Positioned below subtitle area.**
 
-- Hint: state-dependent text (see "Feed States" section) — 11px, letter-spacing 0.5, center
-- Title: clip title — 16px medium (500), `--text-1`, center
-- Source row: horizontal, gap 8
-  - Podcast name — 12px, `--text-3`
-  - "·" — 12px, `--text-4`
-  - Category tag — 11px, `--accent` at 70% opacity (no background, no pill)
+### Bottom Controls
+- Progress bar: 2px, `--text-4` bg, `--accent` fill
+- Controls: skip-back / play(56px circle `--accent`) / skip-forward
+- Status bar: eye toggle + "1.0x" (left) | "N / total" (right)
 
-### Subtitle Area (left:32, right:32, top:33%)
+### Word Popup (width:270) — ⚠️ STRICT
 
-Vertical layout, gap 16, center-aligned, max-width 326px.
+**位置：固定屏幕下半部居中。不跟随单词位置。**
+`position:absolute; bottom:220px; left:50%; transform:translateX(-50%);`
 
-- **English subtitle** — 22px, font-weight 400, line-height 1.5, `--word-spoken`, center
-  - Word-level karaoke: unspoken words use `--word-dim`, spoken words use `--word-spoken`
-  - CEFR B1/B2/C1/C2 spoken words: **bold 700** + tinted with CEFR color
-  - Words are tappable (opens word popup)
-- **Chinese translation row** — flex row with toggle:
-  - Chinese text — 14px, line-height 1.4, `--text-3`, center
-  - **Toggle button** (circled A icon, 28x28) — default: text hidden (masked), click to reveal/hide
-  - Masked state: `color:transparent; background:var(--mask-bg); border-radius:4px`
-- ~~Next sentence preview~~ **REMOVED** — too crowded, no longer displayed
+| Row | Style |
+|-----|-------|
+| Word + POS | 20px bold `--text-1` + 11px `--accent`, gap 10 |
+| Phonetic | 12px `--text-3` |
+| Definition | 13px `--text-2`, line-height 1.5, wraps |
+| Divider | 1px `--border` |
+| Actions | "认识" `--text-3` / "☆ 收藏" `--text-3` |
 
-### Side Actions (right:12px, vertical center ~y:520)
+**⚠️ 收藏星星：默认空心 outline (stroke only, no fill)，颜色 `--text-3`。收藏后变实心 fill，颜色 `--accent`。**
 
-Vertical layout, gap 24, 28px wide. Positioned **below subtitle area**, with clear visual separation from content.
-
-- Heart icon — 20x20, `--text-3` (filled red `#ff4466` when liked)
-- Bookmark icon — 20x20, `--text-3` (filled gold `#ffc34d` when bookmarked)
-
-### Bottom Controls (full width, bottom:0)
-
-Vertical layout, gap 20, padding: 0 32px 20px 32px, center-aligned.
-
-#### Progress Row
-Horizontal, gap 8, full width.
-- Current time — 11px, `--text-4`
-- Progress bar — flex:1, 2px height, `--text-4` bg, rounded 1px
-  - Fill — `--accent`, rounded 1px
-- Duration — 11px, `--text-4`
-
-#### Controls Row
-Horizontal, gap 40, center.
-- Skip back (rewind icon) — 22x22, `--text-2`
-- Play button — 56x56 circle, `--accent` bg
-  - Pause/Play icon — 24x24, `--bg-primary` color
-- Skip forward (forward icon) — 22x22, `--text-2`
-
-#### Status Bar (bottom-most)
-Horizontal, space-between, padding 0 20px.
-- Left: eye toggle (16x16 `--text-3`) + "1.0x" speed label (12px `--text-3`), gap 8
-- Right: clip indicator "N / total" (12px, `--text-3`)
-
-### Word Popup (width:270) — ⚠️ STRICT IMPLEMENTATION REQUIREMENTS
-
-**位置：固定在屏幕下半部分，不跟随单词位置。** Popup 始终出现在 `position:absolute; bottom:220px; left:50%; transform:translateX(-50%);` 的固定位置，居中显示。**不要**让 popup 跟随被点击的单词位置出现。
-
-Floating overlay, glass morphism. Vertical layout, padding 20px 24px.
-- Background: `--p-popup-bg`, backdrop-filter blur(20px)
-- Border: 1px `--p-popup-border`, radius 16px
-- Shadow: 0 8px 40px rgba(0,0,0,0.4)
-
-| Row | Content | Style |
-|-----|---------|-------|
-| Word + POS | "cortisol" + "n." | 20px bold `--text-1` + 11px `--accent`, gap 10 |
-| Phonetic | /ˈkɔːrtɪzɒl/ | 12px `--text-3` |
-| Definition | 中文释义 | 13px `--text-2`, line-height 1.5, wraps |
-| Divider | — | 1px `--border`, full width |
-| Actions | "认识" / "☆ 收藏" | 13px, space-between |
-
-**⚠️ CEFR badge 已移除** — popup 中不要显示 CEFR 等级标签。
-
-**⚠️ 收藏按钮的星星必须是空心（outline）：**
-- **默认状态（未收藏）**：星星图标为 **outline/空心**（SVG stroke only, no fill），颜色 `--text-3`。"收藏" 文字也用 `--text-3`。
-- **已收藏状态**：星星变为 **filled/实心**，颜色变为 `--accent`。"收藏" 文字也变为 `--accent`。
-- 点击时必须有明显的视觉反馈：空心→实心，颜色从灰到紫。
-
-```html
-<!-- 默认状态：outline star -->
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-</svg>
-
-<!-- 已收藏状态：filled star -->
-<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2">
-  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-</svg>
-```
-
-**"认识" 按钮**：颜色 `--text-3`，点击后该单词从 popup 消失（不加入收藏）。
-
----
-
-## AI Reason — "?" Icon Interaction
-
-The AI reason is **NOT displayed inline** on the player. Instead:
-
-- A **"?" icon** in the top-right corner indicates AI reasoning is available
-- Tapping the "?" opens a **tooltip/panel** showing why this clip was recommended
-- Content: e.g. "你对科学话题感兴趣，这个关于睡眠的片段难度适中"
-- The tooltip should be dismissible (tap outside or tap ? again)
-
-### Implementation Suggestion
-
-```html
-<button class="help-btn" id="help-${idx}">
-  <svg viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
-    <text x="12" y="16" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">?</text>
-  </svg>
-</button>
-```
-
-Tooltip panel (hidden by default):
-```css
-.ai-reason-tooltip {
-  position: absolute;
-  top: 96px; right: 20px;
-  width: 240px;
-  padding: 12px 16px;
-  background: var(--p-popup-bg);
-  border: 1px solid var(--p-popup-border);
-  border-radius: 12px;
-  backdrop-filter: blur(20px);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s;
-}
-.ai-reason-tooltip.show {
-  opacity: 1;
-  pointer-events: auto;
-}
-```
+**⚠️ 已移除 CEFR badge。**
 
 ---
 
 ## Feed States
 
-Screenshots: `6v4it.png` (Normal), `7KDpf.png` (Re-rank), `XoeDa.png` (Loading), `MnCzB.png` (Fallback)
-
-### State Flow
 ```
-用户进入 feed
-  → [Loading] "AI 正在为你排列内容..."
-  → [Normal] "已根据你的偏好排列" + ? icon active
-  → 听了 N 个 clip 后
-  → [Re-rank] "刚刚根据你的表现重新调整了顺序"（3秒后回到 Normal）
-  → 如果 API 挂了
-  → [Fallback] "这几条已经替你排好了"，? icon hidden
+进入 → [Loading] "AI 正在为你排列内容..."
+     → [Normal] "已根据你的偏好排列"
+     → 听 N clip → [Re-rank] "刚刚根据你的表现重新调整了顺序"（3秒后回 Normal）
+     → API 失败 → [Fallback] "这几条已经替你排好了"，? icon 隐藏
 ```
 
-### Hint Text (top, above title)
-
-| State | Content | Color |
-|-------|---------|-------|
+| State | Hint Text | Hint Color |
+|-------|-----------|------------|
 | Normal | 已根据你的偏好排列 | `rgba(255,255,255,0.15)` |
-| Re-rank | 刚刚根据你的表现重新调整了顺序 | `rgba(255,255,255,0.40)` — 临时高亮 |
+| Re-rank | 刚刚根据你的表现重新调整了顺序 | `rgba(255,255,255,0.40)` |
 | Loading | AI 正在为你排列内容... | `rgba(255,255,255,0.30)` |
 | Fallback | 这几条已经替你排好了 | `rgba(255,255,255,0.15)` |
 
-All: 11px, Inter, letter-spacing 0.5px, center.
+---
 
-### "?" Icon Visibility by State
-- Normal: visible (tap to see AI reason)
-- Re-rank: visible (reason text updates per clip)
-- Loading: visible but disabled (no data yet)
-- Fallback: hidden (API failed, no reason available)
+## V2 Interaction Cards
 
-### Loading State Specifics
+所有卡片嵌在 feed 流中，上下滑动切换，不是弹窗。可上滑跳过。
 
-- Title, source row, subtitle area, mask overlay: all hidden
-- 3 loading dots centered in subtitle area: 6px diameter, gap 8px, `rgba(255,255,255,0.20)`
-- Play button disabled: bg `rgba(255,255,255,0.10)`, icon `rgba(255,255,255,0.20)`
-- Progress bar and other controls remain visible but inert
+### Clip Recap（每 1-2 clip 后插入）
 
-### Fallback State Specifics
+**折叠态** (~120px content, 居中):
+- "刚才这段" — 10px, letterSpacing 2, `rgba(255,255,255,0.30)`
+- 主信息行 — "遇到 **3** 个新词"(数字 accent bold) · "听了 1:24" — 14px `--text-2`
+- "↓ 查看词卡" — 12px, `rgba(255,255,255,0.25)`
 
-- Identical to Normal except: ? icon hidden, hint text uses original "这几条已经替你排好了"
-- All other functionality works normally
+**展开态** (~360px, 词卡列表):
+- 每张词卡: 圆角 12px, bg `rgba(255,255,255,0.05)`, padding 14px 16px
+  - 单词 16px bold + 词性 11px accent
+  - 原句 13px `--text-3`, 目标词 accent 高亮
+  - 中文释义 12px `rgba(255,255,255,0.30)`
+  - 右上角小喇叭 16x16
+- 底部 "继续听下一段 →" 14px `--text-2`
+
+### Fill-in-the-Blank（每 3-4 clip 后插入）
+
+**默认态**:
+- "刚才听到的" — 10px, letterSpacing 2, `rgba(255,255,255,0.30)`
+- 句子 18px medium, `rgba(255,255,255,0.70)`, blank 用 `____` + 2px dashed accent underline
+- 3 选项: 圆角 20px pill, bg `rgba(255,255,255,0.05)`, border `rgba(255,255,255,0.08)`, text 15px
+- "凭印象选，不用纠结" — 12px `rgba(255,255,255,0.20)`
+
+**答对**: 正确选项 bg `rgba(139,156,247,0.15)` border `--accent`, "✓ 没错" accent. 1.5s 自动滑走。
+
+**答错**: 错误选项 bg `rgba(255,68,102,0.10)` border `rgba(255,68,102,0.30)`. 正确答案填入 blank. "是 cortisol" `--text-3`. 1.5s 自动滑走。
+
+### Player V2 — Sentence Nav
+
+基于 Player 布局，增加：
+- **句子跳转控制**: skip-back/skip-forward 改为句级跳转（跳到上/下一句）
+- **进度条句子标记**: 每个句子边界有 1x6px 竖线 `rgba(255,255,255,0.15)`，当前句段 accent 填充
+- **句子指示器**: "第 3 / 8 句" 11px `--text-3`
+- **中文遮挡右移**: 中文行右侧 eye-off 图标 16x16，点击切换遮挡/显示
+
+### Relisten — 重听原声卡（间隔 >4h 回到 app 时）
+
+核心差异化：**听真实播客语境回忆词义**，不是看图选义。
+
+**默认态**:
+- "RELISTEN" — 10px, letterSpacing 2, `--text-3`
+- 音频波形 — 30 根竖线 (2px wide, gap 4, 随机 8-36px height), 已播放 accent / 未播放 `rgba(255,255,255,0.15)`
+- 小播放按钮 36x36 + 时间
+- 英文原句 15px `--text-2`, 目标词用 `____` 代替
+- "这个词是什么？" 13px `--text-3`
+- "显示答案" 按钮: 200x44, 圆角 22px, bg `rgba(255,255,255,0.05)` border `rgba(255,255,255,0.08)`
+
+**显示答案后**:
+- `____` 替换为单词 (accent bold)
+- 音标 + 中文释义
+- 两个按钮: "记住了 ✓" (accent border + accent bg 12%) / "没印象 ×" (neutral)
+- "来自 Planet Money · 3 天前听过" 11px `rgba(255,255,255,0.20)`
 
 ---
 
-## Icon Library
+## Player — Sentence Nav (升级版)
 
-All icons use inline SVG (from Material/custom). Key icons:
-- `heart`, `bookmark`, `skip-back`, `skip-forward`, `pause`, `play`, `star`
-- Chinese translation toggle: circled "A" (SVG circle + text)
-- Mask toggle: eye open/closed
-- AI reason: circled "?" (SVG circle + text)
+| File | Screen |
+|------|--------|
+| `6aSa5.png` | Player — Sentence Nav |
+
+基于 Player — Immersive Feed 升级：
+
+- **进度条句子标记**: 每个句子边界有 1x6px 竖线 `rgba(255,255,255,0.15)`，当前句段 accent 填充，已播放段 `#FFFFFF33`
+- **跳转控制**: skip-back / skip-forward 改为句级跳转
+- **句子指示器**: 控制区下方 "第 3 / 8 句" 11px `--text-3`
+- **状态栏**: 底部保留 eye toggle + speed + clip counter
 
 ---
 
-## ⚠️ 设计对齐检查清单（Code 必须严格遵守）
+## Player — Handedness (惯用手对比)
 
-以下是设计图与代码实现之间容易出现偏差的地方。**每一条都必须按照设计图执行，不可自行发挥：**
+| File | Screen |
+|------|--------|
+| `67oxf.png` | Player — Left/Right Hand Mode |
+
+800x844 对比画板，两个 390px 半屏并排：
+
+| 模式 | Side Actions 位置 | 标签 |
+|------|------------------|------|
+| 左手模式 | 左侧 (x:12) | "左手模式" |
+| 右手模式（默认） | 右侧 (x:350) | "右手模式（默认）" |
+
+其他布局水平镜像，字幕区和底部控制区不变。
+
+---
+
+## Panel — Practice（听力练习入口）
+
+| File | Screen |
+|------|--------|
+| `omsje.png` | Panel — Practice（有收藏） |
+| `Rto84.png` | Panel — Practice（空状态） |
+
+320x844 侧边栏面板。
+
+### 有收藏状态
+- 标题: "听力练习" 20px bold
+- 副标题: "精听练习：对一段内容反复听、逐句听、搞懂每个词" 13px muted
+- **"你收藏的"** 区域:
+  - clip 卡片: 圆角 12px, bg `rgba(255,255,255,0.05)`, padding 14-16px
+  - 标题 14px + 来源 12px muted + 时长
+  - 状态 badge: "未练习" (accent bg 12%, accent text) / "已练习 · 查了 3 个词" (muted)
+- **"AI 推荐练习"** 区域:
+  - 推荐卡片 + 难度标签 (B1/B2/C1)
+  - 推荐理由: "包含你上次查过的 cortisol" 11px muted
+
+### 空状态
+- 居中 bookmark icon (40x40, `--text-4`)
+- "在 Feed 里收藏感兴趣的片段，它们会出现在这里等你精听" 14px `--text-3`
+- 下方仍显示 AI 推荐卡片
+
+---
+
+## Feed — Bookmark Toast
+
+| File | Screen |
+|------|--------|
+| `lvbsM.png` | Feed — Bookmark Toast |
+
+基于 Player 布局，增加收藏引导提示：
+- bookmark icon 变为 filled/active 状态
+- 底部 toast (y:~750):
+  - 圆角 pill (cornerRadius 20, bg `rgba(255,255,255,0.10)`, border `rgba(255,255,255,0.08)`)
+  - ~340x44px, 居中
+  - "已收藏 · 可以在侧边栏「听力练习」里精听这段" 13px `--text-2`
+  - 左侧小箭头指向菜单方向
+
+---
+
+## Practice 流程（4 步）
+
+所有 Practice 步骤共享：顶部 STEP N 标签 (10px accent, letterSpacing 2) + 右上角关闭按钮 (32px circle, `rgba(255,255,255,0.08)`)
+
+### Step 1：盲听
+
+| File | Screen |
+|------|--------|
+| `DIYJ5.png` | Practice — Blind Listen (Playing) |
+| `fA1zU.png` | Practice — Blind Listen (Finished) |
+
+**播放中**:
+- 居中提示: "先听一遍，看能抓住多少" 16px medium `--text-1`
+- 副提示: "不看字幕，专注听" 13px `--text-3`
+- 音频波形: 30 根竖线 (3px wide, gap 4, 随机 10-44px height), 已播放 accent / 未播放 `rgba(255,255,255,0.15)`
+- 时间显示: 左右两侧 12px `--text-3`
+- 播放按钮: 64x64 circle accent, pause icon
+- clip 信息: 标题 14px `--text-2` + 来源 12px `--text-3`
+
+**播放结束**:
+- 提示变为: "听完了，感觉怎么样？" 16px medium
+- 波形全部 accent (已播完)
+- 重听按钮 (rotate-ccw icon + "重听")
+- 两个选择按钮:
+  - "大部分听懂了": accent fill, 52px height, cornerRadius 26
+  - "有些没听清": outline style, `rgba(255,255,255,0.04)` bg
+
+### Step 2：逐句精听
+
+| File | Screen |
+|------|--------|
+| `FdJmH.png` | Practice — Sentence Listen |
+
+- 顶部: STEP 2 + "第 3 / 8 句" + close
+- 提示: "逐句精听，不懂的查" 13px `--text-3`
+- 句子进度条: 8 段 (28x3px rectangles), 已完成 accent / 待完成 `rgba(255,255,255,0.08)`
+- **句子区域** (padding 32px horizontal):
+  - 之前的句子: 15px `--text-4` (已过暗淡)
+  - 当前句子: 20px medium `--word-spoken` (高亮)
+  - 中文翻译: 14px `--text-3`
+- 重听按钮: rotate-ccw icon + "重听这句" `--text-2`
+- 两个操作按钮:
+  - "有难度" (× icon, outline): 标记进 Step 3
+  - "没问题" (✓ icon, accent fill): 跳到下一句
+
+### Step 3：难句闪卡
+
+| File | Screen |
+|------|--------|
+| `5Ikgf.png` | Practice — Flashcard Front |
+| `qktIe.png` | Practice — Flashcard Back |
+
+**正面**:
+- 顶部: STEP 3 + "1 / 3" + close
+- 卡片 (cornerRadius 20, bg `rgba(255,255,255,0.03)`, border `rgba(255,255,255,0.05)`):
+  - 播放按钮 (40x40 accent circle) + "播放这句"
+  - 英文句子 18px medium `--text-1`
+  - 关键词提示: "exposure — 点击翻面查看释义" accent
+- 底部: "↓ 下滑翻面" hint `--text-4`
+
+**背面**:
+- 卡片内容:
+  - 英文原句 16px `--text-2`
+  - 分隔线
+  - 中文翻译 14px `--text-3`
+  - 分隔线
+  - 单词: 18px bold `--text-1` + 词性 12px accent
+  - 音标: 12px `--text-3`
+  - 释义: 13px `--text-2`
+- 两个操作按钮:
+  - "还是不太清楚" (× icon, outline): 排到最后再出现
+  - "搞懂了" (✓ icon, accent fill): 卡片消失
+
+### Step 4：复听 + 总结
+
+| File | Screen |
+|------|--------|
+| `1S22l.png` | Practice — Review Summary |
+
+- 完成图标: 64x64 circle (accent 10% bg) + check icon accent
+- "这段练完了" 22px semibold `--text-1`
+- clip 标题 14px `--text-3`
+- 统计卡片 (cornerRadius 16, bg `rgba(255,255,255,0.03)`):
+  - 三列: 查了词 / 精听句 / 难句卡
+  - 数字 28px bold accent + 标签 12px `--text-3`
+- 步骤进度: 4 个 check circle (accent) + 连接线, 标签: 盲听 → 精听 → 闪卡 → 复听
+- 两个操作按钮:
+  - "再练一段" (accent fill)
+  - "回到 Feed" (outline)
+
+---
+
+## ⚠️ 设计对齐检查清单
 
 | # | 要求 | ❌ 常见错误 | ✅ 正确实现 |
 |---|------|-----------|-----------|
-| 1 | Word popup 位置 | 跟随点击的单词位置出现 | **固定在屏幕下半部居中**，不跟随单词 |
-| 2 | 收藏星星图标 | 实心填充星星 ★ | **空心描边星星 ☆**（默认态），点击后变实心 |
-| 3 | 收藏按钮颜色 | 默认就是 accent 紫色 | **默认 --text-3（灰色）**，收藏后才变 accent |
-| 4 | CEFR badge | popup 里显示 C1/B2 标签 | **已移除**，popup 中不显示 CEFR |
-| 5 | 下一句预览 | 显示 "If you can control..." | **已移除**，不显示下一句 |
-| 6 | 中文遮挡按钮 | 在中文字幕旁边显示 A 按钮 | **移到左下角状态栏**，和眼睛图标放一起 |
-| 7 | Side actions 位置 | 和字幕平齐 (y≈340) | **在字幕下方** (y≈520)，远离主内容区 |
-
----
-
-## Implementation Notes (2026-04-10)
-
-1. **Word popup 位置** — `position:absolute; bottom:220px; left:50%; transform:translateX(-50%);` 固定居中，**绝对不要**跟随被点击单词的位置
-2. **收藏按钮** — 默认空心星 (stroke only, fill:none)，颜色 --text-3；收藏后实心星 (fill:currentColor)，颜色 --accent。必须有明显视觉反馈
-3. **AI reason** — accessed via "?" icon, NOT displayed inline. Tooltip with `.ai-reason-tooltip.show` toggle
-4. **Next sentence preview** — REMOVED from UI for cleaner look
-5. **Side actions** — positioned lower (y:520), away from subtitle area for visual breathing room
-6. **Hint text** — single element, swap `textContent` and color class per state
-7. **Re-rank highlight** — apply `.hint-highlight` class (40% white), auto-remove after 3s with `setTimeout`
-8. **Loading state** — show `.loading-dots`, hide subtitle/meta, disable play button via `.disabled` class
-9. **Fallback** — triggered when API call fails; hide `.help-btn`, revert hint text
-10. **Chinese subtitle toggle** — moved to bottom-left bar, same style as mask-toggle (34x34 circle)
-11. **Word cache** — popup 查词结果缓存在内存 `wordCache` Map 中，避免重复请求
-12. **Progress time labels** — 动态更新，格式 `m:ss`，通过 `fmtTime()` helper
+| 1 | Word popup 位置 | 跟随点击的单词出现 | **固定屏幕下半部居中** |
+| 2 | 收藏星星 | 实心 ★ | **空心 ☆**，收藏后变实心 |
+| 3 | 收藏按钮颜色 | 默认 accent | **默认 --text-3**，收藏后 accent |
+| 4 | CEFR badge | popup 里显示 | **已移除** |
+| 5 | 下一句预览 | 显示 | **已移除** |
+| 6 | 中文遮挡按钮 | 字幕旁边 | **左下角状态栏** |
+| 7 | Side actions 位置 | 和字幕平齐 | **字幕下方 y:520** |
+| 8 | Feed cards | 弹窗/浮层 | **feed 流中的卡片**，可上滑跳过 |
+| 9 | Fill Blank 自动跳转 | 停留等用户操作 | **1.5s 后自动滑走** |
+| 10 | Relisten 波形 | 静态装饰 | **可播放**，已播放段 accent |
