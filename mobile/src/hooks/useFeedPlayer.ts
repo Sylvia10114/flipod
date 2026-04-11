@@ -30,6 +30,7 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
   const clipsRef = useRef<Clip[]>(clips);
   const activeIndexRef = useRef(0);
   const playbackRateRef = useRef(initialPlaybackRate);
+  const loadRequestRef = useRef(0);
   const [state, setState] = useState<PlayerState>({
     ...initialState,
     playbackRate: initialPlaybackRate,
@@ -61,7 +62,9 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
     soundRef.current = null;
   }, []);
 
-  const handleStatus = useCallback((clipIndex: number, status: AVPlaybackStatus) => {
+  const handleStatus = useCallback((clipIndex: number, requestId: number, status: AVPlaybackStatus) => {
+    if (requestId !== loadRequestRef.current) return;
+
     if (!status.isLoaded) {
       setState(prev => ({
         ...prev,
@@ -92,6 +95,7 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
   }, [state.activeIndex]);
 
   const loadClip = useCallback(async (clipIndex: number, shouldPlay: boolean) => {
+    const requestId = ++loadRequestRef.current;
     const clip = clipsRef.current[clipIndex];
     if (!clip) return;
 
@@ -131,10 +135,12 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
     }));
 
     await unloadCurrent();
+    if (requestId !== loadRequestRef.current) return;
 
     const sound = new Audio.Sound();
     soundRef.current = sound;
-    sound.setOnPlaybackStatusUpdate(status => handleStatus(clipIndex, status));
+    activeIndexRef.current = clipIndex;
+    sound.setOnPlaybackStatusUpdate(status => handleStatus(clipIndex, requestId, status));
 
     try {
       await sound.loadAsync(
@@ -147,6 +153,18 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
           positionMillis: 0,
         }
       );
+
+      if (requestId !== loadRequestRef.current) {
+        sound.setOnPlaybackStatusUpdate(null);
+        if (soundRef.current === sound) {
+          soundRef.current = null;
+        }
+        try {
+          await sound.unloadAsync();
+        } catch {
+        }
+        return;
+      }
     } catch {
       if (soundRef.current === sound) {
         sound.setOnPlaybackStatusUpdate(null);
@@ -266,6 +284,7 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
 
   useEffect(() => {
     return () => {
+      loadRequestRef.current += 1;
       void unloadCurrent();
     };
   }, [unloadCurrent]);

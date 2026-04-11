@@ -11,7 +11,7 @@ import {
   type ListRenderItemInfo,
   type ViewToken,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   buildClipKey,
   getSentenceInfo,
@@ -91,7 +91,9 @@ export function FeedScreen({
   onPlaybackRateChange,
   onClipPlayed,
 }: Props) {
+  const insets = useSafeAreaInsets();
   const data = useMemo(() => clips.slice(0, 20), [clips]);
+  const pageHeight = Math.max(480, SCREEN_HEIGHT - insets.top - insets.bottom);
   const [showZh, setShowZh] = useState(false);
   const [masked, setMasked] = useState(false);
   const [popup, setPopup] = useState<PopupState>(null);
@@ -173,7 +175,7 @@ export function FeedScreen({
         data={data}
         keyExtractor={(item, index) => buildClipKey(item, index)}
         pagingEnabled
-        snapToInterval={SCREEN_HEIGHT}
+        snapToInterval={pageHeight}
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged.current}
@@ -191,7 +193,7 @@ export function FeedScreen({
           const liked = likedKeys.includes(clipKey);
 
           return (
-            <View style={[styles.card, { minHeight: SCREEN_HEIGHT }]}>
+            <View style={[styles.card, { minHeight: pageHeight, paddingBottom: 16 + insets.bottom }]}>
               <View>
                 <View style={[styles.topChrome, dominantHand === 'left' && styles.topChromeLeft]}>
                   <Pressable onPress={onOpenMenu} style={styles.iconButton}>
@@ -504,9 +506,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subtitleWrap: {
-    minHeight: 250,
+    flex: 1,
+    minHeight: 220,
     justifyContent: 'center',
     position: 'relative',
+    paddingTop: 16,
+    paddingBottom: 20,
   },
   sideRail: {
     position: 'absolute',
@@ -561,6 +566,7 @@ const styles = StyleSheet.create({
   },
   bottomControls: {
     gap: 10,
+    marginTop: 8,
   },
   feedCardsWrap: {
     gap: 20,
