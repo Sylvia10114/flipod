@@ -459,6 +459,8 @@ html,body{
   line-height:1.5;
   max-width:326px;
   min-height:1.5em;
+  max-height:160px;
+  overflow:hidden;
   transition:opacity 0.15s ease;
 }
 .subtitle-en .w{
@@ -630,6 +632,8 @@ html,body{
   margin-top:0;
   max-width:326px;
   width:100%;
+  position:relative;
+  z-index:2;
 }
 .subtitle-zh{
   font-size:14px;
@@ -697,12 +701,13 @@ html,body{
 .side-actions{
   position:absolute;
   right:12px;
-  top:520px;
+  bottom:280px;
   display:flex;
   flex-direction:column;
   align-items:center;
   gap:24px;
   width:28px;
+  z-index:15;
 }
 .side-btn{
   width:28px; height:28px;
@@ -1305,6 +1310,194 @@ html,body{
   color:var(--text-3);
 }
 
+/* ── Practice mode ── */
+.practice-overlay{
+  position:fixed;
+  top:0;left:0;right:0;bottom:0;
+  background:var(--bg-primary);
+  z-index:200;
+  transform:translateY(100%);
+  transition:transform 0.35s cubic-bezier(.4,0,.2,1);
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.practice-overlay.open{ transform:translateY(0); }
+
+.pr-header{
+  padding:calc(env(safe-area-inset-top,48px) + 8px) 20px 12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.pr-close{
+  width:32px;height:32px;border:none;background:var(--bg-card);border-radius:50%;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.pr-close svg{width:16px;height:16px;fill:var(--text-3);}
+.pr-step-label{font-size:12px;color:var(--text-3);letter-spacing:0.5px;font-weight:500;}
+.pr-step-dots{display:flex;gap:6px;align-items:center;}
+.pr-step-dot{width:8px;height:8px;border-radius:50%;background:var(--text-4);transition:all 0.3s;}
+.pr-step-dot.active{background:var(--accent);width:20px;border-radius:4px;}
+.pr-step-dot.done{background:var(--accent);opacity:0.5;}
+
+.pr-body{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:0 32px;overflow-y:auto;
+}
+
+/* Step 1: Blind listen */
+.pr-blind{text-align:center;width:100%;}
+.pr-blind-hint{font-size:14px;color:var(--text-3);margin-bottom:40px;line-height:1.5;}
+.pr-wave{
+  width:200px;height:60px;margin:0 auto 40px;display:flex;align-items:center;justify-content:center;gap:3px;
+}
+.pr-wave-bar{
+  width:3px;border-radius:2px;background:var(--accent);opacity:0.6;
+  animation:prWave 1.2s ease-in-out infinite;
+}
+.pr-wave-bar:nth-child(1){height:20px;animation-delay:0s;}
+.pr-wave-bar:nth-child(2){height:35px;animation-delay:0.1s;}
+.pr-wave-bar:nth-child(3){height:25px;animation-delay:0.2s;}
+.pr-wave-bar:nth-child(4){height:40px;animation-delay:0.3s;}
+.pr-wave-bar:nth-child(5){height:30px;animation-delay:0.4s;}
+.pr-wave-bar:nth-child(6){height:45px;animation-delay:0.15s;}
+.pr-wave-bar:nth-child(7){height:20px;animation-delay:0.25s;}
+.pr-wave-bar:nth-child(8){height:35px;animation-delay:0.35s;}
+.pr-wave.paused .pr-wave-bar{animation-play-state:paused;}
+@keyframes prWave{
+  0%,100%{transform:scaleY(0.5);}
+  50%{transform:scaleY(1);}
+}
+.pr-play-btn{
+  width:64px;height:64px;border-radius:50%;background:var(--accent);border:none;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;margin:0 auto 48px;
+}
+.pr-play-btn svg{width:28px;height:28px;fill:var(--bg-primary);}
+.pr-blind-choices{display:flex;gap:12px;justify-content:center;width:100%;}
+.pr-blind-choice{
+  flex:1;max-width:160px;padding:14px 16px;border-radius:14px;border:1px solid var(--border);
+  background:var(--bg-card);color:var(--text-2);font-size:14px;cursor:pointer;
+  transition:all 0.2s;text-align:center;
+}
+.pr-blind-choice:active{background:var(--accent);color:var(--bg-primary);border-color:var(--accent);}
+.pr-blind-choice.primary{border-color:var(--accent);color:var(--accent);}
+
+/* Step 2: Sentence-by-sentence */
+.pr-sentence{width:100%;text-align:center;}
+.pr-sent-progress{font-size:12px;color:var(--text-3);margin-bottom:24px;}
+.pr-sent-en{
+  font-size:20px;line-height:1.6;color:var(--text-1);margin-bottom:16px;
+  min-height:80px;display:flex;align-items:center;justify-content:center;
+}
+.pr-sent-en .w{cursor:pointer;transition:color 0.2s;}
+.pr-sent-en .w:active{color:var(--accent);}
+.pr-sent-zh{
+  font-size:14px;color:var(--text-3);margin-bottom:32px;min-height:24px;cursor:pointer;
+}
+.pr-sent-zh.hidden-zh{color:transparent;background:var(--mask-bg);border-radius:4px;user-select:none;}
+.pr-sent-controls{display:flex;gap:16px;align-items:center;justify-content:center;margin-bottom:24px;}
+.pr-sent-ctrl{
+  width:44px;height:44px;border-radius:50%;border:1px solid var(--border);
+  background:var(--bg-card);cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.pr-sent-ctrl svg{width:20px;height:20px;fill:var(--text-2);}
+.pr-sent-ctrl.replay svg{fill:var(--accent);}
+.pr-sent-actions{display:flex;gap:12px;justify-content:center;}
+.pr-sent-action{
+  padding:12px 28px;border-radius:12px;border:1px solid var(--border);
+  background:var(--bg-card);color:var(--text-2);font-size:14px;cursor:pointer;
+  display:flex;align-items:center;gap:6px;transition:all 0.2s;
+}
+.pr-sent-action:active{transform:scale(0.95);}
+.pr-sent-action.easy{border-color:rgba(76,175,80,0.3);color:#4CAF50;}
+.pr-sent-action.hard{border-color:rgba(244,67,54,0.3);color:#F44336;}
+
+/* Step 3: Flashcards */
+.pr-flash{width:100%;max-width:340px;margin:0 auto;perspective:800px;}
+.pr-flash-card{
+  background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;
+  padding:32px 24px;min-height:280px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;transition:transform 0.5s;
+}
+.pr-flash-label{font-size:11px;color:var(--text-4);letter-spacing:1px;text-transform:uppercase;}
+.pr-flash-en{font-size:18px;line-height:1.5;color:var(--text-1);text-align:center;}
+.pr-flash-en .highlight{color:var(--accent);font-weight:600;}
+.pr-flash-play{
+  width:44px;height:44px;border-radius:50%;border:1px solid var(--border);
+  background:var(--bg-card);cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.pr-flash-play svg{width:18px;height:18px;fill:var(--accent);}
+.pr-flash-divider{width:40px;height:1px;background:var(--border);}
+.pr-flash-zh{font-size:15px;color:var(--text-2);text-align:center;line-height:1.5;}
+.pr-flash-phonetic{font-size:13px;color:var(--text-3);}
+.pr-flash-hint{font-size:12px;color:var(--text-4);margin-top:8px;}
+.pr-flash-actions{display:flex;gap:12px;justify-content:center;margin-top:20px;}
+.pr-flash-action{
+  padding:12px 24px;border-radius:12px;border:1px solid var(--border);
+  background:var(--bg-card);color:var(--text-2);font-size:14px;cursor:pointer;transition:all 0.2s;
+}
+.pr-flash-action:active{transform:scale(0.95);}
+.pr-flash-action.got-it{border-color:rgba(76,175,80,0.3);color:#4CAF50;}
+.pr-flash-action.unclear{border-color:rgba(255,152,0,0.3);color:#FF9800;}
+
+/* Step 4: Re-listen + Summary */
+.pr-relisten{width:100%;text-align:center;}
+.pr-relisten-en{
+  font-size:20px;line-height:1.6;color:var(--text-1);margin-bottom:12px;min-height:80px;
+  display:flex;align-items:center;justify-content:center;
+}
+.pr-relisten-zh{font-size:14px;color:var(--text-3);margin-bottom:24px;min-height:24px;}
+.pr-relisten .w.practiced{text-decoration-line:underline;text-decoration-style:dotted;text-underline-offset:4px;text-decoration-color:var(--accent);}
+.pr-summary{
+  width:100%;max-width:300px;margin:0 auto;text-align:center;
+  background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;
+  padding:32px 24px;
+}
+.pr-summary-icon{font-size:32px;margin-bottom:12px;}
+.pr-summary-title{font-size:18px;font-weight:600;color:var(--text-1);margin-bottom:16px;}
+.pr-summary-stats{display:flex;justify-content:center;gap:24px;margin-bottom:24px;}
+.pr-summary-stat{text-align:center;}
+.pr-summary-stat-val{font-size:22px;font-weight:700;color:var(--accent);}
+.pr-summary-stat-label{font-size:11px;color:var(--text-3);margin-top:2px;}
+.pr-summary-actions{display:flex;gap:12px;justify-content:center;}
+.pr-summary-btn{
+  padding:12px 24px;border-radius:12px;border:1px solid var(--border);
+  background:var(--bg-card);color:var(--text-2);font-size:14px;cursor:pointer;transition:all 0.2s;
+}
+.pr-summary-btn:active{transform:scale(0.95);}
+.pr-summary-btn.primary{background:var(--accent);color:var(--bg-primary);border-color:var(--accent);font-weight:500;}
+
+/* Practice list in sidebar */
+.pr-list{flex:1;overflow-y:auto;padding:0 16px 20px;}
+.pr-list-section{font-size:14px;color:var(--text-2);margin:16px 0 8px;font-weight:500;}
+.pr-list-empty{
+  text-align:center;padding:40px 20px;color:var(--text-3);font-size:14px;line-height:1.6;
+}
+.pr-list-item{
+  padding:14px 16px;background:var(--bg-card);border:1px solid var(--border);
+  border-radius:14px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;
+}
+.pr-list-item:active{transform:scale(0.98);}
+.pr-list-item-title{font-size:14px;color:var(--text-1);font-weight:500;margin-bottom:4px;}
+.pr-list-item-meta{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-3);}
+.pr-list-item-badge{
+  font-size:10px;padding:2px 8px;border-radius:8px;font-weight:500;
+}
+.pr-list-item-badge.unp{background:rgba(139,156,247,0.15);color:var(--accent);}
+.pr-list-item-badge.done{background:var(--bg-card);color:var(--text-3);}
+
+/* Bookmark toast */
+.bm-toast{
+  position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--bg-glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid var(--border);border-radius:14px;padding:12px 20px;
+  font-size:13px;color:var(--text-2);z-index:180;opacity:0;pointer-events:none;
+  transition:all 0.3s ease;white-space:nowrap;display:flex;align-items:center;gap:8px;
+}
+.bm-toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
+.bm-toast svg{width:14px;height:14px;fill:var(--accent);flex-shrink:0;}
+
 /* ── Sub panels (Favorites, Vocab) ── */
 .sub-panel{
   position:fixed;
@@ -1710,6 +1903,115 @@ html,body{
   cursor:pointer;
 }
 
+/* ── Practice Mode ── */
+/* Practice panel in sidebar */
+.practice-panel{
+  position:fixed;
+  top:0; left:0; right:0; bottom:0;
+  background:var(--bg-primary);
+  z-index:170;
+  transform:translateX(100%);
+  transition:transform 0.3s ease;
+  display:flex;
+  flex-direction:column;
+}
+.practice-panel.open{ transform:translateX(0); }
+
+.practice-section-title{
+  font-size:13px;
+  font-weight:600;
+  color:var(--text-3);
+  text-transform:uppercase;
+  letter-spacing:0.5px;
+  padding:16px 16px 8px;
+}
+.practice-clip-card{
+  padding:14px 16px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  margin:0 16px 10px;
+  box-shadow:var(--shadow);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:background 0.15s;
+}
+.practice-clip-card:active{ background:var(--mask-bg); }
+.practice-clip-title{
+  font-size:15px;
+  font-weight:600;
+  color:var(--text-1);
+}
+.practice-clip-source{
+  font-size:12px;
+  color:var(--text-3);
+  margin-top:4px;
+}
+.practice-clip-meta{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-top:8px;
+}
+.practice-clip-duration{
+  font-size:11px;
+  color:var(--text-4);
+}
+.practice-badge{
+  font-size:10px;
+  padding:2px 8px;
+  border-radius:8px;
+  font-weight:500;
+}
+.practice-badge.unpracticed{
+  background:var(--accent-bg);
+  color:var(--accent);
+}
+.practice-badge.practiced{
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  color:var(--text-3);
+}
+.practice-empty{
+  text-align:center;
+  padding:40px 24px;
+  color:var(--text-3);
+  font-size:14px;
+  line-height:1.6;
+}
+
+/* (old practice CSS removed — new styles are above) */
+
+/* ── Progress bar sentence markers ── */
+.progress-marker{
+  position:absolute; top:0; width:1px; height:100%;
+  background:rgba(255,255,255,0.10); pointer-events:none;
+}
+.progress-sentence-bg{
+  position:absolute; top:0; height:100%;
+  background:rgba(139,156,247,0.15); pointer-events:none;
+  transition:left 0.15s ease, width 0.15s ease;
+}
+
+/* ── Left-hand mode ── */
+body.left-hand .side-actions{ right:auto; left:12px; }
+body.left-hand .menu-btn{ left:auto; right:20px; }
+body.left-hand .help-btn{ right:auto; left:20px; }
+body.left-hand .menu-panel{ left:auto; right:16px; }
+body.left-hand .ai-reason-tooltip{ right:auto; left:20px; }
+body.left-hand .bottom-bar{ flex-direction:row-reverse; }
+
+/* ── Toast ── */
+.flipod-toast{
+  position:fixed; bottom:100px; left:50%; transform:translateX(-50%);
+  background:var(--bg-glass); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+  border:1px solid var(--border); border-radius:12px;
+  padding:12px 20px; z-index:180;
+  font-size:13px; color:var(--text-2); white-space:nowrap;
+  opacity:0; pointer-events:none; transition:opacity 0.3s ease;
+}
+.flipod-toast.visible{ opacity:1; }
+
 </style>
 </head>
 <body>
@@ -1800,10 +2102,19 @@ html,body{
       我的收藏
       <span class="sp-menu-badge" id="sp-fav-count">0</span>
     </button>
+    <button class="sp-menu-item" data-panel="practice-panel">
+      <svg viewBox="0 0 24 24"><path d="M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z"/></svg>
+      听力练习
+      <span class="sp-menu-badge" id="sp-practice-count">0</span>
+    </button>
     <button class="sp-menu-item" data-panel="vocab-panel">
       <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 9H7v-2h6v2zm3 4H7v-2h9v2zm-3-8V3.5L18.5 9H13z"/></svg>
       词汇本
       <span class="sp-menu-badge" id="sp-vocab-count">0</span>
+    </button>
+    <button class="sp-menu-item" id="sp-lefthand-btn">
+      <svg viewBox="0 0 24 24"><path d="M6.5 1h11c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2h-11c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2zm0 2v18h11V3h-11z"/></svg>
+      <span id="sp-lefthand-label">左手模式</span>
     </button>
     <button class="sp-menu-item" id="sp-theme-btn">
       <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
@@ -1842,6 +2153,43 @@ html,body{
   </div>
   <div class="sub-body" id="vocab-list"></div>
 </div>
+
+<!-- Practice sub-panel (sidebar) -->
+<div class="sub-panel practice-panel" id="practice-panel">
+  <div class="sub-header">
+    <button class="sub-back" data-close="practice-panel">
+      <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    </button>
+    <div class="sub-title">听力练习</div>
+  </div>
+  <div class="sub-body" id="practice-list"></div>
+</div>
+
+<!-- Practice overlay (full-screen 4-step) -->
+<div class="practice-overlay" id="practice-overlay">
+  <div class="pr-header">
+    <button class="pr-close" id="pr-close-btn">
+      <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+    <div class="pr-step-label" id="pr-step-label">STEP 1 · 盲听</div>
+    <div class="pr-step-dots" id="pr-step-dots">
+      <div class="pr-step-dot active" data-step="1"></div>
+      <div class="pr-step-dot" data-step="2"></div>
+      <div class="pr-step-dot" data-step="3"></div>
+      <div class="pr-step-dot" data-step="4"></div>
+    </div>
+  </div>
+  <div class="pr-body" id="pr-body"></div>
+</div>
+
+<!-- Bookmark toast -->
+<div class="bm-toast" id="bm-toast">
+  <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+  已收藏 · 可以在侧边栏「听力练习」里精听这段
+</div>
+
+<!-- Toast -->
+<div class="flipod-toast" id="flipod-toast"></div>
 
   <div id="container">
   <div class="screen" id="start-screen">
@@ -2070,6 +2418,9 @@ html,body{
         subPanel.classList.add('open');
         if (panelId === 'fav-panel') renderFavorites();
         if (panelId === 'vocab-panel') renderVocab();
+        if (panelId === 'practice-panel') {
+          if (typeof window._renderPracticeList === 'function') window._renderPracticeList();
+        }
       }
     });
   });
@@ -2190,6 +2541,19 @@ html,body{
     const days = Math.floor(hrs / 24);
     return `${days}天前`;
   }
+
+  // ── Left-hand mode toggle ──
+  const lefthandBtn = document.getElementById('sp-lefthand-btn');
+  const lefthandLabel = document.getElementById('sp-lefthand-label');
+  function applyLeftHand(on) {
+    document.body.classList.toggle('left-hand', on);
+    if (lefthandLabel) lefthandLabel.textContent = on ? '右手模式' : '左手模式';
+    localStorage.setItem('flipodLeftHand', on ? 'true' : 'false');
+  }
+  if (localStorage.getItem('flipodLeftHand') === 'true') applyLeftHand(true);
+  if (lefthandBtn) lefthandBtn.addEventListener('click', () => {
+    applyLeftHand(!document.body.classList.contains('left-hand'));
+  });
 
   // Expose openPanel for external use
   window._slidePanel = { open: openPanel, close: closePanel };
@@ -2571,6 +2935,10 @@ html,body{
         </div>
         <div class="bottom-bar">
           <div class="ctrl-left">
+            <span class="sentence-indicator" data-idx="${idx}">第 1 / ${clip.lines.length} 句</span>
+            <div class="indicator">${idx + 1} / ${total}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
             <button class="mask-toggle" id="mask-${idx}">
               ${document.getElementById('icon-eye-open').innerHTML}
             </button>
@@ -2579,7 +2947,6 @@ html,body{
             </button>
             <button class="speed-btn" id="speed-${idx}">1.0x</button>
           </div>
-          <div class="indicator">${idx + 1} / ${total}</div>
         </div>
       </div>
     `;
@@ -2898,28 +3265,81 @@ html,body{
     });
   }
 
-  // Rewind 5s
+  // ── Sentence navigation helpers ──
+  function findPrevSentenceStart(clip, t) {
+    // Find the sentence that contains or precedes current time
+    let currentLine = findLineAtTime(clip, t);
+    if (currentLine < 0) currentLine = 0;
+    // If we're more than 1s into the current sentence, go to its start
+    if (t - clip.lines[currentLine].start > 1.0) {
+      return clip.lines[currentLine].start;
+    }
+    // Otherwise go to previous sentence
+    if (currentLine > 0) return clip.lines[currentLine - 1].start;
+    return 0;
+  }
+
+  function findNextSentenceStart(clip, t) {
+    const currentLine = findLineAtTime(clip, t);
+    if (currentLine < 0) return t;
+    if (currentLine + 1 < clip.lines.length) return clip.lines[currentLine + 1].start;
+    return clip.lines[currentLine].end; // end of last sentence
+  }
+
+  function getCurrentSentenceInfo(clip, t) {
+    const lineIdx = findLineAtTime(clip, t);
+    return { current: lineIdx + 1, total: clip.lines.length };
+  }
+
+  // Rewind: jump to previous sentence start
   document.querySelectorAll('.rewind-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (currentIdx < 0 || currentIdx >= total) return;
-      safeSeek(currentIdx, Math.max(0, audios[currentIdx].currentTime - 5));
+      const clip = clips[currentIdx];
+      const t = audios[currentIdx].currentTime;
+      const target = findPrevSentenceStart(clip, t);
+      safeSeek(currentIdx, target);
       delete lastRenderedLine[currentIdx];
       updateSubtitle(currentIdx);
+      updateSentenceIndicator(currentIdx);
     });
   });
 
-  // Forward 5s
+  // Forward: jump to next sentence start
   document.querySelectorAll('.forward-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (currentIdx < 0 || currentIdx >= total) return;
-      const audio = audios[currentIdx];
-      safeSeek(currentIdx, Math.min(getClipDuration(currentIdx), audio.currentTime + 5));
+      const clip = clips[currentIdx];
+      const t = audios[currentIdx].currentTime;
+      const target = findNextSentenceStart(clip, t);
+      safeSeek(currentIdx, Math.min(getClipDuration(currentIdx), target));
       delete lastRenderedLine[currentIdx];
       updateSubtitle(currentIdx);
+      updateSentenceIndicator(currentIdx);
     });
   });
+
+  // Update sentence indicator in bottom bar
+  function updateSentenceIndicator(idx) {
+    const clip = clips[idx];
+    const t = audios[idx].currentTime;
+    const info = getCurrentSentenceInfo(clip, t);
+    const indicator = document.querySelector(`[data-idx="${idx}"] .sentence-indicator`);
+    if (indicator) {
+      indicator.textContent = `第 ${Math.max(1, info.current)} / ${info.total} 句`;
+    }
+    // Update sentence background highlight on progress bar
+    const sentBg = document.getElementById('prog-sentence-bg-' + idx);
+    const lineIdx = info.current - 1;
+    if (sentBg && lineIdx >= 0 && lineIdx < clip.lines.length) {
+      const dur = getClipDuration(idx);
+      const line = clip.lines[lineIdx];
+      sentBg.style.left = (line.start / dur * 100) + '%';
+      sentBg.style.width = ((line.end - line.start) / dur * 100) + '%';
+    }
+  }
 
   // ── Like / Bookmark (with persistence) ──
   function getLikedClips() { try { return JSON.parse(localStorage.getItem('flipodLikedClips') || '[]'); } catch { return []; } }
@@ -2983,6 +3403,11 @@ html,body{
             audio: key,
             timestamp: Date.now()
           });
+        }
+        // Show one-time bookmark toast
+        if (!localStorage.getItem('flipodFirstBookmarkShown')) {
+          localStorage.setItem('flipodFirstBookmarkShown', 'true');
+          showToast('已收藏 · 可以在侧边栏「听力练习」里精听这段');
         }
       } else {
         bookmarks = bookmarks.filter(b => b.audio !== key);
@@ -3246,6 +3671,8 @@ html,body{
       const dur = getClipDuration(idx);
       durTimeEl.textContent = fmtTime(dur);
     }
+    // Update sentence indicator
+    updateSentenceIndicator(idx);
   }
   function fmtTime(s) {
     if (!s || !isFinite(s)) return '0:00';
@@ -3392,6 +3819,29 @@ html,body{
     });
   }
 
+  // ── Render sentence boundary markers on progress bar ──
+  function renderProgressMarkers(idx) {
+    const wrap = document.getElementById('progwrap-' + idx);
+    if (!wrap) return;
+    const bar = wrap.querySelector('.progress-bar');
+    if (!bar) return;
+    bar.querySelectorAll('.progress-marker, .progress-sentence-bg').forEach(e => e.remove());
+    const clip = clips[idx];
+    const dur = getClipDuration(idx);
+    if (!dur || !clip.lines.length) return;
+    clip.lines.forEach((line, li) => {
+      if (li === 0) return;
+      const marker = document.createElement('div');
+      marker.className = 'progress-marker';
+      marker.style.left = (line.start / dur * 100) + '%';
+      bar.appendChild(marker);
+    });
+    const bg = document.createElement('div');
+    bg.className = 'progress-sentence-bg';
+    bg.id = 'prog-sentence-bg-' + idx;
+    bar.insertBefore(bg, bar.firstChild);
+  }
+
   // ── Play/pause ──
   function playClip(idx) {
     if (idx === currentIdx) return;
@@ -3418,6 +3868,7 @@ html,body{
     if (idx - 1 >= 0) restoreAudio(idx - 1);
 
     currentIdx = idx;
+    renderProgressMarkers(idx);
     isPlaying = true;
     sessionClipsPlayed++;
     if (clips[idx].lines?.length) {
@@ -3476,6 +3927,15 @@ html,body{
   function stopAll() {
     audios.forEach(a => a.pause());
     currentIdx = -1;
+  }
+
+  // ── Toast helper ──
+  function showToast(msg) {
+    const toast = document.getElementById('flipod-toast');
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.classList.add('visible');
+    setTimeout(() => toast.classList.remove('visible'), 2500);
   }
 
   // ── Word tap popup ──
@@ -3761,6 +4221,524 @@ html,body{
       setTimeout(() => playClip(idx), 400);
     }
   });
+
+  // ══════════════════════════════════════════
+  // ── Practice Mode (4-step listening drill) ──
+  // ══════════════════════════════════════════
+  (function initPractice() {
+    const prOverlay = document.getElementById('practice-overlay');
+    const prBody = document.getElementById('pr-body');
+    const prCloseBtn = document.getElementById('pr-close-btn');
+    const prStepLabel = document.getElementById('pr-step-label');
+    const prStepDots = document.getElementById('pr-step-dots');
+    const bmToast = document.getElementById('bm-toast');
+
+    let prAudio = null;   // dedicated Audio for practice
+    let prClip = null;     // clip data being practiced
+    let prClipIdx = -1;    // index in clips[]
+    let prStep = 0;        // current step 1-4
+    let prHardSentences = [];  // indices of sentences user marked "hard"
+    let prWordsLooked = 0;
+    let prSentCurrent = 0;
+    let bmToastShown = localStorage.getItem('flipodBmToastShown') === 'true';
+
+    // ── Bookmark toast (first-time) ──
+    function maybeShowBmToast() {
+      if (bmToastShown) return;
+      bmToastShown = true;
+      localStorage.setItem('flipodBmToastShown', 'true');
+      bmToast.classList.add('show');
+      setTimeout(() => bmToast.classList.remove('show'), 3000);
+    }
+
+    // Hook into existing bookmark buttons
+    document.querySelectorAll('.bookmark-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.classList.contains('bookmarked')) {
+          setTimeout(maybeShowBmToast, 400);
+        }
+      });
+    });
+
+    // ── Practice list rendering ──
+    function getPracticeData() {
+      try { return JSON.parse(localStorage.getItem('flipodPractice') || '{}'); } catch { return {}; }
+    }
+    function savePracticeData(d) { localStorage.setItem('flipodPractice', JSON.stringify(d)); }
+
+    function renderPracticeList() {
+      const listEl = document.getElementById('practice-list');
+      const bookmarks = getBookmarks();
+      const practiceData = getPracticeData();
+
+      // Update badge count
+      const unpracticed = bookmarks.filter(b => !practiceData[b.audio]?.done).length;
+      const badge = document.getElementById('sp-practice-count');
+      if (badge) badge.textContent = unpracticed || bookmarks.length || '0';
+
+      if (bookmarks.length === 0) {
+        listEl.innerHTML = `<div class="pr-list-empty">
+          在 Feed 里收藏感兴趣的片段，<br>它们会出现在这里等你精听
+        </div>`;
+        return;
+      }
+
+      let html = '<div class="pr-list-section">你收藏的</div>';
+      bookmarks.forEach(bm => {
+        const pd = practiceData[bm.audio];
+        const done = pd?.done;
+        const badgeClass = done ? 'done' : 'unp';
+        const badgeText = done ? `已练习 · 查了 ${pd.words || 0} 个词` : '未练习';
+        html += `<div class="pr-list-item" data-audio="${bm.audio}">
+          <div class="pr-list-item-title">${bm.title || 'Untitled'}</div>
+          <div class="pr-list-item-meta">
+            <span>${bm.source || ''}</span>
+            ${bm.tag ? `<span>· ${bm.tag}</span>` : ''}
+          </div>
+          <span class="pr-list-item-badge ${badgeClass}">${badgeText}</span>
+        </div>`;
+      });
+
+      listEl.innerHTML = html;
+
+      // Click to start practice
+      listEl.querySelectorAll('.pr-list-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const audio = item.dataset.audio;
+          const clipIdx = clips.findIndex(c => getClipKeyByClip(c) === audio || c.audio === audio);
+          if (clipIdx >= 0) {
+            startPractice(clipIdx);
+          }
+        });
+      });
+    }
+
+    // Wire up practice panel in sidebar
+    const origSubPanelHandler = document.querySelector('.sp-menu-item[data-panel="practice-panel"]');
+    if (origSubPanelHandler) {
+      origSubPanelHandler.addEventListener('click', () => {
+        document.getElementById('practice-panel').classList.add('open');
+        renderPracticeList();
+      });
+    }
+
+    // ── Start practice for a clip ──
+    function startPractice(clipIdx) {
+      prClip = clips[clipIdx];
+      prClipIdx = clipIdx;
+      prHardSentences = [];
+      prWordsLooked = 0;
+      prSentCurrent = 0;
+
+      // Pause feed audio
+      if (currentIdx >= 0 && currentIdx < total) audios[currentIdx].pause();
+
+      // Create dedicated audio
+      if (prAudio) { prAudio.pause(); prAudio = null; }
+      prAudio = new Audio(getClipAudioSrcByClip(prClip));
+      prAudio.preload = 'auto';
+
+      // Close panels, open practice overlay
+      document.querySelectorAll('.sub-panel.open').forEach(p => p.classList.remove('open'));
+      if (window._slidePanel) window._slidePanel.close();
+      prOverlay.classList.add('open');
+
+      goToStep(1);
+    }
+
+    // ── Step navigation ──
+    function goToStep(step) {
+      prStep = step;
+      const labels = { 1: 'STEP 1 · 盲听', 2: 'STEP 2 · 逐句精听', 3: 'STEP 3 · 难句闪卡', 4: 'STEP 4 · 复听' };
+      prStepLabel.textContent = labels[step] || '';
+
+      // Update dots
+      prStepDots.querySelectorAll('.pr-step-dot').forEach(dot => {
+        const s = parseInt(dot.dataset.step);
+        dot.classList.toggle('active', s === step);
+        dot.classList.toggle('done', s < step);
+      });
+
+      if (step === 1) renderStep1();
+      else if (step === 2) renderStep2();
+      else if (step === 3) renderStep3();
+      else if (step === 4) renderStep4();
+    }
+
+    // ── STEP 1: Blind Listen ──
+    function renderStep1() {
+      let playing = false;
+      prBody.innerHTML = `
+        <div class="pr-blind">
+          <div class="pr-blind-hint">先听一遍，看能抓住多少</div>
+          <div class="pr-wave paused">
+            ${Array(8).fill('<div class="pr-wave-bar"></div>').join('')}
+          </div>
+          <button class="pr-play-btn" id="pr-s1-play">
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="pr-blind-choices" style="display:none" id="pr-s1-choices">
+            <button class="pr-blind-choice primary" data-choice="understood">大部分听懂了</button>
+            <button class="pr-blind-choice" data-choice="unclear">有些没听清</button>
+          </div>
+        </div>`;
+
+      const playBtn = document.getElementById('pr-s1-play');
+      const wave = prBody.querySelector('.pr-wave');
+      const choices = document.getElementById('pr-s1-choices');
+
+      playBtn.addEventListener('click', () => {
+        if (!playing) {
+          prAudio.currentTime = 0;
+          prAudio.play().catch(() => {});
+          playing = true;
+          wave.classList.remove('paused');
+          playBtn.innerHTML = '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+        } else {
+          prAudio.pause();
+          playing = false;
+          wave.classList.add('paused');
+          playBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+        }
+      });
+
+      prAudio.onended = () => {
+        playing = false;
+        wave.classList.add('paused');
+        playBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+        choices.style.display = 'flex';
+      };
+
+      choices.querySelectorAll('.pr-blind-choice').forEach(btn => {
+        btn.addEventListener('click', () => {
+          prAudio.pause();
+          if (btn.dataset.choice === 'understood') {
+            goToStep(4); // skip to re-listen
+          } else {
+            goToStep(2); // go to sentence-by-sentence
+          }
+        });
+      });
+    }
+
+    // ── STEP 2: Sentence-by-sentence ──
+    function renderStep2() {
+      const lines = prClip.lines;
+      prSentCurrent = 0;
+
+      function renderCurrentSentence() {
+        const line = lines[prSentCurrent];
+        const totalSent = lines.length;
+        prBody.innerHTML = `
+          <div class="pr-sentence">
+            <div class="pr-sent-progress">第 ${prSentCurrent + 1} / ${totalSent} 句</div>
+            <div class="pr-sent-en" id="pr-s2-en"></div>
+            <div class="pr-sent-zh hidden-zh" id="pr-s2-zh">${line.zh || ''}</div>
+            <div class="pr-sent-controls">
+              <button class="pr-sent-ctrl replay" id="pr-s2-replay">
+                <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+              </button>
+              <button class="pr-sent-ctrl" id="pr-s2-playpause">
+                <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              </button>
+            </div>
+            <div class="pr-sent-actions">
+              <button class="pr-sent-action easy" data-action="easy">✓ 没问题</button>
+              <button class="pr-sent-action hard" data-action="hard">✗ 有难度</button>
+            </div>
+          </div>`;
+
+        // Render words with tap support
+        const enEl = document.getElementById('pr-s2-en');
+        renderWords(enEl, line);
+
+        // Word tap in practice
+        enEl.querySelectorAll('.w').forEach(w => {
+          w.addEventListener('click', (e) => {
+            e.stopPropagation();
+            prWordsLooked++;
+            showWordPopup(w);
+          });
+        });
+
+        // Chinese toggle
+        const zhEl = document.getElementById('pr-s2-zh');
+        zhEl.addEventListener('click', () => zhEl.classList.toggle('hidden-zh'));
+
+        // Play sentence
+        let s2playing = false;
+        function playSentence() {
+          prAudio.currentTime = line.start;
+          prAudio.play().catch(() => {});
+          s2playing = true;
+          const ppBtn = document.getElementById('pr-s2-playpause');
+          ppBtn.innerHTML = '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+        }
+
+        // Auto-play this sentence
+        playSentence();
+
+        // Stop at sentence end
+        const checkEnd = () => {
+          if (prAudio.currentTime >= line.end) {
+            prAudio.pause();
+            s2playing = false;
+            const ppBtn = document.getElementById('pr-s2-playpause');
+            if (ppBtn) ppBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+          }
+        };
+        prAudio.ontimeupdate = checkEnd;
+
+        // Replay
+        document.getElementById('pr-s2-replay').addEventListener('click', () => playSentence());
+
+        // Play/pause
+        document.getElementById('pr-s2-playpause').addEventListener('click', () => {
+          if (s2playing) {
+            prAudio.pause();
+            s2playing = false;
+            document.getElementById('pr-s2-playpause').innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+          } else {
+            playSentence();
+          }
+        });
+
+        // Easy / Hard
+        prBody.querySelectorAll('.pr-sent-action').forEach(btn => {
+          btn.addEventListener('click', () => {
+            prAudio.pause();
+            if (btn.dataset.action === 'hard') {
+              prHardSentences.push(prSentCurrent);
+            }
+            prSentCurrent++;
+            if (prSentCurrent < totalSent) {
+              renderCurrentSentence();
+            } else {
+              // Done with all sentences
+              if (prHardSentences.length > 0) {
+                goToStep(3);
+              } else {
+                goToStep(4);
+              }
+            }
+          });
+        });
+      }
+
+      renderCurrentSentence();
+    }
+
+    // ── STEP 3: Flashcards for hard sentences ──
+    function renderStep3() {
+      if (prHardSentences.length === 0) { goToStep(4); return; }
+      let flashIdx = 0;
+      let showingBack = false;
+
+      function renderFlashcard() {
+        const lineIdx = prHardSentences[flashIdx];
+        const line = prClip.lines[lineIdx];
+        showingBack = false;
+
+        prBody.innerHTML = `
+          <div class="pr-flash">
+            <div class="pr-flash-card" id="pr-s3-card">
+              <div class="pr-flash-label">难句 ${flashIdx + 1} / ${prHardSentences.length}</div>
+              <div class="pr-flash-en">${line.en}</div>
+              <button class="pr-flash-play" id="pr-s3-play">
+                <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              </button>
+              <div class="pr-flash-hint">点击卡片查看翻译</div>
+            </div>
+            <div class="pr-flash-actions" style="display:none" id="pr-s3-actions">
+              <button class="pr-flash-action got-it" data-action="got">搞懂了</button>
+              <button class="pr-flash-action unclear" data-action="retry">还是不太清楚</button>
+            </div>
+          </div>`;
+
+        // Play sentence audio
+        document.getElementById('pr-s3-play').addEventListener('click', (e) => {
+          e.stopPropagation();
+          prAudio.currentTime = line.start;
+          prAudio.play().catch(() => {});
+          prAudio.ontimeupdate = () => {
+            if (prAudio.currentTime >= line.end) prAudio.pause();
+          };
+        });
+
+        // Auto-play
+        prAudio.currentTime = line.start;
+        prAudio.play().catch(() => {});
+        prAudio.ontimeupdate = () => {
+          if (prAudio.currentTime >= line.end) prAudio.pause();
+        };
+
+        // Flip card
+        const card = document.getElementById('pr-s3-card');
+        card.addEventListener('click', () => {
+          if (showingBack) return;
+          showingBack = true;
+          card.innerHTML = `
+            <div class="pr-flash-label">难句 ${flashIdx + 1} / ${prHardSentences.length}</div>
+            <div class="pr-flash-en">${line.en}</div>
+            <div class="pr-flash-divider"></div>
+            <div class="pr-flash-zh">${line.zh || ''}</div>
+            ${line.words ? `<div class="pr-flash-phonetic">${line.words.filter(w => w.cefr && w.cefr !== 'A').map(w => w.word + ' (' + w.cefr + ')').join(' · ')}</div>` : ''}
+          `;
+          document.getElementById('pr-s3-actions').style.display = 'flex';
+        });
+
+        // Got it / Retry
+        document.getElementById('pr-s3-actions')?.querySelectorAll('.pr-flash-action').forEach(btn => {
+          btn.addEventListener('click', () => {
+            prAudio.pause();
+            if (btn.dataset.action === 'retry') {
+              // Put this card at the end
+              prHardSentences.push(lineIdx);
+            }
+            flashIdx++;
+            if (flashIdx < prHardSentences.length) {
+              renderFlashcard();
+            } else {
+              goToStep(4);
+            }
+          });
+        });
+      }
+
+      renderFlashcard();
+    }
+
+    // ── STEP 4: Re-listen + Summary ──
+    function renderStep4() {
+      let s4lineIdx = -1;
+      const hardSet = new Set(prHardSentences);
+
+      prBody.innerHTML = `
+        <div class="pr-relisten">
+          <div class="pr-relisten-en" id="pr-s4-en"></div>
+          <div class="pr-relisten-zh" id="pr-s4-zh"></div>
+          <div class="pr-sent-controls">
+            <button class="pr-sent-ctrl" id="pr-s4-playpause">
+              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+            <button class="pr-sent-ctrl" id="pr-s4-skip" style="width:auto;padding:0 8px;font-size:12px;color:var(--text-3)">
+              跳过 ▸
+            </button>
+          </div>
+        </div>`;
+
+      // Play from start
+      prAudio.currentTime = 0;
+      prAudio.play().catch(() => {});
+      let s4playing = true;
+      document.getElementById('pr-s4-playpause').innerHTML = '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+
+      document.getElementById('pr-s4-playpause').addEventListener('click', () => {
+        if (s4playing) {
+          prAudio.pause();
+          s4playing = false;
+          document.getElementById('pr-s4-playpause').innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+        } else {
+          prAudio.play().catch(() => {});
+          s4playing = true;
+          document.getElementById('pr-s4-playpause').innerHTML = '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+        }
+      });
+
+      // Skip button — jump straight to summary
+      document.getElementById('pr-s4-skip').addEventListener('click', () => {
+        prAudio.pause();
+        prAudio.ontimeupdate = null;
+        prAudio.onended = null;
+        showSummary();
+      });
+
+      // Subtitle sync during re-listen
+      prAudio.ontimeupdate = () => {
+        const t = prAudio.currentTime;
+        const li = findLineAtTime(prClip, t);
+        if (li >= 0 && li !== s4lineIdx) {
+          s4lineIdx = li;
+          const line = prClip.lines[li];
+          const enEl = document.getElementById('pr-s4-en');
+          const zhEl = document.getElementById('pr-s4-zh');
+          if (enEl) {
+            renderWords(enEl, line);
+            // Mark practiced words
+            if (hardSet.has(li)) {
+              enEl.querySelectorAll('.w').forEach(w => w.classList.add('practiced'));
+            }
+          }
+          if (zhEl) zhEl.textContent = line.zh || '';
+        }
+      };
+
+      // On audio end → show summary
+      prAudio.onended = () => {
+        s4playing = false;
+        showSummary();
+      };
+    }
+
+    function showSummary() {
+      const sentTotal = prClip.lines.length;
+      prStepLabel.textContent = '练习完成';
+
+      prBody.innerHTML = `
+        <div class="pr-summary">
+          <div class="pr-summary-title">这段练完了</div>
+          <div class="pr-summary-stats">
+            <div class="pr-summary-stat">
+              <div class="pr-summary-stat-val">${prWordsLooked}</div>
+              <div class="pr-summary-stat-label">查了词</div>
+            </div>
+            <div class="pr-summary-stat">
+              <div class="pr-summary-stat-val">${sentTotal}</div>
+              <div class="pr-summary-stat-label">精听句数</div>
+            </div>
+            <div class="pr-summary-stat">
+              <div class="pr-summary-stat-val">${prHardSentences.length}</div>
+              <div class="pr-summary-stat-label">难句</div>
+            </div>
+          </div>
+          <div class="pr-summary-actions">
+            <button class="pr-summary-btn" id="pr-back-feed">回到 Feed</button>
+            <button class="pr-summary-btn primary" id="pr-again">再练一段</button>
+          </div>
+        </div>`;
+
+      // Save practice data
+      const pd = getPracticeData();
+      const key = getClipKeyByClip(prClip);
+      pd[key] = { done: true, words: prWordsLooked, hard: prHardSentences.length, ts: Date.now() };
+      savePracticeData(pd);
+
+      document.getElementById('pr-back-feed').addEventListener('click', closePractice);
+      document.getElementById('pr-again').addEventListener('click', () => {
+        closePractice();
+        setTimeout(() => {
+          if (window._slidePanel) window._slidePanel.open();
+          setTimeout(() => {
+            document.getElementById('practice-panel').classList.add('open');
+            renderPracticeList();
+          }, 350);
+        }, 400);
+      });
+    }
+
+    // ── Close practice ──
+    function closePractice() {
+      if (prAudio) { prAudio.pause(); prAudio.ontimeupdate = null; prAudio.onended = null; }
+      prOverlay.classList.remove('open');
+      prStep = 0;
+    }
+
+    prCloseBtn.addEventListener('click', closePractice);
+
+    // Expose for sidebar
+    window._practice = { renderList: renderPracticeList, start: startPractice };
+    window._renderPracticeList = renderPracticeList;
+  })();
 })();
 </script>
 </body>
