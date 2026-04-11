@@ -85,6 +85,12 @@ function handleRankApi(req, res) {
       return;
     }
 
+    if (!AZURE_API_KEY) {
+      res.writeHead(503, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ error: 'AZURE_API_KEY not set — AI ranking disabled' }));
+      return;
+    }
+
     const prompt = buildPrompt(userProfile);
     const gptBody = JSON.stringify({
       messages: [{ role: 'user', content: prompt }],
