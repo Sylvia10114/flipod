@@ -16,6 +16,7 @@ import { PracticeScreen } from './src/screens/PracticeScreen';
 import { StartScreen } from './src/screens/StartScreen';
 import { VocabScreen } from './src/screens/VocabScreen';
 import { api } from './src/services/api';
+import { disposeUiFeedback, primeUiFeedback, triggerUiFeedback } from './src/feedback';
 import {
   clearAccountState,
   clearAuthToken,
@@ -229,7 +230,11 @@ export default function App() {
       staysActiveInBackground: false,
       shouldDuckAndroid: true,
       playThroughEarpieceAndroid: false,
-    });
+    }).then(() => primeUiFeedback()).catch(() => {});
+
+    return () => {
+      void disposeUiFeedback();
+    };
   }, []);
 
   useEffect(() => {
@@ -411,6 +416,7 @@ export default function App() {
     setMenuOpen(false);
     setShowAuthSheet(false);
     setAuthError('');
+    triggerUiFeedback('success');
   }, [applyAuthSnapshot, localMigrationPayload]);
 
   const handleRequestSms = useCallback(async (phoneNumber: string) => {
@@ -427,6 +433,7 @@ export default function App() {
         setLinkedIdentities(response.linkedIdentities);
         setShowAuthSheet(false);
         showToast('手机号已绑定');
+        triggerUiFeedback('success');
         return;
       }
 
@@ -473,6 +480,7 @@ export default function App() {
         setLinkedIdentities(response.linkedIdentities);
         setShowAuthSheet(false);
         showToast('Apple 已绑定');
+        triggerUiFeedback('success');
         return;
       }
 
@@ -566,6 +574,7 @@ export default function App() {
   };
 
   const handleToggleBookmark = async (clip: Clip, index: number) => {
+    triggerUiFeedback('bookmark');
     const nextBookmark = toBookmark(clip, index);
     const exists = bookmarkedKeys.includes(nextBookmark.clipKey);
 
@@ -646,6 +655,7 @@ export default function App() {
   };
 
   const handleToggleLike = async (clip: Clip, index: number) => {
+    triggerUiFeedback('like');
     const clipKey = buildClipKey(clip, index);
     const isLiked = likedKeys.has(clipKey);
 

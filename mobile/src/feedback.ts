@@ -3,7 +3,6 @@ import * as Haptics from 'expo-haptics';
 
 type FeedbackSound =
   | 'clickGo'
-  | 'clickFlow'
   | 'onboardNext'
   | 'collection'
   | 'follow'
@@ -27,7 +26,6 @@ export type UiFeedbackKind =
 
 const SOUND_ASSETS: Record<FeedbackSound, number> = {
   clickGo: require('../assets/sfx/click_go.mp3'),
-  clickFlow: require('../assets/sfx/click_flow.mp3'),
   onboardNext: require('../assets/sfx/onboard_next.mp3'),
   collection: require('../assets/sfx/contacts_click_collection.mp3'),
   follow: require('../assets/sfx/click_follow.mp3'),
@@ -40,7 +38,7 @@ const SOUND_ASSETS: Record<FeedbackSound, number> = {
 
 const SOUND_FOR_KIND: Record<UiFeedbackKind, FeedbackSound> = {
   primary: 'clickGo',
-  menu: 'clickFlow',
+  menu: 'card',
   onboarding: 'onboardNext',
   bookmark: 'collection',
   like: 'follow',
