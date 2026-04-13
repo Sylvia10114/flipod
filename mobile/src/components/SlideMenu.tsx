@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { DominantHand, Profile } from '../types';
 
 export type MenuScreen = 'feed' | 'library' | 'practice' | 'vocab';
@@ -54,12 +54,22 @@ export function SlideMenu({
   onToggleHand,
   onResetOnboarding,
 }: Props) {
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
         <SafeAreaView style={[styles.sheetWrap, dominantHand === 'left' ? styles.sheetWrapRight : styles.sheetWrapLeft]}>
-          <View style={styles.sheet}>
+          <View
+            style={[
+              styles.sheet,
+              {
+                paddingTop: Math.max(insets.top, 18) + 10,
+                paddingBottom: Math.max(insets.bottom, 24),
+              },
+            ]}
+          >
             <View style={styles.header}>
               <View>
                 <Text style={styles.greeting}>Hi, Learner</Text>
@@ -141,13 +151,11 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
     paddingHorizontal: 18,
-    paddingBottom: 24,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 12,
   },
   greeting: {
     color: '#FFFFFF',
