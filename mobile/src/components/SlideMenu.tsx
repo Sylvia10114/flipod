@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { DominantHand, LinkedIdentity, Profile } from '../types';
 
@@ -81,88 +81,95 @@ export function SlideMenu({
               },
             ]}
           >
-            <View style={styles.header}>
-              <View>
-                <Text style={styles.greeting}>
-                  {primaryIdentity?.provider === 'phone' ? primaryIdentity.displayValue : 'Hi, Learner'}
-                </Text>
-                <Text style={styles.meta}>{profile.level || 'B1'} · 已听 {clipsPlayed} 个片段</Text>
-              </View>
-              <Pressable onPress={onClose} style={styles.closeButton}>
-                <Text style={styles.closeButtonText}>关闭</Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.menuList}>
-              <MenuItem
-                label="继续听"
-                active={activeScreen === 'feed'}
-                onPress={() => onNavigate('feed')}
-              />
-              <MenuItem
-                label="我的收藏"
-                count={bookmarksCount}
-                active={activeScreen === 'library'}
-                onPress={() => onNavigate('library')}
-              />
-              <MenuItem
-                label="听力练习"
-                count={practiceCount}
-                active={activeScreen === 'practice'}
-                onPress={() => onNavigate('practice')}
-              />
-              <MenuItem
-                label="词汇本"
-                count={vocabCount}
-                active={activeScreen === 'vocab'}
-                onPress={() => onNavigate('vocab')}
-              />
-            </View>
-
-            <View style={styles.profileCard}>
-              <Text style={styles.profileLabel}>学习偏好</Text>
-              <Text style={styles.profileValue}>等级：{profile.level || '--'}</Text>
-              <Text style={styles.profileTags}>{profile.interests.join(' · ') || '未设置兴趣'}</Text>
-            </View>
-
-            <View style={styles.accountCard}>
-              <Text style={styles.profileLabel}>账号</Text>
-              <Text style={styles.accountMeta}>
-                {linkedIdentities.length > 0
-                  ? linkedIdentities.map(item => item.provider === 'phone' ? item.displayValue : 'Apple').join(' · ')
-                  : '未绑定登录方式'}
-              </Text>
-              <View style={styles.accountActions}>
-                {!hasPhone ? (
-                  <Pressable onPress={onLinkPhone} style={styles.accountButton}>
-                    <Text style={styles.accountButtonText}>绑定手机号</Text>
-                  </Pressable>
-                ) : null}
-                {!hasApple ? (
-                  <Pressable onPress={onLinkApple} style={styles.accountButton}>
-                    <Text style={styles.accountButtonText}>绑定 Apple</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-              <View style={styles.logoutPanel}>
-                <View style={styles.logoutCopy}>
-                  <Text style={styles.logoutTitle}>退出当前账号</Text>
-                  <Text style={styles.logoutHint}>会保留这台手机的设备标识和基础设置，重新登录后可以恢复学习进度。</Text>
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              <View style={styles.header}>
+                <View>
+                  <Text style={styles.greeting}>
+                    {primaryIdentity?.provider === 'phone' ? primaryIdentity.displayValue : 'Hi, Learner'}
+                  </Text>
+                  <Text style={styles.meta}>{profile.level || 'B1'} · 已听 {clipsPlayed} 个片段</Text>
                 </View>
-                <Pressable onPress={onLogout} style={styles.logoutButton}>
-                  <Text style={styles.logoutButtonText}>退出登录</Text>
+                <Pressable onPress={onClose} style={styles.closeButton}>
+                  <Text style={styles.closeButtonText}>关闭</Text>
                 </Pressable>
               </View>
-            </View>
 
-            <View style={styles.footer}>
-              <Pressable onPress={onToggleHand} style={styles.footerButton}>
-                <Text style={styles.footerButtonText}>{dominantHand === 'left' ? '切回右手模式' : '左手模式'}</Text>
-              </Pressable>
-              <Pressable onPress={onResetOnboarding} style={styles.footerButton}>
-                <Text style={styles.footerButtonText}>重置引导</Text>
-              </Pressable>
-            </View>
+              <View style={styles.menuList}>
+                <MenuItem
+                  label="继续听"
+                  active={activeScreen === 'feed'}
+                  onPress={() => onNavigate('feed')}
+                />
+                <MenuItem
+                  label="我的收藏"
+                  count={bookmarksCount}
+                  active={activeScreen === 'library'}
+                  onPress={() => onNavigate('library')}
+                />
+                <MenuItem
+                  label="听力练习"
+                  count={practiceCount}
+                  active={activeScreen === 'practice'}
+                  onPress={() => onNavigate('practice')}
+                />
+                <MenuItem
+                  label="词汇本"
+                  count={vocabCount}
+                  active={activeScreen === 'vocab'}
+                  onPress={() => onNavigate('vocab')}
+                />
+              </View>
+
+              <View style={styles.profileCard}>
+                <Text style={styles.profileLabel}>学习偏好</Text>
+                <Text style={styles.profileValue}>等级：{profile.level || '--'}</Text>
+                <Text style={styles.profileTags}>{profile.interests.join(' · ') || '未设置兴趣'}</Text>
+              </View>
+
+              <View style={styles.accountCard}>
+                <Text style={styles.profileLabel}>账号</Text>
+                <Text style={styles.accountMeta}>
+                  {linkedIdentities.length > 0
+                    ? linkedIdentities.map(item => item.provider === 'phone' ? item.displayValue : 'Apple').join(' · ')
+                    : '未绑定登录方式'}
+                </Text>
+                <View style={styles.accountActions}>
+                  {!hasPhone ? (
+                    <Pressable onPress={onLinkPhone} style={styles.accountButton}>
+                      <Text style={styles.accountButtonText}>绑定手机号</Text>
+                    </Pressable>
+                  ) : null}
+                  {!hasApple ? (
+                    <Pressable onPress={onLinkApple} style={styles.accountButton}>
+                      <Text style={styles.accountButtonText}>绑定 Apple</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+                <View style={styles.logoutPanel}>
+                  <View style={styles.logoutCopy}>
+                    <Text style={styles.logoutTitle}>退出当前账号</Text>
+                    <Text style={styles.logoutHint}>会保留这台手机的设备标识和基础设置，重新登录后可以恢复学习进度。</Text>
+                  </View>
+                  <Pressable onPress={onLogout} style={styles.logoutButton}>
+                    <Text style={styles.logoutButtonText}>退出登录</Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={styles.footer}>
+                <Pressable onPress={onToggleHand} style={styles.footerButton}>
+                  <Text style={styles.footerButtonText}>{dominantHand === 'left' ? '切回右手模式' : '左手模式'}</Text>
+                </Pressable>
+                <Pressable onPress={onResetOnboarding} style={styles.footerButton}>
+                  <Text style={styles.footerButtonText}>重置引导</Text>
+                </Pressable>
+              </View>
+            </ScrollView>
           </View>
         </SafeAreaView>
       </View>
@@ -194,6 +201,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
     paddingHorizontal: 18,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   header: {
     flexDirection: 'row',
@@ -363,6 +376,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: 'auto',
+    paddingTop: 18,
     gap: 10,
   },
   footerButton: {
