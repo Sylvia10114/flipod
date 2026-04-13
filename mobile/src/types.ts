@@ -32,6 +32,24 @@ export type Profile = {
   onboardingDone: boolean;
 };
 
+export type AuthProvider = 'phone' | 'apple';
+
+export type AuthUser = {
+  id: string;
+};
+
+export type LinkedIdentity = {
+  provider: AuthProvider;
+  providerUserId: string;
+  displayValue: string;
+  lastUsedAt?: string | null;
+};
+
+export type AuthSession = {
+  token: string;
+  expiresAt: string;
+};
+
 export type DominantHand = 'left' | 'right';
 
 export type AppSettings = {
@@ -49,6 +67,27 @@ export type SessionResponse = {
   profile: Profile & {
     updatedAt: string | null;
   };
+};
+
+export type AuthInitResponse = {
+  user: AuthUser;
+  session: AuthSession;
+  linkedIdentities: LinkedIdentity[];
+};
+
+export type AuthBootstrapResponse = {
+  user: AuthUser;
+  session: { expiresAt: string } | null;
+  linkedIdentities: LinkedIdentity[];
+  profile: Profile & {
+    updatedAt?: string | null;
+  };
+  bookmarks: Bookmark[];
+  vocab: VocabEntry[];
+  practiceData: PracticeMap;
+  knownWords: string[];
+  likedClipKeys: string[];
+  likeEvents: LikeEvent[];
 };
 
 export type RankedFeedItem = {
@@ -94,3 +133,8 @@ export type PracticeRecord = {
 };
 
 export type PracticeMap = Record<string, PracticeRecord>;
+
+export type LikeEvent = {
+  tag: string;
+  timestamp: number;
+};

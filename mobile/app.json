@@ -10,7 +10,12 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.flipod.mobile"
+      "bundleIdentifier": "com.flipod.mobile",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
     },
     "android": {
       "package": "com.flipod.mobile"

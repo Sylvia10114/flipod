@@ -29,6 +29,8 @@ processing_log.json
 # Secrets
 .env
 .env.local
+.dev.vars
+.dev.vars.*
 node_modules/
 mobile/node_modules/
 mobile/.expo/

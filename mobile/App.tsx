@@ -1,6 +1,7 @@
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { Audio } from 'expo-av';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { Audio } from 'expo-av';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { buildClipKey, findClipIndexByKey, resolveDataUrl, toBookmark } from './src/clip-utils';
 import { AppToast } from './src/components/AppToast';
@@ -9,14 +10,18 @@ import { type MenuScreen, SlideMenu } from './src/components/SlideMenu';
 import { demoClips } from './src/demo-clips';
 import { FeedScreen } from './src/screens/FeedScreen';
 import { LibraryScreen } from './src/screens/LibraryScreen';
+import { LoginScreen } from './src/screens/LoginScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { PracticeScreen } from './src/screens/PracticeScreen';
 import { StartScreen } from './src/screens/StartScreen';
 import { VocabScreen } from './src/screens/VocabScreen';
 import { api } from './src/services/api';
 import {
+  clearAccountState,
+  clearAuthToken,
   DEFAULT_SETTINGS,
   getOrCreateDeviceId,
+  loadAuthToken,
   loadBookmarks,
   loadLikeEvents,
   loadLikedClips,
@@ -25,7 +30,8 @@ import {
   loadProfile,
   loadSettings,
   loadVocab,
-  type LikeEvent,
+  saveAuthBootstrapSnapshot,
+  saveAuthToken,
   saveBookmarks,
   saveLikeEvents,
   saveLikedClips,
@@ -35,7 +41,18 @@ import {
   saveSettings,
   saveVocab,
 } from './src/storage';
-import type { AppSettings, Bookmark, Clip, PracticeMap, Profile, VocabEntry } from './src/types';
+import type {
+  AppSettings,
+  AuthBootstrapResponse,
+  AuthInitResponse,
+  Bookmark,
+  Clip,
+  LikeEvent,
+  LinkedIdentity,
+  PracticeMap,
+  Profile,
+  VocabEntry,
+} from './src/types';
 
 const defaultProfile: Profile = {
   level: null,
@@ -97,25 +114,6 @@ async function maybeRankWithApi(clips: Clip[], profile: Profile) {
   }
 }
 
-function mergeBookmarks(local: Bookmark[], remote: Bookmark[]) {
-  const byKey = new Map<string, Bookmark>();
-  [...remote, ...local].forEach(item => {
-    if (!item?.clipKey) return;
-    byKey.set(item.clipKey, { ...byKey.get(item.clipKey), ...item });
-  });
-  return Array.from(byKey.values());
-}
-
-function mergeVocab(local: VocabEntry[], remote: VocabEntry[]) {
-  const byWord = new Map<string, VocabEntry>();
-  [...remote, ...local].forEach(item => {
-    const key = item?.word?.toLowerCase();
-    if (!key) return;
-    byWord.set(key, { ...byWord.get(key), ...item, word: key });
-  });
-  return Array.from(byWord.values());
-}
-
 function deriveRecoTag(events: LikeEvent[]) {
   if (events.length < 5) return null;
   const recent = events.slice(-10);
@@ -139,9 +137,26 @@ function deriveRecoTag(events: LikeEvent[]) {
   return bestTag && bestCount / recent.length > 0.6 ? bestTag : null;
 }
 
+function readErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    try {
+      const parsed = JSON.parse(error.message) as { error?: string };
+      return parsed.error || error.message;
+    } catch {
+      return error.message;
+    }
+  }
+  return '请求失败，请稍后重试';
+}
+
 export default function App() {
   const [booting, setBooting] = useState(true);
   const [deviceId, setDeviceId] = useState('');
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [linkedIdentities, setLinkedIdentities] = useState<LinkedIdentity[]>([]);
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [showAuthSheet, setShowAuthSheet] = useState(false);
   const [profile, setProfile] = useState<Profile>(defaultProfile);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [practiceData, setPracticeData] = useState<PracticeMap>({});
@@ -165,6 +180,25 @@ export default function App() {
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastRerankAtRef = useRef(0);
   const startTransitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const applyAuthSnapshot = useCallback((snapshot: AuthBootstrapResponse) => {
+    setProfile({
+      level: snapshot.profile.level || null,
+      interests: Array.isArray(snapshot.profile.interests) ? snapshot.profile.interests : [],
+      theme: snapshot.profile.theme === 'light' ? 'light' : 'dark',
+      onboardingDone: Boolean(snapshot.profile.onboardingDone),
+    });
+    setBookmarks(snapshot.bookmarks || []);
+    setVocabList(snapshot.vocab || []);
+    setPracticeData(snapshot.practiceData || {});
+    setKnownWords(snapshot.knownWords || []);
+    setLikedClipKeys(snapshot.likedClipKeys || []);
+    setLikeEvents(snapshot.likeEvents || []);
+    setLinkedIdentities(snapshot.linkedIdentities || []);
+    setShowStartTransition(false);
+    setShowStartScreen(Boolean(snapshot.profile.onboardingDone));
+    setPracticeClipKey(null);
+  }, []);
 
   const showToast = useCallback((message: string) => {
     setToastMessage(message);
@@ -205,6 +239,7 @@ export default function App() {
       try {
         const [
           nextDeviceId,
+          nextAuthToken,
           localProfile,
           localSettings,
           localPractice,
@@ -215,6 +250,7 @@ export default function App() {
           localLikeEvents,
         ] = await Promise.all([
           getOrCreateDeviceId(),
+          loadAuthToken(),
           loadProfile(),
           loadSettings(),
           loadPracticeData(),
@@ -228,6 +264,7 @@ export default function App() {
         if (cancelled) return;
         setDeviceId(nextDeviceId);
         setSettings(localSettings);
+        setProfile(localProfile || defaultProfile);
         setPracticeData(localPractice);
         setKnownWords(localKnownWords);
         setBookmarks(localBookmarks);
@@ -235,34 +272,20 @@ export default function App() {
         setLikedClipKeys(localLikedClips);
         setLikeEvents(localLikeEvents);
 
-        try {
-          const session = await api.createSession(nextDeviceId);
-          const remoteProfile = session.profile;
-          const mergedProfile = remoteProfile?.onboardingDone ? remoteProfile : (localProfile || defaultProfile);
-          const [remoteBookmarks, remoteVocab] = await Promise.all([
-            api.listBookmarks(nextDeviceId),
-            api.listVocab(nextDeviceId),
-          ]);
-
-          const mergedBookmarks = mergeBookmarks(localBookmarks, remoteBookmarks.bookmarks || []);
-          const mergedVocab = mergeVocab(localVocab, remoteVocab.vocab || []);
-
-          if (!cancelled) {
-            setProfile(mergedProfile);
-            setBookmarks(mergedBookmarks);
-            setVocabList(mergedVocab);
-            setShowStartScreen(mergedProfile.onboardingDone);
-            setShowStartTransition(false);
-          }
-          await saveProfile(mergedProfile);
-          await saveBookmarks(mergedBookmarks);
-          await saveVocab(mergedVocab);
-        } catch {
-          if (!cancelled) {
-            const fallbackProfile = localProfile || defaultProfile;
-            setProfile(fallbackProfile);
-            setShowStartScreen(fallbackProfile.onboardingDone);
-            setShowStartTransition(false);
+        if (nextAuthToken) {
+          try {
+            const snapshot = await api.getAuthBootstrap(nextAuthToken);
+            if (cancelled) return;
+            applyAuthSnapshot(snapshot);
+            setAuthToken(nextAuthToken);
+            await saveAuthBootstrapSnapshot(snapshot);
+          } catch {
+            await clearAuthToken();
+            if (!cancelled) {
+              setAuthToken(null);
+              setLinkedIdentities([]);
+              setShowStartScreen(false);
+            }
           }
         }
       } finally {
@@ -276,7 +299,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [applyAuthSnapshot]);
 
   useEffect(() => {
     let cancelled = false;
@@ -313,9 +336,20 @@ export default function App() {
   const practiceCount = useMemo(() => {
     return bookmarks.filter(item => !practiceData[item.clipKey]?.done).length || bookmarks.length;
   }, [bookmarks, practiceData]);
-
   const practiceClipIndex = practiceClipKey ? findClipIndexByKey(currentClips, practiceClipKey) : -1;
   const practiceClip = practiceClipIndex >= 0 ? currentClips[practiceClipIndex] : null;
+  const isAuthenticated = Boolean(authToken);
+
+  const localMigrationPayload = useMemo(() => ({
+    deviceId,
+    profile,
+    bookmarks,
+    vocab: vocabList,
+    practiceData,
+    knownWords,
+    likedClipKeys,
+    likeEvents,
+  }), [bookmarks, deviceId, knownWords, likeEvents, likedClipKeys, practiceData, profile, vocabList]);
 
   useEffect(() => {
     let cancelled = false;
@@ -365,6 +399,103 @@ export default function App() {
     await saveSettings(nextSettings);
   }, []);
 
+  const finishAuthFlow = useCallback(async (payload: AuthInitResponse) => {
+    const snapshot = await api.migrateLocal(payload.session.token, localMigrationPayload);
+    await Promise.all([
+      saveAuthToken(payload.session.token),
+      saveAuthBootstrapSnapshot(snapshot),
+    ]);
+    setAuthToken(payload.session.token);
+    applyAuthSnapshot(snapshot);
+    setActiveScreen('feed');
+    setMenuOpen(false);
+    setShowAuthSheet(false);
+    setAuthError('');
+  }, [applyAuthSnapshot, localMigrationPayload]);
+
+  const handleRequestSms = useCallback(async (phoneNumber: string) => {
+    setAuthError('');
+    return api.requestSmsCode(phoneNumber);
+  }, []);
+
+  const handleVerifyPhone = useCallback(async (phoneNumber: string, code: string) => {
+    setAuthBusy(true);
+    setAuthError('');
+    try {
+      if (showAuthSheet && authToken) {
+        const response = await api.linkPhone(authToken, phoneNumber, code, deviceId);
+        setLinkedIdentities(response.linkedIdentities);
+        setShowAuthSheet(false);
+        showToast('手机号已绑定');
+        return;
+      }
+
+      const response = await api.verifySmsCode(phoneNumber, code, deviceId);
+      await finishAuthFlow(response);
+    } catch (error) {
+      const message = readErrorMessage(error);
+      setAuthError(message);
+      throw new Error(message);
+    } finally {
+      setAuthBusy(false);
+    }
+  }, [authToken, deviceId, finishAuthFlow, showAuthSheet, showToast]);
+
+  const handleApplePress = useCallback(async () => {
+    setAuthBusy(true);
+    setAuthError('');
+
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken || !credential.authorizationCode) {
+        throw new Error('Apple 登录未返回必要凭证');
+      }
+
+      const fullName = [credential.fullName?.givenName, credential.fullName?.familyName]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+
+      if (showAuthSheet && authToken) {
+        const response = await api.linkApple(
+          authToken,
+          credential.identityToken,
+          credential.authorizationCode,
+          deviceId,
+          fullName
+        );
+        setLinkedIdentities(response.linkedIdentities);
+        setShowAuthSheet(false);
+        showToast('Apple 已绑定');
+        return;
+      }
+
+      const response = await api.signInWithApple(
+        credential.identityToken,
+        credential.authorizationCode,
+        deviceId,
+        fullName
+      );
+      await finishAuthFlow(response);
+    } catch (error) {
+      if (typeof error === 'object' && error && 'code' in error && error.code === 'ERR_REQUEST_CANCELED') {
+        return;
+      }
+
+      const message = readErrorMessage(error);
+      setAuthError(message);
+      throw new Error(message);
+    } finally {
+      setAuthBusy(false);
+    }
+  }, [authToken, deviceId, finishAuthFlow, showAuthSheet, showToast]);
+
   const handleProfileSubmit = async (nextProfile: Profile) => {
     setProfile(nextProfile);
     setActiveScreen('feed');
@@ -381,10 +512,10 @@ export default function App() {
       setShowStartScreen(true);
     }, 1500);
 
-    if (deviceId) {
+    if (authToken) {
       try {
-        await api.saveProfile(deviceId, nextProfile);
-        await api.trackEvent(deviceId, 'onboarding_completed', {
+        await api.saveProfile(authToken, nextProfile);
+        await api.trackEvent(authToken, 'onboarding_completed', {
           level: nextProfile.level,
           interests: nextProfile.interests,
         });
@@ -406,9 +537,9 @@ export default function App() {
     setProfile(nextProfile);
     await saveProfile(nextProfile);
 
-    if (deviceId) {
+    if (authToken) {
       try {
-        await api.saveProfile(deviceId, nextProfile);
+        await api.saveProfile(authToken, nextProfile);
       } catch {
       }
     }
@@ -426,9 +557,9 @@ export default function App() {
       clearTimeout(startTransitionTimeoutRef.current);
       startTransitionTimeoutRef.current = null;
     }
-    if (deviceId) {
+    if (authToken) {
       try {
-        await api.saveProfile(deviceId, defaultProfile);
+        await api.saveProfile(authToken, defaultProfile);
       } catch {
       }
     }
@@ -442,9 +573,9 @@ export default function App() {
       const nextBookmarks = bookmarks.filter(item => item.clipKey !== nextBookmark.clipKey);
       setBookmarks(nextBookmarks);
       await saveBookmarks(nextBookmarks);
-      if (deviceId) {
+      if (authToken) {
         try {
-          await api.removeBookmark(deviceId, nextBookmark.clipKey);
+          await api.removeBookmark(authToken, nextBookmark.clipKey);
         } catch {
         }
       }
@@ -460,9 +591,9 @@ export default function App() {
       showToast('已收藏 · 可以在侧边菜单「听力练习」里精听这段');
     }
 
-    if (deviceId) {
+    if (authToken) {
       try {
-        await api.saveBookmark(deviceId, nextBookmark);
+        await api.saveBookmark(authToken, nextBookmark);
       } catch {
       }
     }
@@ -476,9 +607,9 @@ export default function App() {
     setVocabList(nextVocab);
     await saveVocab(nextVocab);
 
-    if (deviceId) {
+    if (authToken) {
       try {
-        await api.saveVocab(deviceId, normalizedEntry);
+        await api.saveVocab(authToken, normalizedEntry);
       } catch {
       }
     }
@@ -492,6 +623,13 @@ export default function App() {
       void saveKnownWords(next);
       return next;
     });
+
+    if (authToken) {
+      try {
+        await api.saveKnownWord(authToken, normalized);
+      } catch {
+      }
+    }
   };
 
   const handleRemoveBookmark = async (clipKey: string) => {
@@ -499,9 +637,9 @@ export default function App() {
     setBookmarks(nextBookmarks);
     await saveBookmarks(nextBookmarks);
 
-    if (deviceId) {
+    if (authToken) {
       try {
-        await api.removeBookmark(deviceId, clipKey);
+        await api.removeBookmark(authToken, clipKey);
       } catch {
       }
     }
@@ -515,6 +653,12 @@ export default function App() {
       const nextLikedClips = likedClipKeys.filter(item => item !== clipKey);
       setLikedClipKeys(nextLikedClips);
       await saveLikedClips(nextLikedClips);
+      if (authToken) {
+        try {
+          await api.removeLike(authToken, clipKey);
+        } catch {
+        }
+      }
       return;
     }
 
@@ -526,6 +670,13 @@ export default function App() {
       saveLikedClips(nextLikedClips),
       saveLikeEvents(nextLikeEvents),
     ]);
+
+    if (authToken) {
+      try {
+        await api.saveLike(authToken, clipKey, clip.tag || '', nextLikeEvents[nextLikeEvents.length - 1].timestamp);
+      } catch {
+      }
+    }
   };
 
   const handleClipPlayed = (clipKey: string) => {
@@ -559,6 +710,10 @@ export default function App() {
       void savePracticeData(next);
       return next;
     });
+
+    if (authToken) {
+      void api.savePractice(authToken, clipKey, record).catch(() => {});
+    }
   };
 
   const handleStartPractice = (clipIndex: number) => {
@@ -576,6 +731,38 @@ export default function App() {
     setActiveScreen('feed');
   };
 
+  const handleLogout = useCallback(async () => {
+    if (authToken) {
+      try {
+        await api.logout(authToken);
+      } catch {
+      }
+    }
+
+    await Promise.all([
+      clearAuthToken(),
+      clearAccountState(),
+    ]);
+
+    setAuthToken(null);
+    setLinkedIdentities([]);
+    setProfile(defaultProfile);
+    setPracticeData({});
+    setBookmarks([]);
+    setVocabList([]);
+    setLikedClipKeys([]);
+    setLikeEvents([]);
+    setKnownWords([]);
+    setClipsPlayed(0);
+    setActiveScreen('feed');
+    setMenuOpen(false);
+    setShowAuthSheet(false);
+    setShowStartScreen(false);
+    setShowStartTransition(false);
+    setPracticeClipKey(null);
+    setAuthError('');
+  }, [authToken]);
+
   let content: React.ReactNode;
 
   if (booting) {
@@ -584,6 +771,16 @@ export default function App() {
         <ActivityIndicator size="large" color="#8B9CF7" />
         <Text style={styles.loadingText}>正在初始化 Flipod RN...</Text>
       </View>
+    );
+  } else if (!isAuthenticated) {
+    content = (
+      <LoginScreen
+        loading={authBusy}
+        errorMessage={authError}
+        onRequestSms={handleRequestSms}
+        onVerifyPhone={handleVerifyPhone}
+        onApplePress={handleApplePress}
+      />
     );
   } else if (!profile.onboardingDone) {
     content = <OnboardingScreen initialProfile={profile} onSubmit={handleProfileSubmit} />;
@@ -652,13 +849,14 @@ export default function App() {
       <View style={styles.root}>
         {content}
 
-        {profile.onboardingDone && !booting ? (
+        {isAuthenticated && !booting ? (
           <>
             <SlideMenu
               visible={menuOpen}
               profile={profile}
               dominantHand={settings.dominantHand}
               activeScreen={activeScreen}
+              linkedIdentities={linkedIdentities}
               bookmarksCount={bookmarks.length}
               practiceCount={practiceCount}
               vocabCount={vocabList.length}
@@ -669,9 +867,38 @@ export default function App() {
                 setMenuOpen(false);
               }}
               onToggleHand={handleToggleHand}
+              onLinkPhone={() => {
+                setMenuOpen(false);
+                setAuthError('');
+                setShowAuthSheet(true);
+              }}
+              onLinkApple={() => {
+                setMenuOpen(false);
+                setAuthError('');
+                setShowAuthSheet(true);
+              }}
+              onLogout={() => {
+                setMenuOpen(false);
+                void handleLogout();
+              }}
               onResetOnboarding={() => {
                 setMenuOpen(false);
                 void handleResetProfile();
+              }}
+            />
+
+            <LoginScreen
+              visible={showAuthSheet}
+              mode="link"
+              linkedIdentities={linkedIdentities}
+              loading={authBusy}
+              errorMessage={authError}
+              onRequestSms={handleRequestSms}
+              onVerifyPhone={handleVerifyPhone}
+              onApplePress={handleApplePress}
+              onCancel={() => {
+                setShowAuthSheet(false);
+                setAuthError('');
               }}
             />
 

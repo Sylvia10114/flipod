@@ -1,7 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { AppSettings, Bookmark, PracticeMap, Profile, VocabEntry } from './types';
+import * as SecureStore from 'expo-secure-store';
+import type {
+  AppSettings,
+  AuthBootstrapResponse,
+  Bookmark,
+  LikeEvent,
+  PracticeMap,
+  Profile,
+  VocabEntry,
+} from './types';
 
 const DEVICE_ID_KEY = 'flipodDeviceId';
+const AUTH_TOKEN_KEY = 'flipodAuthToken';
 const PROFILE_KEY = 'flipodProfile';
 const SETTINGS_KEY = 'flipodSettings';
 const PRACTICE_KEY = 'flipodPractice';
@@ -10,11 +20,6 @@ const BOOKMARKS_KEY = 'flipodBookmarks';
 const VOCAB_KEY = 'flipodVocab';
 const LIKED_CLIPS_KEY = 'flipodLikedClips';
 const LIKE_EVENTS_KEY = 'flipodLikes';
-
-export type LikeEvent = {
-  tag: string;
-  timestamp: number;
-};
 
 export const DEFAULT_SETTINGS: AppSettings = {
   dominantHand: 'right',
@@ -33,6 +38,18 @@ export async function getOrCreateDeviceId() {
   const next = createId();
   await AsyncStorage.setItem(DEVICE_ID_KEY, next);
   return next;
+}
+
+export async function loadAuthToken() {
+  return SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+}
+
+export async function saveAuthToken(token: string) {
+  await SecureStore.setItemAsync(AUTH_TOKEN_KEY, token);
+}
+
+export async function clearAuthToken() {
+  await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
 }
 
 export async function loadProfile(): Promise<Profile | null> {
@@ -161,4 +178,28 @@ export async function loadLikeEvents(): Promise<LikeEvent[]> {
 
 export async function saveLikeEvents(events: LikeEvent[]) {
   await AsyncStorage.setItem(LIKE_EVENTS_KEY, JSON.stringify(events));
+}
+
+export async function clearAccountState() {
+  await AsyncStorage.multiRemove([
+    PROFILE_KEY,
+    PRACTICE_KEY,
+    KNOWN_WORDS_KEY,
+    BOOKMARKS_KEY,
+    VOCAB_KEY,
+    LIKED_CLIPS_KEY,
+    LIKE_EVENTS_KEY,
+  ]);
+}
+
+export async function saveAuthBootstrapSnapshot(snapshot: AuthBootstrapResponse) {
+  await Promise.all([
+    saveProfile(snapshot.profile),
+    saveBookmarks(snapshot.bookmarks),
+    saveVocab(snapshot.vocab),
+    savePracticeData(snapshot.practiceData),
+    saveKnownWords(snapshot.knownWords),
+    saveLikedClips(snapshot.likedClipKeys),
+    saveLikeEvents(snapshot.likeEvents),
+  ]);
 }
