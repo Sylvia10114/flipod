@@ -190,6 +190,7 @@ html,body{
   letter-spacing:0.5px;
   color:rgba(255,255,255,0.15);
   transition:color 0.4s ease;
+  display:none;
 }
 .top-info-hint.hint-loading{ color:rgba(255,255,255,0.30); }
 .top-info-hint.hint-rerank{ color:rgba(255,255,255,0.40); }
@@ -256,32 +257,6 @@ html,body{
 
 /* ── Menu button (left) — Premium ── */
 .menu-btn{
-  position:absolute;
-  top:calc(env(safe-area-inset-top, 48px) + 12px); left:20px;
-  width:32px; height:32px;
-  border:none;
-  background:none;
-  cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-  display:flex;
-  flex-direction:column;
-  align-items:flex-start;
-  justify-content:center;
-  gap:5px;
-  z-index:10;
-}
-.menu-btn .menu-line{
-  height:1.5px;
-  background:var(--text-3);
-  border-radius:1px;
-}
-.menu-btn .menu-line:first-child{ width:16px; }
-.menu-btn .menu-line:last-child{ width:12px; }
-
-/* ── Help "?" button (right) — Premium ── */
-.help-btn{
-  position:absolute;
-  top:calc(env(safe-area-inset-top, 48px) + 12px); right:20px;
   width:32px; height:32px;
   border:none;
   background:none;
@@ -290,42 +265,21 @@ html,body{
   display:flex;
   align-items:center;
   justify-content:center;
-  z-index:10;
+  color:var(--text-3);
+}
+
+/* ── Help "?" button (right) — Premium ── */
+.help-btn{
+  display:none;
 }
 .help-btn svg{ width:20px; height:20px; }
 .help-btn circle{ stroke:var(--text-3); }
 .help-btn text{ fill:var(--text-3); }
 .help-btn.disabled{ opacity:0.4; pointer-events:none; }
 
-/* ── AI Reason Tooltip ── */
-.ai-reason-tooltip{
-  position:absolute;
-  top:96px; right:20px;
-  width:240px;
-  padding:12px 16px;
-  background:var(--p-popup-bg);
-  border:1px solid var(--p-popup-border);
-  border-radius:12px;
-  -webkit-backdrop-filter:blur(20px);
-  backdrop-filter:blur(20px);
-  z-index:25;
-  opacity:0;
-  pointer-events:none;
-  transition:opacity 0.2s ease;
-}
-.ai-reason-tooltip.show{
-  opacity:1;
-  pointer-events:auto;
-}
-.ai-reason-tooltip .tooltip-text{
-  font-size:13px;
-  line-height:1.5;
-  color:var(--text-2);
-}
-
 .menu-panel{
   position:absolute;
-  top:96px; left:16px;
+  bottom:120px; right:16px;
   width:260px;
   background:var(--bg-glass);
   -webkit-backdrop-filter:blur(20px);
@@ -336,7 +290,7 @@ html,body{
   overflow:hidden;
   z-index:20;
   opacity:0;
-  transform:translateY(-8px) scale(0.95);
+  transform:translateY(8px) scale(0.95);
   pointer-events:none;
   transition:opacity 0.2s ease, transform 0.2s ease;
 }
@@ -842,9 +796,13 @@ html,body{
 .speed-btn:active{ background:var(--bg-card); }
 .speed-btn.non-default{ color:var(--text-2); border-color:var(--text-3); }
 
+.sentence-indicator{
+  display:none;
+}
 .indicator{
   font-size:12px;
   color:var(--text-3);
+  display:none;
 }
 
 /* Progress bar — Premium */
@@ -1349,6 +1307,14 @@ html,body{
 /* Step 1: Blind listen */
 .pr-blind{text-align:center;width:100%;}
 .pr-blind-hint{font-size:14px;color:var(--text-3);margin-bottom:40px;line-height:1.5;}
+.pr-blind-meta{margin-bottom:28px;}
+.pr-blind-source{font-size:12px;color:var(--text-3);letter-spacing:1px;text-transform:uppercase;}
+.pr-blind-title{font-size:18px;color:var(--text-1);font-weight:600;margin:8px 0 12px;text-align:center;line-height:1.4;}
+.pr-blind-tag{font-size:11px;color:var(--text-3);border:1px solid var(--text-3);border-radius:99px;padding:2px 10px;opacity:0.6;}
+.pr-play-wrap{position:relative;width:80px;height:80px;margin:0 auto 12px;}
+.pr-play-wrap .pr-play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);margin:0;}
+.pr-progress-ring{position:absolute;top:0;left:0;transform:rotate(-90deg);}
+.pr-blind-countdown{font-size:13px;color:var(--text-3);margin-top:0;margin-bottom:36px;font-variant-numeric:tabular-nums;}
 .pr-wave{
   width:200px;height:60px;margin:0 auto 40px;display:flex;align-items:center;justify-content:center;gap:3px;
 }
@@ -1371,7 +1337,7 @@ html,body{
 }
 .pr-play-btn{
   width:64px;height:64px;border-radius:50%;background:var(--accent);border:none;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;margin:0 auto 48px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;margin:0 auto;
 }
 .pr-play-btn svg{width:28px;height:28px;fill:var(--bg-primary);}
 .pr-blind-choices{display:flex;gap:12px;justify-content:center;width:100%;}
@@ -1383,19 +1349,49 @@ html,body{
 .pr-blind-choice:active{background:var(--accent);color:var(--bg-primary);border-color:var(--accent);}
 .pr-blind-choice.primary{border-color:var(--accent);color:var(--accent);}
 
+/* Comprehension questions (Step 1b) */
+.comp-label{color:var(--text-3);font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;text-align:center;}
+.comp-question{color:var(--text-1);font-size:16px;line-height:1.5;margin-bottom:24px;text-align:left;}
+.comp-option{
+  display:block;width:100%;padding:14px 16px;margin-bottom:12px;
+  background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.1);border-radius:12px;
+  color:var(--text-1);font-size:15px;text-align:left;cursor:pointer;transition:all 0.2s;
+}
+[data-theme="light"] .comp-option{
+  background:rgba(0,0,0,0.05);border-color:rgba(0,0,0,0.08);
+}
+.comp-option.correct{border-color:#4ade80;background:rgba(74,222,128,0.1);}
+.comp-option.wrong{border-color:#f87171;background:rgba(248,113,113,0.08);opacity:0.7;}
+.comp-option.dimmed{opacity:0.3;}
+.comp-option.answered{pointer-events:none;}
+.comp-explanation{color:#888;font-size:14px;margin-top:12px;text-align:left;animation:fadeInUp 0.3s;}
+.comp-next-btn{
+  background:#7c8aff;color:#fff;border:none;border-radius:24px;padding:14px 0;
+  width:100%;font-size:16px;cursor:pointer;margin-top:20px;transition:opacity 0.2s;
+}
+.comp-next-btn:active{opacity:0.8;}
+.comp-result-msg{color:var(--text-1);font-size:18px;font-weight:600;margin-bottom:8px;text-align:center;}
+.comp-result-sub{color:var(--text-2);font-size:15px;margin-bottom:28px;text-align:center;}
+.comp-retry-btn{color:var(--text-3);background:none;border:none;text-decoration:underline;font-size:14px;cursor:pointer;margin-top:12px;display:block;width:100%;text-align:center;}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
 /* Step 2: Sentence-by-sentence */
 .pr-sentence{width:100%;text-align:center;}
 .pr-sent-progress{font-size:12px;color:var(--text-3);margin-bottom:24px;}
 .pr-sent-en{
-  font-size:20px;line-height:1.6;color:var(--text-1);margin-bottom:16px;
-  min-height:80px;display:flex;align-items:center;justify-content:center;
+  font-size:18px;line-height:1.6;color:var(--text-1);margin-bottom:16px;
+  min-height:40px;text-align:center;word-break:break-word;
 }
 .pr-sent-en .w{cursor:pointer;transition:color 0.2s;}
 .pr-sent-en .w:active{color:var(--accent);}
-.pr-sent-zh{
-  font-size:14px;color:var(--text-3);margin-bottom:32px;min-height:24px;cursor:pointer;
+.pr-sent-en.masked-en{
+  color:transparent;background:var(--mask-bg);border-radius:8px;
+  user-select:none;padding:8px 16px;cursor:pointer;min-height:48px;
 }
-.pr-sent-zh.hidden-zh{color:transparent;background:var(--mask-bg);border-radius:4px;user-select:none;}
+.pr-sent-en.masked-en .w{color:transparent !important;pointer-events:none;}
+.pr-sent-zh{
+  font-size:16px;color:var(--text-2);margin-bottom:16px;text-align:center;line-height:1.5;
+}
 .pr-sent-controls{display:flex;gap:16px;align-items:center;justify-content:center;margin-bottom:24px;}
 .pr-sent-ctrl{
   width:44px;height:44px;border-radius:50%;border:1px solid var(--border);
@@ -1431,6 +1427,15 @@ html,body{
 .pr-flash-divider{width:40px;height:1px;background:var(--border);}
 .pr-flash-zh{font-size:15px;color:var(--text-2);text-align:center;line-height:1.5;}
 .pr-flash-phonetic{font-size:13px;color:var(--text-3);}
+.pr-flash-hardwords{
+  display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px;
+}
+.pr-flash-hw{
+  display:inline-flex;align-items:center;gap:4px;padding:4px 10px;
+  background:var(--bg-card);border-radius:8px;border:1px solid var(--border);cursor:pointer;
+}
+.hw-word{font-size:13px;color:var(--text-1);font-weight:500;}
+.hw-level{font-size:11px;font-weight:600;}
 .pr-flash-hint{font-size:12px;color:var(--text-4);margin-top:8px;}
 .pr-flash-actions{display:flex;gap:12px;justify-content:center;margin-top:20px;}
 .pr-flash-action{
@@ -1445,22 +1450,35 @@ html,body{
 .pr-relisten{width:100%;text-align:center;}
 .pr-relisten-en{
   font-size:20px;line-height:1.6;color:var(--text-1);margin-bottom:12px;min-height:80px;
-  display:flex;align-items:center;justify-content:center;
+  display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:0 6px;
 }
 .pr-relisten-zh{font-size:14px;color:var(--text-3);margin-bottom:24px;min-height:24px;}
 .pr-relisten .w.practiced{text-decoration-line:underline;text-decoration-style:dotted;text-underline-offset:4px;text-decoration-color:var(--accent);}
 .pr-summary{
-  width:100%;max-width:300px;margin:0 auto;text-align:center;
-  background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;
-  padding:32px 24px;
+  display:flex;flex-direction:column;align-items:center;
+  padding:0 16px;max-height:70vh;overflow-y:auto;width:100%;
 }
-.pr-summary-icon{font-size:32px;margin-bottom:12px;}
-.pr-summary-title{font-size:18px;font-weight:600;color:var(--text-1);margin-bottom:16px;}
-.pr-summary-stats{display:flex;justify-content:center;gap:24px;margin-bottom:24px;}
-.pr-summary-stat{text-align:center;}
-.pr-summary-stat-val{font-size:22px;font-weight:700;color:var(--accent);}
-.pr-summary-stat-label{font-size:11px;color:var(--text-3);margin-top:2px;}
+.pr-summary-title{font-size:20px;font-weight:600;color:var(--text-1);margin-bottom:24px;}
 .pr-summary-actions{display:flex;gap:12px;justify-content:center;}
+
+/* Practice Summary — action panel */
+.prs-section{width:100%;margin-bottom:20px;text-align:left;}
+.prs-section-title{font-size:13px;color:var(--text-3);margin-bottom:8px;font-weight:500;}
+.prs-word-item{
+  display:flex;align-items:center;gap:8px;padding:10px 12px;
+  background:var(--bg-card);border-radius:10px;margin-bottom:6px;cursor:pointer;transition:background 0.15s;
+}
+.prs-word-item:active{background:var(--accent-bg);}
+.prs-word-text{font-size:15px;color:var(--text-1);font-weight:500;flex:1;}
+.prs-word-cefr{font-size:11px;font-weight:600;}
+.prs-word-add{font-size:12px;color:var(--accent);cursor:pointer;white-space:nowrap;}
+.prs-hard-item{
+  display:flex;align-items:center;gap:8px;padding:10px 12px;
+  background:var(--bg-card);border-radius:10px;margin-bottom:6px;cursor:pointer;transition:background 0.15s;
+}
+.prs-hard-item:active{background:var(--accent-bg);}
+.prs-hard-play{font-size:12px;color:var(--accent);flex-shrink:0;}
+.prs-hard-text{font-size:13px;color:var(--text-2);line-height:1.4;flex:1;}
 .pr-summary-btn{
   padding:12px 24px;border-radius:12px;border:1px solid var(--border);
   background:var(--bg-card);color:var(--text-2);font-size:14px;cursor:pointer;transition:all 0.2s;
@@ -1663,79 +1681,6 @@ html,body{
   padding:40px 24px;
 }
 
-/* Progress Card */
-.progress-card{
-  width:100%;
-  max-width:300px;
-  background:var(--bg-card);
-  border:1px solid var(--border);
-  border-radius:20px;
-  padding:28px 24px;
-  text-align:center;
-  box-shadow:var(--shadow);
-}
-.pc-icon{
-  width:32px; height:32px;
-  margin:0 auto 8px;
-  opacity:0.4;
-}
-.pc-icon svg{ width:32px; height:32px; fill:var(--text-3); }
-.pc-label{
-  font-size:11px;
-  text-transform:uppercase;
-  letter-spacing:1px;
-  color:var(--text-3);
-  margin-bottom:16px;
-}
-.pc-big{
-  font-size:28px;
-  font-weight:700;
-  color:var(--text-1);
-}
-.pc-sub{
-  font-size:13px;
-  color:var(--text-3);
-  margin-top:4px;
-}
-.pc-stats{
-  display:flex;
-  justify-content:center;
-  gap:16px;
-  margin-top:12px;
-  font-size:14px;
-}
-.pc-stats span{ color:var(--text-2); }
-.pc-stats .pc-new-words{ color:var(--cefr-b2); font-weight:600; }
-.pc-cefr-bar{
-  display:flex;
-  height:4px;
-  border-radius:2px;
-  overflow:hidden;
-  background:var(--prog-bg);
-  margin-top:16px;
-}
-.pc-cefr-bar span{ height:100%; }
-.pc-cefr-legend{
-  display:flex;
-  justify-content:space-between;
-  margin-top:6px;
-  font-size:10px;
-  font-weight:600;
-}
-.pc-btn{
-  margin-top:20px;
-  width:100%;
-  padding:14px;
-  border:none;
-  border-radius:24px;
-  background:var(--accent);
-  color:#fff;
-  font-size:15px;
-  font-weight:600;
-  cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-}
-.pc-btn:active{ opacity:0.85; }
 
 /* Review Card */
 .review-card{
@@ -1982,23 +1927,10 @@ html,body{
 
 /* (old practice CSS removed — new styles are above) */
 
-/* ── Progress bar sentence markers ── */
-.progress-marker{
-  position:absolute; top:0; width:1px; height:100%;
-  background:rgba(255,255,255,0.10); pointer-events:none;
-}
-.progress-sentence-bg{
-  position:absolute; top:0; height:100%;
-  background:rgba(139,156,247,0.15); pointer-events:none;
-  transition:left 0.15s ease, width 0.15s ease;
-}
-
 /* ── Left-hand mode ── */
 body.left-hand .side-actions{ right:auto; left:12px; }
-body.left-hand .menu-btn{ left:auto; right:20px; }
 body.left-hand .help-btn{ right:auto; left:20px; }
-body.left-hand .menu-panel{ left:auto; right:16px; }
-body.left-hand .ai-reason-tooltip{ right:auto; left:20px; }
+body.left-hand .menu-panel{ right:auto; left:16px; }
 body.left-hand .bottom-bar{ flex-direction:row-reverse; }
 
 /* ── Toast ── */
@@ -2011,6 +1943,27 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
   opacity:0; pointer-events:none; transition:opacity 0.3s ease;
 }
 .flipod-toast.visible{ opacity:1; }
+
+/* ── Level calibration toast ── */
+.calibration-toast{
+  position:fixed; bottom:100px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:var(--bg-glass); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+  border:1px solid var(--border); border-radius:14px;
+  padding:14px 20px; z-index:185;
+  font-size:13px; color:var(--text-2);
+  opacity:0; pointer-events:none; transition:opacity 0.3s ease, transform 0.3s ease;
+  display:flex; flex-direction:column; gap:10px; align-items:center;
+  max-width:320px; text-align:center;
+}
+.calibration-toast.visible{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
+.calibration-toast .cal-msg{ line-height:1.4; }
+.calibration-toast .cal-actions{ display:flex; gap:12px; }
+.calibration-toast .cal-btn{
+  border:none; border-radius:8px; padding:6px 16px; font-size:13px; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.calibration-toast .cal-btn.primary{ background:var(--accent); color:#fff; }
+.calibration-toast .cal-btn.secondary{ background:var(--bg-card); color:var(--text-2); }
 
 </style>
 </head>
@@ -2190,6 +2143,13 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
 
 <!-- Toast -->
 <div class="flipod-toast" id="flipod-toast"></div>
+<div class="calibration-toast" id="calibration-toast">
+  <div class="cal-msg"></div>
+  <div class="cal-actions">
+    <button class="cal-btn primary" id="cal-accept"></button>
+    <button class="cal-btn secondary" id="cal-dismiss"></button>
+  </div>
+</div>
 
   <div id="container">
   <div class="screen" id="start-screen">
@@ -2598,7 +2558,6 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
   // ── AI Feed State System ──
   // States: 'loading' | 'normal' | 'rerank' | 'fallback'
   let feedState = 'loading';
-  let aiReasons = {}; // clip index → reason string from API
   const RERANK_AFTER_CLIPS = 5;
   let lastRerankAt = 0;
 
@@ -2633,9 +2592,6 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
       }
     });
 
-    // Close any open tooltips on state change
-    document.querySelectorAll('.ai-reason-tooltip.show').forEach(el => el.classList.remove('show'));
-
     // Loading state: hide content, show dots, disable play
     contentScreens.forEach(el => {
       if (state === 'loading') el.classList.add('feed-loading');
@@ -2651,20 +2607,7 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
   }
 
   function updateAiReasons(feed) {
-    // feed is array of { id, reason } from API
-    if (!feed || !Array.isArray(feed)) return;
-    // Map clip index to reason
-    feed.forEach(item => {
-      const idx = clips.findIndex((c, i) => i === item.id);
-      if (idx >= 0) {
-        aiReasons[idx] = item.reason;
-        const tooltip = document.getElementById('tooltip-' + idx);
-        if (tooltip) {
-          const textEl = tooltip.querySelector('.tooltip-text');
-          if (textEl) textEl.textContent = item.reason;
-        }
-      }
-    });
+    return;
   }
 
   async function callRankApi() {
@@ -2698,7 +2641,6 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
       clearTimeout(timeout);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json();
-      updateAiReasons(data.feed);
       return data;
     } catch (e) {
       console.warn('Rank API failed:', e.message);
@@ -2810,6 +2752,30 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
         clips = final;
       }
     }
+
+    // ── Sort by overlap_score + difficulty ──
+    {
+      const listenedSet = new Set((() => { try { return JSON.parse(localStorage.getItem('flipodListenedClips') || '[]'); } catch { return []; } })());
+      const diffWeight = { easy: 0.3, medium: 0.6, hard: 1.0 };
+      // Stable sort: record original index for tie-breaking (preserves pub_date order from data.json)
+      clips.forEach((c, i) => { c._origIdx = i; });
+      clips.sort((a, b) => {
+        const aListened = listenedSet.has(getClipKeyByClip(a));
+        const bListened = listenedSet.has(getClipKeyByClip(b));
+        // Listened clips sink to the bottom
+        if (aListened !== bListened) return aListened ? 1 : -1;
+        const aOverlap = typeof a.overlap_score === 'number' ? a.overlap_score : 0.5;
+        const bOverlap = typeof b.overlap_score === 'number' ? b.overlap_score : 0.5;
+        const aDiff = diffWeight[(a.difficulty || 'medium').toLowerCase()] || 0.6;
+        const bDiff = diffWeight[(b.difficulty || 'medium').toLowerCase()] || 0.6;
+        const aScore = aOverlap * 0.6 + aDiff * 0.4;
+        const bScore = bOverlap * 0.6 + bDiff * 0.4;
+        if (bScore !== aScore) return bScore - aScore;
+        return a._origIdx - b._origIdx;
+      });
+      clips.forEach(c => { delete c._origIdx; });
+    }
+
     total = clips.length;
   }
 
@@ -2817,21 +2783,6 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
   const interestTags = (() => {
     try { return JSON.parse(localStorage.getItem('flipodInterests') || '[]'); } catch { return []; }
   })();
-
-  function buildAiReason(clip, idx) {
-    const tag = (clip.tag || '').toLowerCase();
-    const source = typeof clip.source === 'object' ? (clip.source.podcast || '') : (clip.source || '');
-    if (idx === 0) {
-      return `我先用一条<strong>${escapeHtml(clip.tag || '精选')}</strong>内容开始，帮你快速进入状态。`;
-    }
-    if (interestTags.some(t => String(t).toLowerCase() === tag)) {
-      return `你在 onboarding 里选过<strong>${escapeHtml(clip.tag || '这个主题')}</strong>，我先延续这个方向。`;
-    }
-    if (levelLabel && /^A1|A2|B1|B2|C1|C2/.test(levelLabel)) {
-      return `这条来自<strong>${escapeHtml(source)}</strong>，难度会更贴近你当前的 <strong>${escapeHtml(levelLabel)}</strong> 听感区间。`;
-    }
-    return `这条的开头信息密度高，适合先用来判断你现在更适合哪种节奏。`;
-  }
 
   // ── REFACTOR 1: Build screens with flex bottom-controls ──
   clips.forEach((clip, idx) => {
@@ -2858,19 +2809,12 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
         <div class="loading-dot"></div>
         <div class="loading-dot"></div>
       </div>
-      <button class="menu-btn" data-idx="${idx}">
-        <span class="menu-line"></span>
-        <span class="menu-line"></span>
-      </button>
       <button class="help-btn" data-idx="${idx}" id="help-${idx}">
         <svg viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
           <text x="12" y="16" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">?</text>
         </svg>
       </button>
-      <div class="ai-reason-tooltip" id="tooltip-${idx}">
-        <div class="tooltip-text">${buildAiReason(clip, idx)}</div>
-      </div>
       <div class="menu-panel" id="menu-panel-${idx}">
         <button class="menu-item" data-action="transcript" data-idx="${idx}">
           ${document.getElementById('icon-transcript').innerHTML}
@@ -2946,6 +2890,9 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
               <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="12" y="16" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">A</text></svg>
             </button>
             <button class="speed-btn" id="speed-${idx}">1.0x</button>
+            <button class="menu-btn" data-idx="${idx}">
+              <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/></svg>
+            </button>
           </div>
         </div>
       </div>
@@ -2962,29 +2909,28 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
 
   // ── Insert feed function cards between clips ──
   {
-    // Progress card every 5 clips
-    const progressInterval = 5;
     // Recommendation card: check if recent likes/bookmarks skew > 60% one tag
     let recoShown = false;
     const recentLikes = (() => { try { return JSON.parse(localStorage.getItem('flipodLikes') || '[]'); } catch { return []; } })();
     let recoTag = null;
-    if (recentLikes.length >= 5) {
+    if (recentLikes.length >= 3) {
       const last10 = recentLikes.slice(-10);
       const tagCount = {};
       last10.forEach(l => { const t = (l.tag || '').toLowerCase(); if (t) tagCount[t] = (tagCount[t] || 0) + 1; });
       const top = Object.entries(tagCount).sort((a, b) => b[1] - a[1])[0];
-      if (top && top[1] / last10.length > 0.6) recoTag = top[0];
+      if (top && top[1] / last10.length > 0.5) recoTag = top[0];
     }
 
     // ── Review Card: spaced repetition ──
     const reviewData = (() => { try { return JSON.parse(localStorage.getItem('flipodReview') || '{}'); } catch { return {}; } })();
     const vocabAll = (() => { try { return JSON.parse(localStorage.getItem('flipodVocab') || '[]'); } catch { return []; } })();
     const now = Date.now();
-    const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
     const ONE_DAY = 24 * 60 * 60 * 1000;
-    // Words eligible for review: saved >= 3 days ago AND (no review record OR nextReview <= now)
+    const MAX_REVIEW_CARDS = 3;
+    let reviewCardsInserted = 0;
+    // Words eligible for review: saved >= 1 day ago AND (no review record OR nextReview <= now)
     const reviewEligible = vocabAll.filter(v => {
-      if (now - v.timestamp < THREE_DAYS) return false;
+      if (now - v.timestamp < ONE_DAY) return false;
       const r = reviewData[v.word];
       if (!r) return true; // never reviewed
       return r.nextReview <= now;
@@ -3021,8 +2967,8 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
     allScreens.forEach((screen, i) => {
       clipCounter++;
 
-      // Review card every ~4 clips (at 4, 8, 12...) if eligible words exist
-      if (clipCounter > 0 && clipCounter % reviewInterval === 0 && reviewIdx < reviewEligible.length && i < allScreens.length - 1) {
+      // Review card every ~4 clips (at 4, 8, 12...) — show review or guide card
+      if (clipCounter > 0 && clipCounter % reviewInterval === 0 && i < allScreens.length - 1 && reviewIdx < reviewEligible.length && reviewCardsInserted < MAX_REVIEW_CARDS) {
         const vocabItem = reviewEligible[reviewIdx++];
         const ctx = findWordContext(vocabItem.word);
         const card = document.createElement('div');
@@ -3043,9 +2989,11 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
             <button class="rc-action-btn" data-review-action="forgot" data-review-word="${vocabItem.word}">忘了</button>
             <button class="rc-action-btn" data-review-action="remember" data-review-word="${vocabItem.word}">记得</button>
           </div>
+          <div class="rc-skip-hint" style="color: var(--text-3); font-size: 12px; text-align: center; margin-top: 16px; opacity: 0.5;">上滑跳过，下次还会出现</div>
         </div>`;
         screen.after(card);
         feedCardScreens.push(card);
+        reviewCardsInserted++;
 
         // Play sentence audio
         card.querySelector('.rc-play-btn')?.addEventListener('click', (e) => {
@@ -3075,12 +3023,12 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
             const word = btn.dataset.reviewWord;
             const rd = (() => { try { return JSON.parse(localStorage.getItem('flipodReview') || '{}'); } catch { return {}; } })();
             if (action === 'remember') {
-              const prev = rd[word] || { interval: THREE_DAYS };
+              const prev = rd[word] || { interval: ONE_DAY };
               const newInterval = prev.interval * 2;
               rd[word] = { nextReview: now + newInterval, interval: newInterval };
             } else {
               // forgot → reset to tomorrow
-              rd[word] = { nextReview: now + ONE_DAY, interval: THREE_DAYS };
+              rd[word] = { nextReview: now + ONE_DAY, interval: ONE_DAY };
             }
             localStorage.setItem('flipodReview', JSON.stringify(rd));
             // Visual feedback
@@ -3094,26 +3042,9 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
         });
       }
 
-      // Progress card every 5 clips
-      if (clipCounter > 0 && clipCounter % progressInterval === 0 && i < allScreens.length - 1) {
-        const card = document.createElement('div');
-        card.className = 'screen feed-card-screen';
-        card.dataset.feedCard = 'progress';
-        card.innerHTML = buildProgressCardHTML(clipCounter, Math.round(sessionDuration / 60) || clipCounter, tappedWordsThisSession.size, 'TODAY\'S PROGRESS', '继续刷 →');
-        screen.after(card);
-        feedCardScreens.push(card);
-        card.querySelector('.pc-btn')?.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const next = allScreens[i + 1];
-          if (next) {
-            next.scrollIntoView({ behavior: 'smooth' });
-            setTimeout(() => playClip(parseInt(next.dataset.idx)), 400);
-          }
-        });
-      }
 
-      // Recommendation card after clip 8 (if applicable, once per session)
-      if (clipCounter === 8 && recoTag && !recoShown && i < allScreens.length - 1) {
+      // Recommendation card after clip 3 (if applicable, once per session)
+      if (clipCounter === 3 && recoTag && !recoShown && i < allScreens.length - 1) {
         recoShown = true;
         const interests = (() => { try { return JSON.parse(localStorage.getItem('flipodInterests') || '[]'); } catch { return []; } })();
         const card = document.createElement('div');
@@ -3188,26 +3119,10 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
     });
   });
 
-  // ── Help "?" button → AI reason tooltip ──
-  document.querySelectorAll('.help-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const idx = btn.dataset.idx;
-      const tooltip = document.getElementById('tooltip-' + idx);
-      // Close other tooltips
-      document.querySelectorAll('.ai-reason-tooltip.show').forEach(t => {
-        if (t !== tooltip) t.classList.remove('show');
-      });
-      tooltip.classList.toggle('show');
-    });
-  });
-
-  // Close menu & tooltip on outside click
+  // Close menu on outside click
   document.addEventListener('click', (e) => {
     if (e.target.closest('.menu-panel') || e.target.closest('.menu-btn')) return;
     document.querySelectorAll('.menu-panel.open').forEach(p => p.classList.remove('open'));
-    if (e.target.closest('.ai-reason-tooltip') || e.target.closest('.help-btn')) return;
-    document.querySelectorAll('.ai-reason-tooltip.show').forEach(t => t.classList.remove('show'));
   });
 
   // Transcript open
@@ -3507,7 +3422,8 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
       if (idx !== currentIdx) return;
       const rect = bar.getBoundingClientRect();
       const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      safeSeek(idx, pct * getClipDuration(idx));
+      const seekTime = pct * getClipDuration(idx);
+      safeSeek(idx, (isFinite(seekTime) && seekTime > 0) ? seekTime : 0);
       delete lastRenderedLine[idx];
       updateSubtitle(idx);
     });
@@ -3585,15 +3501,18 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
       const bareWord = w.word.trim();
       // Find this word in the full sentence text
       const wordIdx = fullText.toLowerCase().indexOf(bareWord.toLowerCase(), searchPos);
+      let displayWord = bareWord;
       let trailing = '';
       if (wordIdx >= 0) {
+        // Preserve original case from fullText
+        displayWord = fullText.slice(wordIdx, wordIdx + bareWord.length);
         const afterWord = wordIdx + bareWord.length;
         searchPos = afterWord;
         // Grab any trailing punctuation (commas, periods, quotes, etc.)
         const afterMatch = fullText.slice(afterWord).match(/^([^a-zA-Z0-9\s]*)/);
         if (afterMatch && afterMatch[1]) trailing = afterMatch[1];
       }
-      return `<span class="w" data-start="${w.start}" data-end="${w.end}" data-cefr="${w.cefr || ''}">${bareWord}${trailing}</span>`;
+      return `<span class="w" data-start="${w.start}" data-end="${w.end}" data-cefr="${w.cefr || ''}">${displayWord}${trailing}</span>`;
     });
     enEl.innerHTML = wordsWithPunct.join(' ');
     if (masked) enEl.classList.add('masked');
@@ -3700,23 +3619,9 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
         screens[idx + 1].scrollIntoView({ behavior: 'smooth' });
         setTimeout(() => playClip(idx + 1), 400);
       } else {
-        // Last clip ended — show enhanced progress card
-        isPlaying = false;
-        updatePlayPauseIcons();
-        const enEl = document.getElementById('en-' + idx);
-        const zhEl = document.getElementById('zh-' + idx);
-        const totalMin = Math.round(sessionDuration / 60);
-        const newWords = tappedWordsThisSession.size;
-        if (enEl) {
-          enEl.classList.remove('masked');
-          enEl.innerHTML = buildProgressCardHTML(sessionClipsPlayed, totalMin, newWords, '今天的内容听完了', '再刷一轮 →');
-          enEl.querySelector('.pc-btn')?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            screens[0].scrollIntoView({ behavior: 'smooth' });
-            setTimeout(() => playClip(0), 400);
-          });
-        }
-        if (zhEl) { zhEl.textContent = ''; }
+        // Last clip ended — loop back to first clip
+        screens[0].scrollIntoView({ behavior: 'smooth' });
+        setTimeout(() => playClip(0), 400);
       }
     });
 
@@ -3756,42 +3661,6 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
     if (el) el.classList.toggle('visible', show);
   }
 
-  // ── Build progress card HTML ──
-  function buildProgressCardHTML(clipCount, minutes, newWords, title, btnText) {
-    const vocab = (() => { try { return JSON.parse(localStorage.getItem('flipodVocab') || '[]'); } catch { return []; } })();
-    const cefrCounts = { A: 0, B1: 0, B2: 0, C: 0 };
-    vocab.forEach(v => {
-      const c = (v.cefr || '').toUpperCase();
-      if (c.startsWith('A')) cefrCounts.A++;
-      else if (c === 'B1') cefrCounts.B1++;
-      else if (c === 'B2') cefrCounts.B2++;
-      else if (c.startsWith('C')) cefrCounts.C++;
-    });
-    const tot = vocab.length || 1;
-    const level = localStorage.getItem('flipodLevel') || '';
-    return `<div class="progress-card">
-      <div class="pc-label">${title || 'TODAY\'S PROGRESS'}</div>
-      <div class="pc-big">${clipCount} 个片段</div>
-      <div class="pc-sub">已收听</div>
-      <div class="pc-stats">
-        <span>${minutes} 分钟</span>
-        ${newWords > 0 ? `<span class="pc-new-words">${newWords} 新词</span>` : ''}
-      </div>
-      ${vocab.length > 0 ? `
-      <div class="pc-cefr-bar">
-        <span style="width:${cefrCounts.A/tot*100}%;background:var(--cefr-a)"></span>
-        <span style="width:${cefrCounts.B1/tot*100}%;background:var(--cefr-b1)"></span>
-        <span style="width:${cefrCounts.B2/tot*100}%;background:var(--cefr-b2)"></span>
-        <span style="width:${cefrCounts.C/tot*100}%;background:var(--cefr-c1)"></span>
-      </div>
-      <div class="pc-cefr-legend">
-        <span style="color:var(--cefr-a)">A1/A2</span>
-        <span style="color:var(--cefr-b1)">B1</span>
-        <span style="color:var(--cefr-b2)">${level || 'B2+'}</span>
-      </div>` : ''}
-      <button class="pc-btn">${btnText || '继续刷 →'}</button>
-    </div>`;
-  }
 
   // ── Pre-render first line (before audio plays) ──
   function preRenderFirstLine(idx) {
@@ -3809,38 +3678,23 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
 
   // ── Play with retry (more retries for slow tunnel) ──
   function tryPlay(audio, retries = 4) {
+    const idx = audios.indexOf(audio);
     audio.play().catch(() => {
-      if (retries > 0) {
-        setTimeout(() => tryPlay(audio, retries - 1), 1500);
+      if (retries > 0 && currentIdx === idx) {
+        setTimeout(() => {
+          if (currentIdx === idx) tryPlay(audio, retries - 1);
+        }, 1500);
       } else {
-        isPlaying = false;
-        updatePlayPauseIcons();
+        if (currentIdx === idx) {
+          isPlaying = false;
+          updatePlayPauseIcons();
+        }
       }
     });
   }
 
   // ── Render sentence boundary markers on progress bar ──
-  function renderProgressMarkers(idx) {
-    const wrap = document.getElementById('progwrap-' + idx);
-    if (!wrap) return;
-    const bar = wrap.querySelector('.progress-bar');
-    if (!bar) return;
-    bar.querySelectorAll('.progress-marker, .progress-sentence-bg').forEach(e => e.remove());
-    const clip = clips[idx];
-    const dur = getClipDuration(idx);
-    if (!dur || !clip.lines.length) return;
-    clip.lines.forEach((line, li) => {
-      if (li === 0) return;
-      const marker = document.createElement('div');
-      marker.className = 'progress-marker';
-      marker.style.left = (line.start / dur * 100) + '%';
-      bar.appendChild(marker);
-    });
-    const bg = document.createElement('div');
-    bg.className = 'progress-sentence-bg';
-    bg.id = 'prog-sentence-bg-' + idx;
-    bar.insertBefore(bg, bar.firstChild);
-  }
+  function renderProgressMarkers(idx) {}
 
   // ── Play/pause ──
   function playClip(idx) {
@@ -3871,6 +3725,7 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
     renderProgressMarkers(idx);
     isPlaying = true;
     sessionClipsPlayed++;
+    recordClipPlayed();
     if (clips[idx].lines?.length) {
       sessionDuration += clips[idx].lines[clips[idx].lines.length - 1].end;
     }
@@ -3936,6 +3791,147 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
     toast.textContent = msg;
     toast.classList.add('visible');
     setTimeout(() => toast.classList.remove('visible'), 2500);
+  }
+
+  // ── CEFR Level Calibration System ──
+  const _calToast = document.getElementById('calibration-toast');
+  const _calMsg = _calToast.querySelector('.cal-msg');
+  const _calAccept = document.getElementById('cal-accept');
+  const _calDismiss = document.getElementById('cal-dismiss');
+
+  function getLevelSignals() {
+    try { return JSON.parse(localStorage.getItem('flipodLevelSignals') || '{}'); } catch { return {}; }
+  }
+  function saveLevelSignals(s) { localStorage.setItem('flipodLevelSignals', JSON.stringify(s)); }
+  function getCalibrationState() {
+    try { return JSON.parse(localStorage.getItem('flipodLevelCalibration') || '{}'); } catch { return {}; }
+  }
+  function saveCalibrationState(s) { localStorage.setItem('flipodLevelCalibration', JSON.stringify(s)); }
+
+  // Record a word lookup signal
+  function recordWordLookup(cefr) {
+    const s = getLevelSignals();
+    s.wordsLookedUp = (s.wordsLookedUp || 0) + 1;
+    const wbl = s.wordsByLevel || {};
+    const lvl = (cefr || '').toUpperCase().replace(/^A$/, 'A2');
+    if (lvl && /^[ABC][12]?$/.test(lvl)) wbl[lvl] = (wbl[lvl] || 0) + 1;
+    s.wordsByLevel = wbl;
+    s.clipsPlayed = s.clipsPlayed || sessionClipsPlayed;
+    if (s.clipsPlayed > 0) s.avgWordsPerClip = s.wordsLookedUp / s.clipsPlayed;
+    saveLevelSignals(s);
+  }
+
+  // Record clip played
+  function recordClipPlayed() {
+    // Persist listened clip key for feed sorting
+    const key = getClipKeyByClip(clips[currentIdx]);
+    if (key) {
+      const arr = (() => { try { return JSON.parse(localStorage.getItem('flipodListenedClips') || '[]'); } catch { return []; } })();
+      if (!arr.includes(key)) { arr.push(key); localStorage.setItem('flipodListenedClips', JSON.stringify(arr)); }
+    }
+    const s = getLevelSignals();
+    s.clipsPlayed = (s.clipsPlayed || 0) + 1;
+    if (s.wordsLookedUp > 0) s.avgWordsPerClip = s.wordsLookedUp / s.clipsPlayed;
+    saveLevelSignals(s);
+    // Check calibration every 10 clips
+    if (s.clipsPlayed >= 10 && s.clipsPlayed % 10 === 0) {
+      setTimeout(() => checkCalibration(s), 500);
+    }
+  }
+
+  // Update practice hard rate after practice ends
+  function recordPracticeHardRate(hardCount, totalSentences) {
+    if (totalSentences === 0) return;
+    const s = getLevelSignals();
+    // Running average
+    const prev = s.practiceHardRate || 0;
+    const sessions = s._practiceSessions || 0;
+    s.practiceHardRate = (prev * sessions + hardCount / totalSentences) / (sessions + 1);
+    s._practiceSessions = sessions + 1;
+    saveLevelSignals(s);
+  }
+
+  function checkCalibration(signals) {
+    // Don't trigger during practice
+    const prOverlay = document.getElementById('practice-overlay');
+    if (prOverlay && prOverlay.classList.contains('open')) return;
+
+    const cal = getCalibrationState();
+    const level = localStorage.getItem('flipodLevel') || 'B1';
+    const levelOrder = { 'A1-A2': 1, 'A1': 1, 'A2': 1, 'B1': 2, 'B2': 3, 'C1-C2': 4, 'C1': 4, 'C2': 4 };
+    const levelNum = levelOrder[level] || 2;
+
+    const avg = signals.avgWordsPerClip || 0;
+    const hardRate = signals.practiceHardRate || 0;
+    const wbl = signals.wordsByLevel || {};
+    const totalWords = Object.values(wbl).reduce((a, b) => a + b, 0);
+
+    // Calculate advanced word ratios
+    const b2Plus = (wbl['B2'] || 0) + (wbl['C1'] || 0) + (wbl['C2'] || 0);
+    const c1Plus = (wbl['C1'] || 0) + (wbl['C2'] || 0);
+    const b2PlusRatio = totalWords > 0 ? b2Plus / totalWords : 0;
+    const c1PlusRatio = totalWords > 0 ? c1Plus / totalWords : 0;
+
+    // Suggest upgrade
+    if (!cal.suggestedUp && levelNum < 4 && avg < 1.5 && hardRate < 0.2 && b2PlusRatio < 0.3) {
+      const nextLevel = levelNum === 1 ? 'B1' : levelNum === 2 ? 'B2' : 'C1-C2';
+      showCalibrationToast('up', level, nextLevel);
+      return;
+    }
+
+    // Suggest downgrade
+    if (!cal.suggestedDown && levelNum > 1 && avg > 5 && hardRate > 0.6 && c1PlusRatio > 0.5) {
+      const prevLevel = levelNum === 4 ? 'B2' : levelNum === 3 ? 'B1' : 'A1-A2';
+      showCalibrationToast('down', level, prevLevel);
+      return;
+    }
+  }
+
+  function showCalibrationToast(direction, currentLevel, newLevel) {
+    if (direction === 'up') {
+      _calMsg.textContent = `你的表现超过了 ${currentLevel} 水平，要升级到 ${newLevel} 吗？`;
+      _calAccept.textContent = '升级';
+      _calDismiss.textContent = '暂不';
+    } else {
+      _calMsg.textContent = `当前内容似乎有点难，要调整到 ${newLevel} 吗？`;
+      _calAccept.textContent = '调整';
+      _calDismiss.textContent = '保持';
+    }
+
+    _calToast.classList.add('visible');
+    const autoDismiss = setTimeout(() => _calToast.classList.remove('visible'), 5000);
+
+    function cleanup() {
+      clearTimeout(autoDismiss);
+      _calAccept.removeEventListener('click', onAccept);
+      _calDismiss.removeEventListener('click', onDismissClick);
+      _calToast.classList.remove('visible');
+    }
+
+    function onAccept() {
+      localStorage.setItem('flipodLevel', newLevel);
+      const cal = getCalibrationState();
+      cal[direction === 'up' ? 'suggestedUp' : 'suggestedDown'] = true;
+      const s = getLevelSignals();
+      s.lastCalibration = Date.now();
+      saveLevelSignals(s);
+      saveCalibrationState(cal);
+      cleanup();
+      showToast(`已调整为 ${newLevel}`);
+      // Trigger re-rank if available
+      if (typeof maybeRerank === 'function') maybeRerank();
+    }
+
+    function onDismissClick() {
+      const cal = getCalibrationState();
+      cal[direction === 'up' ? 'suggestedUp' : 'suggestedDown'] = true;
+      cal.dismissed = true;
+      saveCalibrationState(cal);
+      cleanup();
+    }
+
+    _calAccept.addEventListener('click', onAccept);
+    _calDismiss.addEventListener('click', onDismissClick);
   }
 
   // ── Word tap popup ──
@@ -4030,6 +4026,7 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
     }
 
     tappedWordsThisSession.add(word);
+    recordWordLookup(cefr);
 
     // Pause audio
     popupWasPlaying = false;
@@ -4239,6 +4236,7 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
     let prStep = 0;        // current step 1-4
     let prHardSentences = [];  // indices of sentences user marked "hard"
     let prWordsLooked = 0;
+    let prLookedWordsList = [];
     let prSentCurrent = 0;
     let bmToastShown = localStorage.getItem('flipodBmToastShown') === 'true';
 
@@ -4299,13 +4297,113 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
         </div>`;
       });
 
+      // ── AI 推荐练习 ──
+      const bookmarkKeys = new Set(bookmarks.map(b => b.audio));
+      const practiceKeys = new Set(Object.entries(practiceData).filter(([, v]) => v.done).map(([k]) => k));
+      const vocabWords = (() => { try { return JSON.parse(localStorage.getItem('flipodVocab') || '[]'); } catch { return []; } })();
+      const vocabSet = new Set(vocabWords.map(v => v.word.toLowerCase()));
+      const interests = (() => { try { return JSON.parse(localStorage.getItem('flipodInterests') || '[]'); } catch { return []; } })();
+      const interestSet = new Set(interests.map(t => t.toLowerCase()));
+      const userLevel = localStorage.getItem('flipodLevel') || 'B1';
+
+      // Score each clip for recommendation
+      const candidates = clips.map((clip, ci) => {
+        const key = getClipKeyByClip(clip);
+        if (bookmarkKeys.has(key) || practiceKeys.has(key)) return null;
+        let score = 0;
+        let reasons = [];
+
+        // Interest match
+        const clipTag = (clip.tag || '').toLowerCase();
+        if (clipTag && interestSet.has(clipTag)) {
+          score += 3;
+          reasons.push({ type: 'interest', tag: clip.tag });
+        }
+
+        // Vocab match — words user looked up that appear in this clip
+        const matchedWords = [];
+        if (vocabSet.size > 0) {
+          for (const line of clip.lines) {
+            if (!line.words) continue;
+            for (const w of line.words) {
+              if (vocabSet.has(w.word.toLowerCase()) && !matchedWords.includes(w.word.toLowerCase())) {
+                matchedWords.push(w.word.toLowerCase());
+              }
+            }
+          }
+          if (matchedWords.length > 0) {
+            score += 5 + matchedWords.length;
+            reasons.push({ type: 'vocab', words: matchedWords.slice(0, 2) });
+          }
+        }
+
+        // CEFR match — estimate clip difficulty from word levels
+        const levelOrder = { 'A1': 1, 'A2': 2, 'A': 2, 'B1': 3, 'B2': 4, 'C1': 5, 'C2': 6 };
+        const userLevelNum = levelOrder[userLevel] || 3;
+        let cefrWords = 0, cefrSum = 0;
+        for (const line of clip.lines) {
+          if (!line.words) continue;
+          for (const w of line.words) {
+            const c = (w.cefr || '').toUpperCase();
+            if (levelOrder[c]) { cefrWords++; cefrSum += levelOrder[c]; }
+          }
+        }
+        if (cefrWords > 0) {
+          const avgLevel = cefrSum / cefrWords;
+          const diff = Math.abs(avgLevel - userLevelNum);
+          if (diff <= 1) { score += 2; if (reasons.length === 0) reasons.push({ type: 'level' }); }
+        }
+
+        if (score === 0) score = 0.1; // still a candidate, just low priority
+        return { clipIdx: ci, clip, score, reasons };
+      }).filter(Boolean);
+
+      candidates.sort((a, b) => b.score - a.score);
+      const recommended = candidates.slice(0, 5);
+
+      if (recommended.length > 0) {
+        html += '<div class="pr-list-section">AI 推荐练习</div>';
+        recommended.forEach(rec => {
+          const clip = rec.clip;
+          const dur = clip.lines.length > 0 ? clip.lines[clip.lines.length - 1].end - clip.lines[0].start : 0;
+          const durStr = dur > 0 ? `${Math.floor(dur / 60)}:${String(Math.round(dur % 60)).padStart(2, '0')}` : '';
+          // Build reason text
+          let reasonText = '难度适合你现在的水平';
+          if (rec.reasons.length > 0) {
+            const r = rec.reasons[0];
+            if (r.type === 'vocab') reasonText = `包含你查过的 ${r.words.join('、')}`;
+            else if (r.type === 'interest') reasonText = `你可能对 ${r.tag} 类内容感兴趣`;
+            else if (r.type === 'level') reasonText = '难度适合你现在的水平';
+          }
+          html += `<div class="pr-list-item" data-clip-idx="${rec.clipIdx}">
+            <div class="pr-list-item-title">${clip.title || 'Untitled'}</div>
+            <div class="pr-list-item-meta">
+              <span>${typeof clip.source === 'object' ? (clip.source.podcast || '') : (clip.source || '')}</span>
+              ${clip.tag ? `<span>· ${clip.tag}</span>` : ''}
+              ${durStr ? `<span>· ${durStr}</span>` : ''}
+            </div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:4px;">${reasonText}</div>
+          </div>`;
+        });
+      } else if (bookmarks.length > 0) {
+        // All clips practiced or bookmarked
+        html += '<div class="pr-list-section">AI 推荐练习</div>';
+        html += '<div class="pr-list-empty">所有内容都练过了，新内容正在路上</div>';
+      }
+
       listEl.innerHTML = html;
 
-      // Click to start practice
+      // Click to start practice — handle both bookmark items and recommended items
       listEl.querySelectorAll('.pr-list-item').forEach(item => {
         item.addEventListener('click', () => {
           const audio = item.dataset.audio;
-          const clipIdx = clips.findIndex(c => getClipKeyByClip(c) === audio || c.audio === audio);
+          const clipIdxAttr = item.dataset.clipIdx;
+          let clipIdx = -1;
+          if (audio) {
+            clipIdx = clips.findIndex(c => getClipKeyByClip(c) === audio || c.audio === audio);
+          } else if (clipIdxAttr !== undefined) {
+            clipIdx = parseInt(clipIdxAttr);
+          }
           if (clipIdx >= 0) {
             startPractice(clipIdx);
           }
@@ -4328,6 +4426,7 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
       prClipIdx = clipIdx;
       prHardSentences = [];
       prWordsLooked = 0;
+      prLookedWordsList = [];
       prSentCurrent = 0;
 
       // Pause feed audio
@@ -4368,15 +4467,35 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
     // ── STEP 1: Blind Listen ──
     function renderStep1() {
       let playing = false;
+      const clipDur = prClip.lines.length > 0 ? prClip.lines[prClip.lines.length - 1].end : 0;
+      const ringR = 40; // radius of progress ring
+      const ringC = 2 * Math.PI * ringR; // circumference
+
+      // Source text: handle string or object
+      const src = prClip.source;
+      const sourceName = typeof src === 'string' ? src : (src && src.podcast ? src.podcast : '');
+
       prBody.innerHTML = `
         <div class="pr-blind">
+          <div class="pr-blind-meta">
+            <div class="pr-blind-source">${sourceName}</div>
+            <div class="pr-blind-title">${prClip.title || ''}</div>
+            ${prClip.tag ? `<span class="pr-blind-tag">${prClip.tag}</span>` : ''}
+          </div>
           <div class="pr-blind-hint">先听一遍，看能抓住多少</div>
           <div class="pr-wave paused">
             ${Array(8).fill('<div class="pr-wave-bar"></div>').join('')}
           </div>
-          <button class="pr-play-btn" id="pr-s1-play">
-            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-          </button>
+          <div class="pr-play-wrap">
+            <svg class="pr-progress-ring" width="80" height="80">
+              <circle cx="40" cy="40" r="${ringR}" fill="none" stroke="#7c8aff" stroke-width="3" opacity="0.5"
+                stroke-dasharray="${ringC}" stroke-dashoffset="${ringC}" stroke-linecap="round" id="pr-s1-ring"/>
+            </svg>
+            <button class="pr-play-btn" id="pr-s1-play">
+              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+          </div>
+          <div class="pr-blind-countdown" id="pr-s1-countdown"></div>
           <div class="pr-blind-choices" style="display:none" id="pr-s1-choices">
             <button class="pr-blind-choice primary" data-choice="understood">大部分听懂了</button>
             <button class="pr-blind-choice" data-choice="unclear">有些没听清</button>
@@ -4386,6 +4505,25 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
       const playBtn = document.getElementById('pr-s1-play');
       const wave = prBody.querySelector('.pr-wave');
       const choices = document.getElementById('pr-s1-choices');
+      const ringEl = document.getElementById('pr-s1-ring');
+      const countdownEl = document.getElementById('pr-s1-countdown');
+      const questions = Array.isArray(prClip.questions) && prClip.questions.length >= 2 ? prClip.questions : null;
+
+      function formatTime(s) {
+        const m = Math.floor(s / 60);
+        const sec = Math.floor(s % 60);
+        return m + ':' + String(sec).padStart(2, '0');
+      }
+      if (clipDur > 0) countdownEl.textContent = formatTime(clipDur);
+
+      prAudio.ontimeupdate = () => {
+        if (clipDur <= 0) return;
+        const t = prAudio.currentTime;
+        const progress = Math.min(t / clipDur, 1);
+        ringEl.style.strokeDashoffset = ringC * (1 - progress);
+        const remaining = Math.max(0, clipDur - t);
+        countdownEl.textContent = formatTime(remaining);
+      };
 
       playBtn.addEventListener('click', () => {
         if (!playing) {
@@ -4405,17 +4543,139 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
       prAudio.onended = () => {
         playing = false;
         wave.classList.add('paused');
-        playBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
-        choices.style.display = 'flex';
+        playBtn.style.display = 'none';
+        prAudio.ontimeupdate = null;
+
+        if (!questions) {
+          // Fallback: original two-choice UI for clips without questions
+          playBtn.style.display = '';
+          playBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+          choices.style.display = 'flex';
+          return;
+        }
+
+        // Transition prompt
+        wave.style.display = 'none';
+        const hint = prBody.querySelector('.pr-blind-hint');
+        if (hint) { hint.textContent = '听完了，看看你抓住了多少'; hint.style.cssText = 'color:var(--text-3);font-size:15px;margin-bottom:24px;'; }
+        const startBtn = document.createElement('button');
+        startBtn.className = 'pr-blind-choice primary';
+        startBtn.style.cssText = 'background:#7c8aff;color:#fff;border:none;border-radius:24px;padding:14px 32px;font-size:16px;cursor:pointer;';
+        startBtn.textContent = '开始答题';
+        prBody.querySelector('.pr-blind').appendChild(startBtn);
+
+        startBtn.addEventListener('click', () => {
+          let compCorrect = 0;
+          let qIdx = 0;
+
+          function renderQuestion(qi) {
+            const q = questions[qi];
+            const answerLetter = q.answer.trim().charAt(0).toUpperCase();
+            prBody.innerHTML = `
+              <div style="width:100%;padding:0 4px;">
+                <div class="comp-label">COMPREHENSION · ${qi + 1}/${questions.length}</div>
+                <div class="comp-question">${q.question}</div>
+                <div id="comp-options"></div>
+                <div id="comp-feedback"></div>
+                <div id="comp-nav"></div>
+              </div>`;
+            const optionsEl = document.getElementById('comp-options');
+            const feedbackEl = document.getElementById('comp-feedback');
+            const navEl = document.getElementById('comp-nav');
+
+            q.options.forEach(opt => {
+              const btn = document.createElement('button');
+              btn.className = 'comp-option';
+              btn.textContent = opt;
+              btn.dataset.letter = opt.trim().charAt(0).toUpperCase();
+              optionsEl.appendChild(btn);
+            });
+
+            optionsEl.querySelectorAll('.comp-option').forEach(btn => {
+              btn.addEventListener('click', () => {
+                const picked = btn.dataset.letter;
+                const isCorrect = picked === answerLetter;
+                if (isCorrect) compCorrect++;
+
+                // Mark all options
+                optionsEl.querySelectorAll('.comp-option').forEach(ob => {
+                  ob.classList.add('answered');
+                  const obLetter = ob.dataset.letter;
+                  if (obLetter === answerLetter) {
+                    ob.classList.add('correct');
+                    if (isCorrect) ob.textContent = '✓ ' + ob.textContent;
+                  } else if (ob === btn && !isCorrect) {
+                    ob.classList.add('wrong');
+                  } else {
+                    ob.classList.add('dimmed');
+                  }
+                });
+                if (!isCorrect) {
+                  // Also mark the correct one visible for wrong answers
+                  const correctBtn = Array.from(optionsEl.querySelectorAll('.comp-option')).find(o => o.dataset.letter === answerLetter);
+                  if (correctBtn) correctBtn.classList.remove('dimmed');
+                }
+
+                // Show explanation
+                feedbackEl.innerHTML = `<div class="comp-explanation">${q.explanation_zh || ''}</div>`;
+
+                // Show next button
+                const isLast = qi >= questions.length - 1;
+                navEl.innerHTML = `<button class="comp-next-btn">${isLast ? '查看结果 →' : '下一题 →'}</button>`;
+                navEl.querySelector('.comp-next-btn').addEventListener('click', () => {
+                  if (isLast) {
+                    renderResult();
+                  } else {
+                    qIdx++;
+                    renderQuestion(qIdx);
+                  }
+                });
+              });
+            });
+          }
+
+          function renderResult() {
+            const total = questions.length;
+            let msg, sub, action, actionLabel;
+            if (compCorrect === total) {
+              msg = '完全听懂了';
+              sub = `${compCorrect}/${total}`;
+              action = () => goToStep(4);
+              actionLabel = '跳到复听 →';
+            } else if (compCorrect >= 1) {
+              msg = '核心意思抓到了，细节再听听';
+              sub = `${compCorrect}/${total}`;
+              action = () => goToStep(2);
+              actionLabel = '逐句精听 →';
+            } else {
+              msg = '没关系，我们一句句来';
+              sub = `${compCorrect}/${total}`;
+              action = () => goToStep(2);
+              actionLabel = '逐句精听 →';
+            }
+            prBody.innerHTML = `
+              <div style="width:100%;padding:0 4px;display:flex;flex-direction:column;align-items:center;">
+                <div class="comp-result-sub">${sub}</div>
+                <div class="comp-result-msg">${msg}</div>
+                <button class="comp-next-btn" id="comp-go">${actionLabel}</button>
+                <button class="comp-retry-btn" id="comp-retry">从头再听一遍</button>
+              </div>`;
+            document.getElementById('comp-go').addEventListener('click', () => { prAudio.pause(); action(); });
+            document.getElementById('comp-retry').addEventListener('click', () => { prAudio.pause(); goToStep(1); });
+          }
+
+          renderQuestion(0);
+        });
       };
 
+      // Fallback choices (for clips without questions)
       choices.querySelectorAll('.pr-blind-choice').forEach(btn => {
         btn.addEventListener('click', () => {
           prAudio.pause();
           if (btn.dataset.choice === 'understood') {
-            goToStep(4); // skip to re-listen
+            goToStep(4);
           } else {
-            goToStep(2); // go to sentence-by-sentence
+            goToStep(2);
           }
         });
       });
@@ -4432,8 +4692,8 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
         prBody.innerHTML = `
           <div class="pr-sentence">
             <div class="pr-sent-progress">第 ${prSentCurrent + 1} / ${totalSent} 句</div>
-            <div class="pr-sent-en" id="pr-s2-en"></div>
-            <div class="pr-sent-zh hidden-zh" id="pr-s2-zh">${line.zh || ''}</div>
+            <div class="pr-sent-zh" id="pr-s2-zh">${line.zh || ''}</div>
+            <div class="pr-sent-en masked-en" id="pr-s2-en"></div>
             <div class="pr-sent-controls">
               <button class="pr-sent-ctrl replay" id="pr-s2-replay">
                 <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
@@ -4452,18 +4712,29 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
         const enEl = document.getElementById('pr-s2-en');
         renderWords(enEl, line);
 
-        // Word tap in practice
-        enEl.querySelectorAll('.w').forEach(w => {
-          w.addEventListener('click', (e) => {
-            e.stopPropagation();
-            prWordsLooked++;
-            showWordPopup(w);
-          });
+        // Click masked English to reveal
+        enEl.addEventListener('click', () => {
+          if (enEl.classList.contains('masked-en')) {
+            enEl.classList.remove('masked-en');
+            // Enable word taps after reveal
+            enEl.querySelectorAll('.w').forEach(w => {
+              w.addEventListener('click', (e) => {
+                e.stopPropagation();
+                prWordsLooked++;
+                const wordText = w.textContent.replace(/[^a-zA-Z'\-]/g, '');
+                if (wordText && !prLookedWordsList.some(x => x.word.toLowerCase() === wordText.toLowerCase())) {
+                  prLookedWordsList.push({
+                    word: wordText,
+                    cefr: w.dataset.cefr || '',
+                    sentenceIdx: prSentCurrent,
+                    sentence: lines[prSentCurrent].en
+                  });
+                }
+                showWordPopup(w);
+              });
+            });
+          }
         });
-
-        // Chinese toggle
-        const zhEl = document.getElementById('pr-s2-zh');
-        zhEl.addEventListener('click', () => zhEl.classList.toggle('hidden-zh'));
 
         // Play sentence
         let s2playing = false;
@@ -4577,13 +4848,52 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
         card.addEventListener('click', () => {
           if (showingBack) return;
           showingBack = true;
+
+          // Only extract B2+ hard words (these are the ones users might not know)
+          const hardWords = (line.words || []).filter(w => {
+            const cefr = (w.cefr || '').toUpperCase();
+            return cefr === 'B2' || cefr === 'C1' || cefr === 'C2';
+          });
+          const seen = new Set();
+          const uniqueHardWords = hardWords.filter(w => {
+            const lower = w.word.toLowerCase();
+            if (seen.has(lower)) return false;
+            seen.add(lower);
+            return true;
+          });
+
+          let hardWordsHtml = '';
+          if (uniqueHardWords.length > 0) {
+            hardWordsHtml = `<div class="pr-flash-hardwords">
+              ${uniqueHardWords.map(w => `<span class="pr-flash-hw" data-word="${w.word}">
+                <span class="hw-word">${w.word}</span>
+                <span class="hw-level" style="color:var(--cefr-${w.cefr.toLowerCase()})">${w.cefr}</span>
+              </span>`).join('')}
+            </div>`;
+          }
+
           card.innerHTML = `
             <div class="pr-flash-label">难句 ${flashIdx + 1} / ${prHardSentences.length}</div>
             <div class="pr-flash-en">${line.en}</div>
             <div class="pr-flash-divider"></div>
             <div class="pr-flash-zh">${line.zh || ''}</div>
-            ${line.words ? `<div class="pr-flash-phonetic">${line.words.filter(w => w.cefr && w.cefr !== 'A').map(w => w.word + ' (' + w.cefr + ')').join(' · ')}</div>` : ''}
+            ${hardWordsHtml}
           `;
+
+          // Hard word tap → show popup
+          card.querySelectorAll('.pr-flash-hw').forEach(hw => {
+            hw.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const tempSpan = document.createElement('span');
+              tempSpan.className = 'w';
+              tempSpan.textContent = hw.dataset.word;
+              tempSpan.dataset.cefr = hw.querySelector('.hw-level').textContent;
+              document.body.appendChild(tempSpan);
+              showWordPopup(tempSpan);
+              tempSpan.remove();
+            });
+          });
+
           document.getElementById('pr-s3-actions').style.display = 'flex';
         });
 
@@ -4684,23 +4994,59 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
       const sentTotal = prClip.lines.length;
       prStepLabel.textContent = '练习完成';
 
+      // Deduplicate looked-up words
+      const uniqueWords = [];
+      const seenWords = new Set();
+      prLookedWordsList.forEach(w => {
+        const lower = w.word.toLowerCase();
+        if (!seenWords.has(lower)) {
+          seenWords.add(lower);
+          uniqueWords.push(w);
+        }
+      });
+
+      // Deduplicate hard sentence indices
+      const uniqueHardIdxs = [...new Set(prHardSentences)];
+
+      // Build looked-up words section
+      let wordsHtml = '';
+      if (uniqueWords.length > 0) {
+        wordsHtml = `
+          <div class="prs-section">
+            <div class="prs-section-title">查了 ${uniqueWords.length} 个词</div>
+            ${uniqueWords.map(w => `
+              <div class="prs-word-item" data-word="${w.word}">
+                <span class="prs-word-text">${w.word}</span>
+                ${w.cefr ? `<span class="prs-word-cefr" style="color:var(--cefr-${w.cefr.toLowerCase()})">${w.cefr}</span>` : ''}
+                <span class="prs-word-add" data-word="${w.word}" data-cefr="${w.cefr}">+ 词汇本</span>
+              </div>
+            `).join('')}
+          </div>`;
+      }
+
+      // Build hard sentences section
+      let hardHtml = '';
+      if (uniqueHardIdxs.length > 0) {
+        hardHtml = `
+          <div class="prs-section">
+            <div class="prs-section-title">${uniqueHardIdxs.length} 个难句</div>
+            ${uniqueHardIdxs.map(idx => {
+              const line = prClip.lines[idx];
+              const display = line.en.length > 50 ? line.en.slice(0, 50) + '...' : line.en;
+              return `
+                <div class="prs-hard-item" data-line-start="${line.start}" data-line-end="${line.end}">
+                  <span class="prs-hard-play">▶</span>
+                  <span class="prs-hard-text">${display}</span>
+                </div>`;
+            }).join('')}
+          </div>`;
+      }
+
       prBody.innerHTML = `
         <div class="pr-summary">
           <div class="pr-summary-title">这段练完了</div>
-          <div class="pr-summary-stats">
-            <div class="pr-summary-stat">
-              <div class="pr-summary-stat-val">${prWordsLooked}</div>
-              <div class="pr-summary-stat-label">查了词</div>
-            </div>
-            <div class="pr-summary-stat">
-              <div class="pr-summary-stat-val">${sentTotal}</div>
-              <div class="pr-summary-stat-label">精听句数</div>
-            </div>
-            <div class="pr-summary-stat">
-              <div class="pr-summary-stat-val">${prHardSentences.length}</div>
-              <div class="pr-summary-stat-label">难句</div>
-            </div>
-          </div>
+          ${wordsHtml}
+          ${hardHtml}
           <div class="pr-summary-actions">
             <button class="pr-summary-btn" id="pr-back-feed">回到 Feed</button>
             <button class="pr-summary-btn primary" id="pr-again">再练一段</button>
@@ -4712,6 +5058,56 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
       const key = getClipKeyByClip(prClip);
       pd[key] = { done: true, words: prWordsLooked, hard: prHardSentences.length, ts: Date.now() };
       savePracticeData(pd);
+      recordPracticeHardRate(prHardSentences.length, prClip.lines.length);
+
+      // Word item tap → show popup
+      prBody.querySelectorAll('.prs-word-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          if (e.target.classList.contains('prs-word-add')) return;
+          const tempSpan = document.createElement('span');
+          tempSpan.className = 'w';
+          tempSpan.textContent = item.dataset.word;
+          document.body.appendChild(tempSpan);
+          showWordPopup(tempSpan);
+          tempSpan.remove();
+        });
+      });
+
+      // "+ 词汇本" button
+      prBody.querySelectorAll('.prs-word-add').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const word = btn.dataset.word;
+          const cefr = btn.dataset.cefr;
+          let vocab = [];
+          try { vocab = JSON.parse(localStorage.getItem('flipodVocab') || '[]'); } catch {}
+          if (vocab.some(v => v.word.toLowerCase() === word.toLowerCase())) {
+            btn.textContent = '✓ 已收藏';
+            btn.style.color = 'var(--accent)';
+            return;
+          }
+          vocab.push({ word, cefr, phonetic: '', context: '', contextZh: '', timestamp: Date.now() });
+          localStorage.setItem('flipodVocab', JSON.stringify(vocab));
+          btn.textContent = '✓ 已收藏';
+          btn.style.color = 'var(--accent)';
+        });
+      });
+
+      // Hard sentence tap → play audio
+      prBody.querySelectorAll('.prs-hard-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const start = parseFloat(item.dataset.lineStart);
+          const end = parseFloat(item.dataset.lineEnd);
+          prAudio.currentTime = start;
+          prAudio.play().catch(() => {});
+          prAudio.ontimeupdate = () => {
+            if (prAudio.currentTime >= end) {
+              prAudio.pause();
+              prAudio.ontimeupdate = null;
+            }
+          };
+        });
+      });
 
       document.getElementById('pr-back-feed').addEventListener('click', closePractice);
       document.getElementById('pr-again').addEventListener('click', () => {

@@ -20,15 +20,67 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ── Config ──
-AZURE_ENDPOINT = os.environ.get("AZURE_ENDPOINT", "https://us-east-02-gpt-01.openai.azure.com")
-AZURE_API_KEY = os.environ["AZURE_API_KEY"]
-WHISPER_DEPLOYMENT = "whisper0614"
-WHISPER_API_VERSION = "2024-06-01"
-GPT_DEPLOYMENT = "gpt-5.4-global-01"
-GPT_API_VERSION = "2024-10-21"
+# Whisper (Azure OpenAI - US East)
+WHISPER_ENDPOINT = os.environ.get("AZURE_WHISPER_OPENAI_ENDPOINT", "https://us-east-02-gpt-01.openai.azure.com")
+WHISPER_API_KEY = os.environ.get("AZURE_WHISPER_OPENAI_API_KEY", "7d4766345d824df1b03d378b59dade54")
+WHISPER_DEPLOYMENT = os.environ.get("AZURE_WHISPER_OPENAI_DEPLOYMENT", "whisper0614")
+WHISPER_API_VERSION = os.environ.get("AZURE_WHISPER_OPENAI_API_VERSION", "2024-06-01")
+# GPT (Azure OpenAI - Sweden Central)
+GPT_ENDPOINT = os.environ.get("AZURE_OPENAI_ENDPOINT", "https://sweden-central-gpt-01.openai.azure.com")
+GPT_API_KEY = os.environ.get("AZURE_OPENAI_API_KEY", "108e3a3c831340db943b043c8e943c18")
+GPT_DEPLOYMENT = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-5-chat-global-01")
+GPT_API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
 FFMPEG = "/opt/homebrew/bin/ffmpeg"
 
 LOG = []
+
+# ── Curated Feeds: Tier 1 手动精选源 ──
+# 每个 tier 有不同的时效窗口和刷新策略
+CONTENT_TIERS = {
+    "Business": {"max_age_days": 7, "refresh": "weekly", "priority": 1},
+    "Tech":     {"max_age_days": 7, "refresh": "weekly", "priority": 1},
+    "Science":  {"max_age_days": 30, "refresh": "biweekly", "priority": 2},
+    "Psychology": {"max_age_days": 30, "refresh": "monthly", "priority": 3},
+    "Culture":  {"max_age_days": 30, "refresh": "monthly", "priority": 3},
+    "Storytelling": {"max_age_days": 365, "refresh": "evergreen", "priority": 4},
+}
+
+# Tier 1: 精选播客源（高质量、稳定更新、英语原生）
+# 格式: {"url": RSS_URL, "name": 显示名, "tier": "Business"|"Tech"|..., "info_weight": 0-1}
+CURATED_FEEDS = [
+    # ── Business / Finance ──
+    {"url": "https://feeds.npr.org/510318/podcast.xml", "name": "Up First (NPR)", "tier": "Business", "info_weight": 0.9},
+    {"url": "https://feeds.publicradio.org/public_feeds/marketplace", "name": "Marketplace (APM)", "tier": "Business", "info_weight": 0.85},
+    {"url": "https://feeds.npr.org/510289/podcast.xml", "name": "Planet Money", "tier": "Business", "info_weight": 0.8},
+    {"url": "https://feeds.megaphone.fm/ROOSTER7199250968", "name": "How I Built This", "tier": "Business", "info_weight": 0.7},
+    {"url": "https://www.omnycontent.com/d/playlist/e73c998e-6e60-432f-8610-ae210140c5b1/825d4e29-b616-46f4-afd7-ae2b0013005c/8b1dd624-a026-43e9-8b57-ae2b00130066/podcast.rss", "name": "Big Take (Bloomberg)", "tier": "Business", "info_weight": 0.9},
+    # ── Tech ──
+    {"url": "https://feeds.simplecast.com/JGE3yC0V", "name": "Hard Fork (NYT)", "tier": "Tech", "info_weight": 0.9},
+    {"url": "https://lexfridman.com/feed/podcast/", "name": "Lex Fridman Podcast", "tier": "Tech", "info_weight": 0.75},
+    {"url": "https://feeds.megaphone.fm/vergecast", "name": "The Vergecast", "tier": "Tech", "info_weight": 0.85},
+    {"url": "https://feeds.megaphone.fm/ridehome", "name": "Tech Brew Ride Home", "tier": "Tech", "info_weight": 0.7},
+    # ── Science ──
+    {"url": "https://feeds.npr.org/510351/podcast.xml", "name": "Short Wave (NPR)", "tier": "Science", "info_weight": 0.75},
+    {"url": "https://www.nasa.gov/feeds/podcasts/curious-universe", "name": "NASA Curious Universe", "tier": "Science", "info_weight": 0.65},
+    {"url": "https://feeds.megaphone.fm/sciencevs", "name": "Science Vs", "tier": "Science", "info_weight": 0.75},
+    # ── Psychology / Culture ──
+    {"url": "https://feeds.simplecast.com/kwWc0lhf", "name": "Hidden Brain (NPR)", "tier": "Psychology", "info_weight": 0.7},
+    {"url": "https://feeds.npr.org/510333/podcast.xml", "name": "Throughline (NPR)", "tier": "Culture", "info_weight": 0.75},
+    {"url": "https://feeds.npr.org/510298/podcast.xml", "name": "TED Radio Hour", "tier": "Culture", "info_weight": 0.7},
+    # ── Storytelling (evergreen) ──
+    {"url": "https://snap.feed.snapjudgment.org", "name": "Snap Judgment", "tier": "Storytelling", "info_weight": 0.5},
+    {"url": "https://feeds.npr.org/510200/podcast.xml", "name": "StoryCorps", "tier": "Storytelling", "info_weight": 0.5},
+]
+
+# Tier 2 动态补充的搜索关键词（当 Tier 1 内容不够时启用）
+TIER2_KEYWORDS = {
+    "Business": ["business news podcast", "startup podcast", "economy podcast english"],
+    "Tech":     ["technology news podcast", "AI podcast", "silicon valley podcast"],
+    "Science":  ["science podcast english", "physics podcast", "biology podcast"],
+    "Psychology": ["psychology podcast", "behavioral science podcast"],
+    "Culture":  ["culture podcast english", "society podcast"],
+    "Storytelling": ["storytelling podcast", "true stories podcast english"],
+}
 
 # ── COCA-based CEFR mapping ──
 # Approximate: COCA rank -> CEFR level
@@ -174,8 +226,9 @@ def fetch_url(url, timeout=20):
     return None
 
 
-def parse_rss(feed_url, feed_name, episodes_per_feed=3):
-    log(f"Step 1: 解析 RSS - {feed_name}", "step")
+def parse_rss(feed_url, feed_name, episodes_per_feed=3, max_age_days=None):
+    """Parse RSS feed. If max_age_days is set, only return episodes published within that window."""
+    log(f"Step 1: 解析 RSS - {feed_name}" + (f" (最近{max_age_days}天)" if max_age_days else ""), "step")
     xml_data = fetch_url(feed_url)
     if not xml_data:
         log(f"  RSS 获取失败", "error")
@@ -192,6 +245,7 @@ def parse_rss(feed_url, feed_name, episodes_per_feed=3):
         return []
 
     episodes = []
+    now = datetime.now()
     for item in channel.findall("item"):
         if len(episodes) >= episodes_per_feed:
             break
@@ -203,18 +257,37 @@ def parse_rss(feed_url, feed_name, episodes_per_feed=3):
         audio_type = enclosure.get("type", "")
         if not audio_url or "audio" not in audio_type:
             continue
+
+        # Time window filtering
+        pub_date_str = item.findtext("pubDate", "")
+        pub_date = None
+        if pub_date_str and max_age_days:
+            try:
+                # RFC 2822 format typical in RSS
+                from email.utils import parsedate_to_datetime
+                pub_date = parsedate_to_datetime(pub_date_str)
+                age_days = (now - pub_date.replace(tzinfo=None)).days
+                if age_days > max_age_days:
+                    log(f"  跳过（{age_days}天前）: {title[:50]}", "info")
+                    continue
+            except Exception:
+                pass  # Can't parse date, don't filter
+
         link = item.findtext("link", "")
         desc = item.findtext("description", "")
         desc = re.sub(r"<[^>]+>", "", desc)[:500]
 
-        episodes.append({
+        ep = {
             "title": title,
             "audio_url": audio_url,
             "description": desc,
             "podcast_name": feed_name,
             "feed_url": feed_url,
             "episode_url": link,
-        })
+        }
+        if pub_date:
+            ep["pub_date"] = pub_date.isoformat()
+        episodes.append(ep)
         log(f"  集: {title[:60]}", "info")
 
     log(f"  共 {len(episodes)} 集可处理", "ok")
@@ -309,7 +382,7 @@ def download_audio_via_curl_partial(audio_url, out_path, max_seconds=300):
 def transcribe_audio(audio_path):
     log("Step 3: 转录音频...", "step")
 
-    url = (f"{AZURE_ENDPOINT}/openai/deployments/{WHISPER_DEPLOYMENT}"
+    url = (f"{WHISPER_ENDPOINT}/openai/deployments/{WHISPER_DEPLOYMENT}"
            f"/audio/transcriptions?api-version={WHISPER_API_VERSION}")
 
     file_size = os.path.getsize(audio_path)
@@ -322,7 +395,7 @@ def transcribe_audio(audio_path):
         try:
             result = subprocess.run([
                 "curl", "-s", "-X", "POST", url,
-                "-H", f"api-key: {AZURE_API_KEY}",
+                "-H", f"api-key: {WHISPER_API_KEY}",
                 "-F", f"file=@{audio_path};type=audio/mpeg",
                 "-F", "response_format=verbose_json",
                 "-F", "timestamp_granularities[]=word",
@@ -370,7 +443,7 @@ def transcribe_audio(audio_path):
 # ── Step 4: LLM segment identification ──
 def call_gpt(messages, temperature=0.3, max_tokens=4000):
     """Call Azure GPT via curl (bypasses Python 3.9 SSL issues)."""
-    url = (f"{AZURE_ENDPOINT}/openai/deployments/{GPT_DEPLOYMENT}"
+    url = (f"{GPT_ENDPOINT}/openai/deployments/{GPT_DEPLOYMENT}"
            f"/chat/completions?api-version={GPT_API_VERSION}")
 
     payload = json.dumps({
@@ -383,7 +456,7 @@ def call_gpt(messages, temperature=0.3, max_tokens=4000):
         try:
             result = subprocess.run([
                 "curl", "-s", "-X", "POST", url,
-                "-H", f"api-key: {AZURE_API_KEY}",
+                "-H", f"api-key: {GPT_API_KEY}",
                 "-H", "Content-Type: application/json",
                 "-d", payload,
                 "--connect-timeout", "15",
@@ -410,6 +483,7 @@ def call_gpt(messages, temperature=0.3, max_tokens=4000):
 
 
 def identify_segments(transcript, episode_info, clip_duration_min=60, clip_duration_max=120):
+    """Step 4: LLM 识别优质片段 — 信息价值优先 + 难度估算"""
     log("Step 4: LLM 识别优质片段...", "step")
 
     segments = transcript["segments"]
@@ -420,7 +494,28 @@ def identify_segments(transcript, episode_info, clip_duration_min=60, clip_durat
         text = seg.get("text", "").strip()
         seg_text += f"[{start:.1f}s - {end:.1f}s] {text}\n"
 
-    prompt = f"""你是一个英语听力产品的内容筛选专家。以下是一集播客的转录文本（带时间戳）。
+    # 根据 feed 的 tier 调整 prompt 侧重
+    feed_tier = episode_info.get("tier", "")
+    tier_hint = ""
+    if feed_tier in ("Business", "Tech"):
+        tier_hint = """这是一档商业/科技播客。优先选择：
+- 有具体数据、趋势、判断的段落（不是泛泛而谈的观点）
+- 涉及近期事件或行业动态的内容
+- 对用户有"信息增量"的段落——听完能获得一个新认知或新视角"""
+    elif feed_tier == "Science":
+        tier_hint = """这是一档科学播客。优先选择：
+- 解释一个有趣现象的段落（有 aha moment）
+- 有实验/数据支撑的内容，不只是科普常识
+- 能激发好奇心的段落"""
+    elif feed_tier == "Storytelling":
+        tier_hint = """这是一档故事类播客。优先选择：
+- 有叙事弧线的段落（至少包含一个转折点）
+- 如果好故事的开头在 60s 内没有转折，宁可延长到 120s 也不截断在半截
+- 情感张力强的段落"""
+    else:
+        tier_hint = "优先选择信息密度高、有独特视角或有趣观点的段落。"
+
+    prompt = f"""你是 Flipod 的内容筛选引擎。Flipod 是一个英语播客内容产品——用户来这里消费有价值的信息，英语提升是副产品。
 
 播客: {episode_info.get('podcast_name', '')}
 集名: {episode_info.get('title', '')}
@@ -428,19 +523,20 @@ def identify_segments(transcript, episode_info, clip_duration_min=60, clip_durat
 转录文本:
 {seg_text[:12000]}
 
-请从中识别 1-3 个适合作为独立听力片段的段落。
+{tier_hint}
 
-**核心要求（必须满足）**：
-1. 不能是广告、赞助商口播、节目开头/结尾套话。
-2. 时长 {clip_duration_min}-{clip_duration_max} 秒（英语约 150 词/分钟）。
-3. 片段必须有一个相对完整的意思（不需要是完美的故事弧，但不能是半截话）。
+请从中识别 1-3 个最有信息价值的片段。
 
-**加分项（不强制）**：
-- 开头有钩子或悬念
-- 信息密度高
-- 有故事性或趣味性
+**硬性要求**：
+1. 不能是广告、赞助商口播、节目开头/结尾套话
+2. 时长 {clip_duration_min}-{clip_duration_max} 秒
+3. 片段必须有完整的信息单元（一个论点说完、一个故事讲完、一个解释结束）
 
-**重要：宁可多选不要漏选。** 只要不是广告且有一个完整的意思表达，就可以选。不要太挑剔。
+**选择标准（按重要性排序）**：
+1. **信息价值** — 用户听完能带走什么？一个新知识、一个有用观点、一个有趣故事？
+2. **开头吸引力** — 前 10 秒是否能抓住注意力（有悬念、有问题、有冲突）？
+3. **叙事完整性** — 这个片段独立听是否成立，不需要上下文？
+4. **语言可消化性** — 语速、词汇难度、口音清晰度是否适合中级英语学习者（B1-B2）？
 
 返回纯 JSON（不要 markdown 代码块）：
 {{
@@ -448,12 +544,19 @@ def identify_segments(transcript, episode_info, clip_duration_min=60, clip_durat
     {{
       "start_time": 12.5,
       "end_time": 78.2,
-      "text_preview": "前两句内容...",
-      "reason": "选择原因",
-      "suggested_title": "中文钩子标题（简短、有悬念、让人想听）",
+      "text_preview": "前两句...",
+      "reason": "这个片段有价值的原因（1句话）",
+      "info_takeaway": "用户听完能获得的核心信息（1句话中文）",
+      "suggested_title": "中文钩子标题（像新闻标题那样简短有力，让人想点进来）",
       "suggested_tag": "Science",
-      "hook_strength": "high/medium/low — 开头钩子吸引力",
-      "completeness": "high/medium/low — 叙事完整度"
+      "hook_strength": "high/medium/low",
+      "completeness": "high/medium/low",
+      "difficulty_estimate": {{
+        "speech_rate": "slow/normal/fast",
+        "vocabulary": "basic/intermediate/advanced",
+        "accent_clarity": "clear/moderate/heavy",
+        "overall": "B1/B1+/B2/B2+/C1"
+      }}
     }}
   ]
 }}
@@ -462,7 +565,7 @@ def identify_segments(transcript, episode_info, clip_duration_min=60, clip_durat
 
 如果整集没有合格片段，返回 {{"segments": []}}。"""
 
-    response = call_gpt([{"role": "user", "content": prompt}])
+    response = call_gpt([{"role": "user", "content": prompt}], max_tokens=6000)
     if not response:
         return []
 
@@ -473,6 +576,15 @@ def identify_segments(transcript, episode_info, clip_duration_min=60, clip_durat
             response = re.sub(r"\n?```$", "", response)
         data = json.loads(response)
         result = data.get("segments", [])
+
+        # Log difficulty info for each segment
+        for seg in result:
+            diff = seg.get("difficulty_estimate", {})
+            overall = diff.get("overall", "?")
+            info = seg.get("info_takeaway", "")[:40]
+            log(f"  片段 [{seg.get('start_time',0):.0f}s-{seg.get('end_time',0):.0f}s] "
+                f"难度:{overall} 信息:{info}", "info")
+
         log(f"  识别到 {len(result)} 个片段", "ok")
         return result
     except json.JSONDecodeError as e:
@@ -754,7 +866,116 @@ def extract_clip_words(transcript, start_time, end_time):
                 "words": remaining,
             })
 
+    # Trim incomplete boundary sentences (audio may not cover full sentence)
+    if lines:
+        # Check first line: how many words matched vs sentence word count
+        first = lines[0]
+        first_sent_word_count = len(re.findall(r"[a-zA-Z']+|\d+", first["en"]))
+        first_matched = len(first.get("words", []))
+        if first_sent_word_count > 0:
+            match_ratio = first_matched / first_sent_word_count
+            if match_ratio < 0.5:
+                lines.pop(0)  # Discard — too few words have audio
+            elif match_ratio < 1.0 and first["words"]:
+                # Trim: replace en text with just the matched words
+                first["en"] = " ".join(w["word"] for w in first["words"])
+                first["start"] = first["words"][0]["start"]
+
+        # Check last line similarly
+        if lines:
+            last = lines[-1]
+            last_sent_word_count = len(re.findall(r"[a-zA-Z']+|\d+", last["en"]))
+            last_matched = len(last.get("words", []))
+            if last_sent_word_count > 0:
+                match_ratio = last_matched / last_sent_word_count
+                if match_ratio < 0.5:
+                    lines.pop()
+                elif match_ratio < 1.0 and last["words"]:
+                    last["en"] = " ".join(w["word"] for w in last["words"])
+                    last["end"] = last["words"][-1]["end"]
+
     return lines
+
+
+# ── Collocation extraction ──
+
+STOP_WORDS = frozenset([
+    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
+    "have", "has", "had", "do", "does", "did", "will", "would", "shall",
+    "should", "may", "might", "must", "can", "could", "am", "i", "me",
+    "my", "we", "our", "you", "your", "he", "she", "it", "its", "they",
+    "them", "their", "this", "that", "these", "those", "of", "in", "to",
+    "for", "with", "on", "at", "from", "by", "as", "or", "and", "but",
+    "if", "not", "no", "so", "up", "out", "just", "than", "too", "very",
+    "s", "t", "d", "ll", "re", "ve", "m", "don", "isn", "aren", "wasn",
+    "weren", "doesn", "didn", "won", "wouldn", "shan", "shouldn", "about",
+])
+
+
+def extract_collocations(lines):
+    """Extract meaningful 2-3 gram collocations from clip lines.
+
+    Filters out pure stop-word combinations and returns a deduplicated,
+    lowercased list like ["make a decision", "climate change"].
+    """
+    # Collect all clean words in order
+    all_words = []
+    for line in lines:
+        tokens = re.findall(r"[a-zA-Z']+", line.get("en", ""))
+        all_words.extend([t.lower() for t in tokens])
+
+    seen = set()
+    collocations = []
+
+    def _has_content(ngram_words):
+        """At least one word must be non-stop-word."""
+        return any(w not in STOP_WORDS for w in ngram_words)
+
+    # Bigrams
+    for i in range(len(all_words) - 1):
+        bg = (all_words[i], all_words[i + 1])
+        if _has_content(bg):
+            phrase = " ".join(bg)
+            if phrase not in seen:
+                seen.add(phrase)
+                collocations.append(phrase)
+
+    # Trigrams
+    for i in range(len(all_words) - 2):
+        tg = (all_words[i], all_words[i + 1], all_words[i + 2])
+        if _has_content(tg):
+            phrase = " ".join(tg)
+            if phrase not in seen:
+                seen.add(phrase)
+                collocations.append(phrase)
+
+    return collocations
+
+
+def compute_overlap_scores(all_clips):
+    """Compute pairwise collocation overlap for all clips.
+
+    For each clip, overlap_score = average number of shared collocations
+    with every other clip. Higher score means the clip's vocabulary
+    recurs more across the feed — useful for ranking.
+    """
+    n = len(all_clips)
+    if n <= 1:
+        for clip in all_clips:
+            clip["overlap_score"] = 0.0
+        return
+
+    # Build sets for fast intersection
+    coll_sets = []
+    for clip in all_clips:
+        coll_sets.append(set(clip.get("collocations", [])))
+
+    for i in range(n):
+        total_overlap = 0
+        for j in range(n):
+            if i != j:
+                total_overlap += len(coll_sets[i] & coll_sets[j])
+        all_clips[i]["overlap_score"] = round(total_overlap / (n - 1), 2)
 
 
 def batch_cefr_annotation(lines):
@@ -882,6 +1103,85 @@ def translate_lines(lines):
     return lines
 
 
+# ── Comprehension questions ──
+
+def generate_comprehension_questions(lines, episode_info):
+    """Generate 2 comprehension questions from clip content via GPT."""
+    full_text = " ".join(line.get("en", "") for line in lines)
+    if not full_text.strip():
+        return []
+
+    prompt = (
+        "You are a podcast listening comprehension designer. Based ONLY on the following English passage, "
+        "create exactly 2 multiple-choice questions.\n\n"
+        "Rules:\n"
+        "- Question 1 MUST test the MAIN IDEA or GIST: what is this passage mainly about? "
+        "What is the speaker's core point? Do NOT ask about specific details, numbers, or names.\n"
+        "- Question 2 MUST test the SPEAKER'S ATTITUDE, OPINION, or KEY TAKEAWAY: "
+        "what does the speaker think/feel/conclude about the topic? What's the implication?\n"
+        "- Both questions should be answerable by someone who understood the general meaning, "
+        "even if they missed some specific words or details.\n"
+        "- Each question has exactly 4 options (A, B, C, D), with 1 correct and 3 plausible distractors.\n"
+        "- Questions are in English; keep them short and conversational (not academic).\n"
+        "- explanation_zh is a brief Chinese explanation of why the answer is correct.\n"
+        "- Return ONLY a JSON array, no other text.\n\n"
+        "Format:\n"
+        '[{"question": "...", "options": ["A. ...", "B. ...", "C. ...", "D. ..."], '
+        '"answer": "A", "explanation_zh": "..."}]\n\n'
+        f"Passage:\n{full_text}"
+    )
+
+    response = call_gpt([{"role": "user", "content": prompt}], temperature=0.4, max_tokens=1500)
+    if not response:
+        return []
+
+    # Parse JSON from response (strip markdown fences if present)
+    text = response.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+
+    try:
+        questions = json.loads(text)
+        if not isinstance(questions, list):
+            log("  理解题生成: 返回格式不是数组", "warn")
+            return []
+        return questions
+    except json.JSONDecodeError as e:
+        log(f"  理解题生成: JSON 解析失败 — {e}", "warn")
+        return []
+
+
+def validate_questions(questions, lines):
+    """Validate each question via a second GPT call — discard if not derivable from passage."""
+    if not questions:
+        return []
+
+    full_text = " ".join(line.get("en", "") for line in lines)
+    validated = []
+
+    for q in questions:
+        prompt = (
+            "You are a strict validator. Given the passage and a multiple-choice question, "
+            "determine whether the question can be answered SOLELY from the passage content.\n\n"
+            "Additional rule: if the question asks about a SPECIFIC DETAIL such as a specific name, "
+            "number, date, or statistic, answer \"no\" — we only want gist/attitude questions.\n\n"
+            "Reply with ONLY \"yes\" or \"no\".\n\n"
+            f"Passage:\n{full_text}\n\n"
+            f"Question: {q.get('question', '')}\n"
+            f"Options: {', '.join(q.get('options', []))}\n"
+            f"Stated answer: {q.get('answer', '')}"
+        )
+
+        response = call_gpt([{"role": "user", "content": prompt}], temperature=0.0, max_tokens=10)
+        if response and response.strip().lower().startswith("yes"):
+            validated.append(q)
+        else:
+            log(f"  理解题校验不通过，丢弃: {q.get('question', '')[:50]}", "warn")
+
+    return validated
+
+
 # ── Main pipeline ──
 def process_episode(episode, tmp_dir, output_dir, clip_id_start,
                     clip_duration_min=60, clip_duration_max=120, clips_per_episode=3):
@@ -925,17 +1225,32 @@ def process_episode(episode, tmp_dir, output_dir, clip_id_start,
             log(f"  片段 {i+1} 时长 {duration:.0f}s 超出范围，跳过", "warn")
             continue
 
-        # Step 5: Cut
-        clip_filename = f"clips/clip_{clip_id:03d}.mp3"
-        clip_path = os.path.join(output_dir, clip_filename)
-        if not cut_audio(episode["local_audio"], start_t, end_t, clip_path):
-            continue
-
-        # Step 6: Word timestamps + CEFR
+        # Step 6 (before cut): Word timestamps + CEFR — extract lines first to
+        # find actual sentence-aligned boundaries, then cut audio to match.
         step_start(f"cefr_{clip_id}")
         lines = extract_clip_words(transcript, start_t, end_t)
         if not lines:
             log(f"  片段 {i+1} 无法提取字幕行，跳过", "warn")
+            continue
+
+        # Re-align audio cut to actual sentence boundaries from lines
+        actual_start = start_t + lines[0]["start"]
+        actual_end = start_t + lines[-1]["end"]
+        duration = actual_end - actual_start
+        # Offset all timestamps so they are zero-based relative to actual_start
+        time_offset = lines[0]["start"]
+        if time_offset > 0:
+            for ln in lines:
+                ln["start"] = round(ln["start"] - time_offset, 2)
+                ln["end"] = round(ln["end"] - time_offset, 2)
+                for w in ln.get("words", []):
+                    w["start"] = round(w["start"] - time_offset, 2)
+                    w["end"] = round(w["end"] - time_offset, 2)
+
+        # Step 5: Cut audio at sentence-aligned boundaries
+        clip_filename = f"clips/clip_{clip_id:03d}.mp3"
+        clip_path = os.path.join(output_dir, clip_filename)
+        if not cut_audio(episode["local_audio"], actual_start, actual_end, clip_path):
             continue
 
         # Step 6b: CEFR batch annotation
@@ -949,9 +1264,22 @@ def process_episode(episode, tmp_dir, output_dir, clip_id_start,
         tr_time = step_end(f"translate_{clip_id}")
         if tr_time: log(f"  ⏱ 翻译耗时: {tr_time}s", "info")
 
+        # Step 7b: Comprehension questions
+        step_start(f"questions_{clip_id}")
+        raw_questions = generate_comprehension_questions(lines, episode)
+        questions = validate_questions(raw_questions, lines)
+        q_time = step_end(f"questions_{clip_id}")
+        if q_time: log(f"  ⏱ 理解题耗时: {q_time}s ({len(questions)}/{len(raw_questions)} 通过校验)", "info")
+
         # Assemble clip
-        start_mm_ss = f"{int(start_t)//60:02d}:{int(start_t)%60:02d}"
-        end_mm_ss = f"{int(end_t)//60:02d}:{int(end_t)%60:02d}"
+        start_mm_ss = f"{int(actual_start)//60:02d}:{int(actual_start)%60:02d}"
+        end_mm_ss = f"{int(actual_end)//60:02d}:{int(actual_end)%60:02d}"
+
+        # Difficulty metadata from LLM
+        difficulty = seg.get("difficulty_estimate", {})
+
+        # Step 8: Extract collocations
+        collocations = extract_collocations(lines)
 
         clip_data = {
             "id": clip_id,
@@ -959,14 +1287,20 @@ def process_episode(episode, tmp_dir, output_dir, clip_id_start,
             "tag": seg.get("suggested_tag", "Culture"),
             "audio": clip_filename,
             "duration": round(duration, 1),
+            "difficulty": difficulty.get("overall", "B1+"),
+            "info_takeaway": seg.get("info_takeaway", ""),
             "source": {
                 "podcast": episode.get("podcast_name", ""),
                 "episode": episode.get("title", ""),
                 "episode_url": episode.get("episode_url", ""),
                 "timestamp_start": start_mm_ss,
                 "timestamp_end": end_mm_ss,
+                "pub_date": episode.get("pub_date", ""),
+                "tier": episode.get("tier", ""),
             },
             "lines": lines,
+            "collocations": collocations,
+            "questions": questions,
         }
         clips.append(clip_data)
         log(f"  ✨ 片段 {clip_id} 完成: {clip_data['title']}", "ok")
@@ -1060,18 +1394,78 @@ def save_cefr_cache():
         log(f"CEFR 词表缓存已保存: {len(CEFR_WORD_MAP)} 词", "ok")
 
 
+def load_processed_episodes(output_dir):
+    """Load set of already-processed episode audio URLs for incremental mode."""
+    processed = set()
+    # Check new_clips.json
+    new_clips_path = os.path.join(output_dir, "new_clips.json")
+    if os.path.exists(new_clips_path):
+        try:
+            with open(new_clips_path, "r") as f:
+                data = json.load(f)
+            for clip in data.get("clips", []):
+                ep_url = clip.get("source", {}).get("episode_url", "")
+                if ep_url:
+                    processed.add(ep_url.split("?")[0].rstrip("/").lower())
+        except Exception:
+            pass
+    # Check processed_episodes.json (incremental tracking file)
+    tracking_path = os.path.join(output_dir, "processed_episodes.json")
+    if os.path.exists(tracking_path):
+        try:
+            with open(tracking_path, "r") as f:
+                processed.update(json.load(f))
+        except Exception:
+            pass
+    return processed
+
+
+def save_processed_episodes(output_dir, processed_set):
+    """Save processed episode URLs for incremental dedup."""
+    tracking_path = os.path.join(output_dir, "processed_episodes.json")
+    try:
+        with open(tracking_path, "w") as f:
+            json.dump(sorted(processed_set), f, indent=2)
+    except Exception as e:
+        log(f"保存处理记录失败: {e}", "warn")
+
+
+def get_next_clip_id(output_dir):
+    """Auto-detect next clip ID from existing files."""
+    clips_dir = os.path.join(output_dir, "clips")
+    if not os.path.exists(clips_dir):
+        return 1
+    existing = [f for f in os.listdir(clips_dir) if f.startswith("clip_") and f.endswith(".mp3")]
+    if not existing:
+        return 1
+    ids = []
+    for f in existing:
+        match = re.match(r"clip_(\d+)\.mp3", f)
+        if match:
+            ids.append(int(match.group(1)))
+    return max(ids) + 1 if ids else 1
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Podcast Clip Processor Agent v2")
-    parser.add_argument("--keywords", type=str, help="Comma-separated search keywords")
-    parser.add_argument("--feeds", type=str, help="Comma-separated RSS feed URLs")
-    parser.add_argument("--feeds-per-keyword", type=int, default=5)
-    parser.add_argument("--episodes-per-feed", type=int, default=5)
+    parser = argparse.ArgumentParser(description="Podcast Clip Processor Agent v3 — Curated + Tiered")
+    parser.add_argument("--mode", type=str, default="curated",
+                        choices=["curated", "discover", "mixed"],
+                        help="curated=精选源, discover=iTunes搜索, mixed=精选+补充")
+    parser.add_argument("--keywords", type=str, help="Comma-separated search keywords (for discover/mixed mode)")
+    parser.add_argument("--feeds", type=str, help="Comma-separated RSS feed URLs (additional)")
+    parser.add_argument("--tiers", type=str, default="Business,Tech,Science,Psychology,Culture,Storytelling",
+                        help="Comma-separated content tiers to process (curated mode)")
+    parser.add_argument("--feeds-per-keyword", type=int, default=3)
+    parser.add_argument("--episodes-per-feed", type=int, default=3)
     parser.add_argument("--clips-per-episode", type=int, default=3)
     parser.add_argument("--clip-duration-min", type=int, default=60)
     parser.add_argument("--clip-duration-max", type=int, default=120)
     parser.add_argument("--output-dir", type=str, default="./output")
-    parser.add_argument("--target-clips", type=int, default=5)
-    parser.add_argument("--start-id", type=int, default=6)
+    parser.add_argument("--target-clips", type=int, default=20)
+    parser.add_argument("--start-id", type=int, default=None,
+                        help="Starting clip ID (auto-detect if not set)")
+    parser.add_argument("--incremental", action="store_true",
+                        help="Skip already-processed episodes")
     args = parser.parse_args()
 
     output_dir = os.path.abspath(args.output_dir)
@@ -1083,22 +1477,70 @@ def main():
     os.makedirs(logs_dir, exist_ok=True)
 
     main_start = time.time()
-    log("=== Podcast Clip Processor Agent v2 ===", "step")
-    log(f"输出目录: {output_dir}", "info")
-    log(f"目标片段数: {args.target_clips}, 时长 {args.clip_duration_min}-{args.clip_duration_max}s", "info")
+    log("=== Podcast Clip Processor Agent v3 (Curated + Tiered) ===", "step")
+    log(f"模式: {args.mode} | 输出: {output_dir}", "info")
+    log(f"目标: {args.target_clips} 片段, 时长 {args.clip_duration_min}-{args.clip_duration_max}s", "info")
 
     init_cefr_map()
 
-    # Collect feeds
+    # Incremental mode: load already-processed episodes
+    processed_episodes = set()
+    if args.incremental:
+        processed_episodes = load_processed_episodes(output_dir)
+        log(f"增量模式: 已处理 {len(processed_episodes)} 集", "info")
+
+    # Auto-detect start ID
+    clip_id = args.start_id if args.start_id is not None else get_next_clip_id(output_dir)
+    log(f"起始 clip ID: {clip_id}", "info")
+
+    # ── Phase 1: Collect feeds based on mode ──
     feeds = []
-    if args.keywords:
-        keywords = [k.strip() for k in args.keywords.split(",")]
-        feeds.extend(discover_podcasts(keywords, args.feeds_per_keyword))
+    active_tiers = [t.strip() for t in args.tiers.split(",")]
+
+    if args.mode in ("curated", "mixed"):
+        # Tier 1: Curated feeds with time-window filtering
+        log(f"\n=== Phase 1: Curated Feeds ({', '.join(active_tiers)}) ===", "step")
+        for cf in CURATED_FEEDS:
+            if cf["tier"] not in active_tiers:
+                continue
+            tier_config = CONTENT_TIERS.get(cf["tier"], {})
+            feeds.append({
+                "url": cf["url"],
+                "name": cf["name"],
+                "tier": cf["tier"],
+                "info_weight": cf.get("info_weight", 0.5),
+                "max_age_days": tier_config.get("max_age_days"),
+                "priority": tier_config.get("priority", 5),
+            })
+        # Sort by priority (Business/Tech first)
+        feeds.sort(key=lambda f: f.get("priority", 5))
+        log(f"  Tier 1 精选源: {len(feeds)} 个 feed", "ok")
+
+    if args.mode in ("discover", "mixed"):
+        # Tier 2: iTunes discovery
+        keywords = []
+        if args.keywords:
+            keywords = [k.strip() for k in args.keywords.split(",")]
+        elif args.mode == "mixed":
+            # Auto-generate keywords from active tiers
+            for tier in active_tiers:
+                kws = TIER2_KEYWORDS.get(tier, [])
+                keywords.extend(kws[:1])  # Take top keyword per tier
+        if keywords:
+            log(f"\n=== Phase 1b: Tier 2 Discovery ({', '.join(keywords[:5])}) ===", "step")
+            discovered = discover_podcasts(keywords, args.feeds_per_keyword)
+            for d in discovered:
+                d["tier"] = ""  # Unknown tier for discovered feeds
+                d["max_age_days"] = None
+                d["priority"] = 10  # Lower priority than curated
+            feeds.extend(discovered)
+
+    # Manual feeds
     if args.feeds:
         for url in args.feeds.split(","):
             url = url.strip()
             if url:
-                feeds.append({"url": url, "name": "Manual Feed"})
+                feeds.append({"url": url, "name": "Manual Feed", "tier": "", "max_age_days": None, "priority": 0})
 
     # Dedup feeds by URL
     seen_feed_urls = set()
@@ -1108,8 +1550,6 @@ def main():
         if normalized not in seen_feed_urls:
             seen_feed_urls.add(normalized)
             unique_feeds.append(feed)
-        else:
-            log(f"  跳过重复 feed: {feed['name']}", "info")
     feeds = unique_feeds
     log(f"去重后 {len(feeds)} 个 feed", "info")
 
@@ -1117,30 +1557,41 @@ def main():
         log("没有可处理的 feed，退出", "error")
         sys.exit(1)
 
-    # Process
+    # ── Phase 2: Process feeds ──
+    log(f"\n=== Phase 2: 处理内容 ===", "step")
     all_clips = []
-    clip_id = args.start_id
-    seen_episodes = set()  # dedup by audio URL
+    newly_processed = set()
 
     for feed in feeds:
         if len(all_clips) >= args.target_clips:
             break
 
-        episodes = parse_rss(feed["url"], feed["name"], args.episodes_per_feed)
+        max_age = feed.get("max_age_days")
+        episodes = parse_rss(feed["url"], feed["name"], args.episodes_per_feed, max_age_days=max_age)
 
         for ep in episodes:
             if len(all_clips) >= args.target_clips:
                 break
 
-            # Dedup episodes by audio URL
+            # Dedup: skip already-processed episodes (incremental mode)
             ep_key = ep["audio_url"].split("?")[0].rstrip("/").lower()
-            if ep_key in seen_episodes:
+            ep_link_key = ep.get("episode_url", "").split("?")[0].rstrip("/").lower()
+            if ep_key in processed_episodes or ep_link_key in processed_episodes:
+                log(f"  跳过（已处理）: {ep['title'][:50]}", "info")
+                continue
+            if ep_key in newly_processed:
                 log(f"  跳过重复集: {ep['title'][:50]}", "info")
                 continue
-            seen_episodes.add(ep_key)
+            newly_processed.add(ep_key)
+            if ep_link_key:
+                newly_processed.add(ep_link_key)
+
+            # Pass tier info to episode for prompt customization
+            ep["tier"] = feed.get("tier", "")
 
             log(f"\n{'='*50}", "info")
-            log(f"处理: {ep['podcast_name']} - {ep['title'][:50]}", "step")
+            tier_label = f"[{ep['tier']}] " if ep.get("tier") else ""
+            log(f"处理: {tier_label}{ep['podcast_name']} - {ep['title'][:50]}", "step")
 
             new_clips = process_episode(
                 ep, tmp_dir, output_dir, clip_id,
@@ -1153,22 +1604,79 @@ def main():
                 all_clips.append(c)
                 clip_id += 1
 
-    # Step 9: Validate
+    # ── Phase 3: Tier 2 auto-supplement (mixed mode) ──
+    if args.mode == "mixed" and len(all_clips) < args.target_clips:
+        shortfall = args.target_clips - len(all_clips)
+        log(f"\n=== Phase 3: Tier 2 补充（还差 {shortfall} 条） ===", "step")
+        # Try more keywords from underrepresented tiers
+        tier_counts = {}
+        for c in all_clips:
+            t = c.get("source", {}).get("tier", "Other")
+            tier_counts[t] = tier_counts.get(t, 0) + 1
+
+        for tier in active_tiers:
+            if len(all_clips) >= args.target_clips:
+                break
+            if tier_counts.get(tier, 0) >= 5:  # Already have enough from this tier
+                continue
+            extra_kws = TIER2_KEYWORDS.get(tier, [])
+            if not extra_kws:
+                continue
+            log(f"  补充 {tier}: 搜索 {extra_kws[0]}", "info")
+            extra_feeds = discover_podcasts([extra_kws[0]], 3)
+            for ef in extra_feeds:
+                if len(all_clips) >= args.target_clips:
+                    break
+                ef_norm = ef["url"].split("?")[0].rstrip("/").lower()
+                if ef_norm in seen_feed_urls:
+                    continue
+                seen_feed_urls.add(ef_norm)
+                episodes = parse_rss(ef["url"], ef["name"], 2)
+                for ep in episodes:
+                    if len(all_clips) >= args.target_clips:
+                        break
+                    ep_key = ep["audio_url"].split("?")[0].rstrip("/").lower()
+                    if ep_key in processed_episodes or ep_key in newly_processed:
+                        continue
+                    newly_processed.add(ep_key)
+                    ep["tier"] = tier
+                    new_clips = process_episode(
+                        ep, tmp_dir, output_dir, clip_id,
+                        args.clip_duration_min, args.clip_duration_max,
+                        2,  # Fewer clips per episode for supplement
+                    )
+                    for c in new_clips:
+                        if len(all_clips) >= args.target_clips:
+                            break
+                        all_clips.append(c)
+                        clip_id += 1
+
+    # ── Phase 4: Validate & Output ──
     log(f"\n{'='*50}", "info")
     all_clips, validation_issues = validate_all_clips(all_clips, output_dir)
     log(f"总计生成 {len(all_clips)} 个有效片段", "ok")
 
-    # Write data.json (only new clips, not overwriting existing)
+    # Compute collocation overlap scores for feed ranking
+    compute_overlap_scores(all_clips)
+    log("Collocation overlap scores 已计算", "ok")
+
+    # Write new_clips.json
     data_path = os.path.join(output_dir, "new_clips.json")
     with open(data_path, "w", encoding="utf-8") as f:
         json.dump({"clips": all_clips}, f, ensure_ascii=False, indent=2)
     log(f"新片段数据已写入: {data_path}", "ok")
 
+    # Save incremental tracking
+    if args.incremental:
+        processed_episodes.update(newly_processed)
+        save_processed_episodes(output_dir, processed_episodes)
+        log(f"增量记录已更新: {len(processed_episodes)} 集", "ok")
+
     # Save CEFR cache
     save_cefr_cache()
 
     # Write processing log
-    log_path = os.path.join(logs_dir, "processing_log.json")
+    log_path = os.path.join(logs_dir, f"processing_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
     with open(log_path, "w", encoding="utf-8") as f:
         json.dump(LOG, f, ensure_ascii=False, indent=2)
     log(f"处理日志已写入: {log_path}", "ok")
@@ -1177,16 +1685,24 @@ def main():
     total_mins = int(total_time // 60)
     total_secs = int(total_time % 60)
 
+    # Summary by tier
+    tier_summary = {}
+    for c in all_clips:
+        t = c.get("source", {}).get("tier", "Other")
+        tier_summary[t] = tier_summary.get(t, 0) + 1
+
     print(f"\n🎉 完成！生成了 {len(all_clips)} 个片段")
     print(f"   总耗时: {total_mins}分{total_secs}秒")
+    print(f"   按类别: {', '.join(f'{k}:{v}' for k, v in sorted(tier_summary.items()))}")
     print(f"   new_clips.json: {data_path}")
     for c in all_clips:
-        print(f"   {c['audio']}: {c['title']}")
+        diff = c.get("difficulty", "?")
+        print(f"   [{diff}] {c['audio']}: {c['title']}")
 
-    # Summary log
     log(f"=== 运行总结 ===", "step")
     log(f"总耗时: {total_time}s ({total_mins}分{total_secs}秒)", "info")
     log(f"有效片段: {len(all_clips)}/{len(all_clips) + len(validation_issues)} 通过校验", "info")
+    log(f"按类别: {tier_summary}", "info")
     log(f"CEFR 词表: {len(CEFR_WORD_MAP)} 词", "info")
     error_count = sum(1 for e in LOG if e["level"] == "error")
     warn_count = sum(1 for e in LOG if e["level"] == "warn")

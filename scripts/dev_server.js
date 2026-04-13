@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
-const PORT = 8080;
+const PORT = parseInt(process.env.PORT, 10) || 8080;
 const AZURE_ENDPOINT = process.env.AZURE_ENDPOINT || 'https://us-east-02-gpt-01.openai.azure.com';
 const AZURE_API_KEY = process.env.AZURE_API_KEY;
 const GPT_DEPLOYMENT = 'gpt-5.4-global-01';
