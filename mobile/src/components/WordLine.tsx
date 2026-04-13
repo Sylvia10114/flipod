@@ -23,6 +23,7 @@ type Props = {
   showZh: boolean;
   masked?: boolean;
   practiced?: boolean;
+  compact?: boolean;
   onWordTap: (word: ClipLineWord, line: ClipLine) => void;
 };
 
@@ -49,6 +50,7 @@ export function WordLine({
   showZh,
   masked = false,
   practiced = false,
+  compact = false,
   onWordTap,
 }: Props) {
   if (!line.words || line.words.length === 0) {
@@ -72,7 +74,8 @@ export function WordLine({
             <Pressable key={`${w.word}-${i}`} onPress={() => onWordTap(w, line)}>
               <Text
                 style={[
-                  styles.word,
+                styles.word,
+                  compact && styles.wordCompact,
                   !masked && { color: cefrColor(w.cefr) },
                   !masked && spoken && styles.wordSpoken,
                   !masked && active && styles.wordActive,
@@ -107,17 +110,22 @@ const styles = StyleSheet.create({
     lineHeight: 36,
     fontWeight: '500',
   },
+  wordCompact: {
+    fontSize: 22,
+    lineHeight: 32,
+  },
   wordMasked: {
     color: 'transparent',
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderRadius: 4,
-    paddingHorizontal: 2,
-    paddingVertical: 1,
-    margin: 1,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderRadius: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 3,
+    marginHorizontal: 1,
+    marginVertical: 2,
   },
   wordMaskedProgress: {
     color: 'transparent',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.22)',
   },
   wordActive: {
     color: '#8B9CF7',
@@ -141,7 +149,7 @@ const styles = StyleSheet.create({
   },
   plainEnMasked: {
     color: 'transparent',
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(255,255,255,0.14)',
     borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 6,

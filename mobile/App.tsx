@@ -3,8 +3,16 @@ import { Audio } from 'expo-av';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { buildClipKey, findClipIndexByKey, resolveDataUrl, toBookmark } from './src/clip-utils';
+import {
+  buildClipKey,
+  findClipIndexByKey,
+  getLevelWeight,
+  resolveDataUrl,
+  sortClipsForFeed,
+  toBookmark,
+} from './src/clip-utils';
 import { AppToast } from './src/components/AppToast';
+import { CalibrationToast } from './src/components/CalibrationToast';
 import { PracticeSessionModal } from './src/components/PracticeSessionModal';
 import { type MenuScreen, SlideMenu } from './src/components/SlideMenu';
 import { demoClips } from './src/demo-clips';
@@ -18,27 +26,36 @@ import { VocabScreen } from './src/screens/VocabScreen';
 import { api } from './src/services/api';
 import { disposeUiFeedback, primeUiFeedback, triggerUiFeedback } from './src/feedback';
 import {
+  DEFAULT_CALIBRATION_SIGNALS,
   clearAccountState,
   clearAuthToken,
   DEFAULT_SETTINGS,
   getOrCreateDeviceId,
   loadAuthToken,
   loadBookmarks,
+  loadCalibrationSignals,
+  loadCalibrationState,
   loadLikeEvents,
   loadLikedClips,
+  loadListenedClips,
   loadKnownWords,
   loadPracticeData,
   loadProfile,
+  loadReviewState,
   loadSettings,
   loadVocab,
   saveAuthBootstrapSnapshot,
   saveAuthToken,
   saveBookmarks,
+  saveCalibrationSignals,
+  saveCalibrationState,
   saveLikeEvents,
   saveLikedClips,
+  saveListenedClips,
   saveKnownWords,
   savePracticeData,
   saveProfile,
+  saveReviewState,
   saveSettings,
   saveVocab,
 } from './src/storage';
@@ -47,11 +64,16 @@ import type {
   AuthBootstrapResponse,
   AuthInitResponse,
   Bookmark,
+  CalibrationSignals,
+  CalibrationState,
+  CalibrationSuggestion,
   Clip,
   LikeEvent,
+  Level,
   LinkedIdentity,
   PracticeMap,
   Profile,
+  ReviewState,
   VocabEntry,
 } from './src/types';
 
@@ -62,61 +84,19 @@ const defaultProfile: Profile = {
   onboardingDone: false,
 };
 
-function rankClips(clips: Clip[], interests: string[]) {
-  if (interests.length === 0) return clips;
-  const normalized = interests.map(item => item.toLowerCase());
-  const matched = clips.filter(clip => normalized.includes((clip.tag || '').toLowerCase()));
-  const others = clips.filter(clip => !normalized.includes((clip.tag || '').toLowerCase()));
-  return [...matched, ...others];
-}
-
-async function maybeRankWithApi(clips: Clip[], profile: Profile) {
-  const fallback = rankClips(clips, profile.interests);
-
-  try {
-    const response = await api.rankFeed({
-      level: profile.level || 'B1',
-      interests: profile.interests,
-      listened: [],
-      skipped: [],
-      vocab_clicked: [],
-      session_duration: 0,
-    });
-
-    const byId = new Map<number, string>();
-    for (const item of response.feed || []) {
-      byId.set(item.id, item.reason);
-    }
-
-    const ranked: Clip[] = [];
-    const used = new Set<number>();
-
-    for (const item of response.feed || []) {
-      const clip = clips[item.id];
-      if (!clip) continue;
-      ranked.push({ ...clip, _aiReason: item.reason });
-      used.add(item.id);
-    }
-
-    clips.forEach((clip, index) => {
-      if (used.has(index)) return;
-      ranked.push({ ...clip, _aiReason: byId.get(index) || clip._aiReason });
-    });
-
-    return {
-      clips: ranked.length > 0 ? ranked : fallback,
-      source: 'remote' as const,
-    };
-  } catch {
-    return {
-      clips: fallback,
-      source: 'fallback' as const,
-    };
-  }
+function hasCurrentContent(clips: Clip[]) {
+  if (clips.length < 30) return false;
+  const enrichedCount = clips.filter(
+    clip =>
+      (Array.isArray(clip.questions) && clip.questions.length > 0) ||
+      typeof clip.overlap_score === 'number' ||
+      Boolean(clip.difficulty)
+  ).length;
+  return enrichedCount >= 10;
 }
 
 function deriveRecoTag(events: LikeEvent[]) {
-  if (events.length < 5) return null;
+  if (events.length < 3) return null;
   const recent = events.slice(-10);
   const counts = new Map<string, number>();
 
@@ -135,7 +115,49 @@ function deriveRecoTag(events: LikeEvent[]) {
     }
   }
 
-  return bestTag && bestCount / recent.length > 0.6 ? bestTag : null;
+  return bestTag && bestCount / recent.length > 0.5 ? bestTag : null;
+}
+
+function normalizeLevel(level: Profile['level'] | null): Level {
+  return (level || 'B1') as Level;
+}
+
+function buildCalibrationSuggestion(
+  signals: CalibrationSignals,
+  calibrationState: CalibrationState,
+  level: Level
+): CalibrationSuggestion | null {
+  const avg = signals.avgWordsPerClip || 0;
+  const hardRate = signals.practiceHardRate || 0;
+  const wordsByLevel = signals.wordsByLevel || {};
+  const totalWords = Object.values(wordsByLevel).reduce((sum, value) => sum + value, 0);
+  const b2Plus = (wordsByLevel.B2 || 0) + (wordsByLevel.C1 || 0) + (wordsByLevel.C2 || 0);
+  const c1Plus = (wordsByLevel.C1 || 0) + (wordsByLevel.C2 || 0);
+  const b2PlusRatio = totalWords > 0 ? b2Plus / totalWords : 0;
+  const c1PlusRatio = totalWords > 0 ? c1Plus / totalWords : 0;
+  const levelNum = getLevelWeight(level);
+
+  if (!calibrationState.suggestedUp && levelNum < 4 && avg < 1.5 && hardRate < 0.2 && b2PlusRatio < 0.3) {
+    const toLevel = levelNum === 1 ? 'B1' : levelNum === 2 ? 'B2' : 'C1-C2';
+    return {
+      direction: 'up',
+      fromLevel: level,
+      toLevel,
+      message: `你的表现已经超过 ${level}，要升级到 ${toLevel} 吗？`,
+    };
+  }
+
+  if (!calibrationState.suggestedDown && levelNum > 1 && avg > 5 && hardRate > 0.6 && c1PlusRatio > 0.5) {
+    const toLevel = levelNum === 4 ? 'B2' : levelNum === 3 ? 'B1' : 'A1-A2';
+    return {
+      direction: 'down',
+      fromLevel: level,
+      toLevel,
+      message: `当前内容似乎有点难，要调整到 ${toLevel} 吗？`,
+    };
+  }
+
+  return null;
 }
 
 function readErrorMessage(error: unknown) {
@@ -165,12 +187,16 @@ export default function App() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [vocabList, setVocabList] = useState<VocabEntry[]>([]);
   const [likedClipKeys, setLikedClipKeys] = useState<string[]>([]);
+  const [listenedClipKeys, setListenedClipKeys] = useState<string[]>([]);
   const [likeEvents, setLikeEvents] = useState<LikeEvent[]>([]);
   const [knownWords, setKnownWords] = useState<string[]>([]);
+  const [reviewState, setReviewState] = useState<ReviewState>({});
+  const [calibrationSignals, setCalibrationSignals] = useState<CalibrationSignals>(DEFAULT_CALIBRATION_SIGNALS);
+  const [calibrationState, setCalibrationState] = useState<CalibrationState>({});
+  const [calibrationSuggestion, setCalibrationSuggestion] = useState<CalibrationSuggestion | null>(null);
   const [clipsPlayed, setClipsPlayed] = useState(0);
   const [activeScreen, setActiveScreen] = useState<MenuScreen>('feed');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [rankedClips, setRankedClips] = useState<Clip[]>([]);
   const [feedState, setFeedState] = useState<'loading' | 'normal' | 'rerank' | 'fallback'>('loading');
   const [showStartScreen, setShowStartScreen] = useState(false);
   const [showStartTransition, setShowStartTransition] = useState(false);
@@ -178,8 +204,8 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
   const playedKeysRef = useRef<Set<string>>(new Set());
+  const calibrationStateRef = useRef<CalibrationState>({});
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastRerankAtRef = useRef(0);
   const startTransitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyAuthSnapshot = useCallback((snapshot: AuthBootstrapResponse) => {
@@ -224,6 +250,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    calibrationStateRef.current = calibrationState;
+  }, [calibrationState]);
+
+  useEffect(() => {
     void Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
       playsInSilentModeIOS: true,
@@ -253,6 +283,10 @@ export default function App() {
           localVocab,
           localLikedClips,
           localLikeEvents,
+          localListenedClips,
+          localReviewState,
+          localCalibrationSignals,
+          localCalibrationState,
         ] = await Promise.all([
           getOrCreateDeviceId(),
           loadAuthToken(),
@@ -264,9 +298,21 @@ export default function App() {
           loadVocab(),
           loadLikedClips(),
           loadLikeEvents(),
+          loadListenedClips(),
+          loadReviewState(),
+          loadCalibrationSignals(),
+          loadCalibrationState(),
         ]);
 
         if (cancelled) return;
+        const normalizedClipCount = Math.max(localCalibrationSignals.clipsPlayed || 0, localListenedClips.length);
+        const normalizedCalibrationSignals = {
+          ...localCalibrationSignals,
+          clipsPlayed: normalizedClipCount,
+          avgWordsPerClip: normalizedClipCount > 0
+            ? localCalibrationSignals.wordsLookedUp / normalizedClipCount
+            : 0,
+        };
         setDeviceId(nextDeviceId);
         setSettings(localSettings);
         setProfile(localProfile || defaultProfile);
@@ -276,6 +322,17 @@ export default function App() {
         setVocabList(localVocab);
         setLikedClipKeys(localLikedClips);
         setLikeEvents(localLikeEvents);
+        setListenedClipKeys(localListenedClips);
+        setReviewState(localReviewState);
+        setCalibrationSignals(normalizedCalibrationSignals);
+        setCalibrationState(localCalibrationState);
+        setClipsPlayed(normalizedClipCount);
+        playedKeysRef.current = new Set(localListenedClips);
+        calibrationStateRef.current = localCalibrationState;
+
+        if (normalizedClipCount !== localCalibrationSignals.clipsPlayed) {
+          void saveCalibrationSignals(normalizedCalibrationSignals);
+        }
 
         if (nextAuthToken) {
           try {
@@ -316,12 +373,20 @@ export default function App() {
           throw new Error(`HTTP ${response.status}`);
         }
         const data = await response.json() as { clips?: Clip[] };
-        if (!cancelled && Array.isArray(data.clips) && data.clips.length > 0) {
+        if (cancelled) return;
+
+        if (Array.isArray(data.clips) && data.clips.length > 0 && hasCurrentContent(data.clips)) {
           setClipsData(data.clips);
+          setFeedState('normal');
+          return;
         }
+
+        setClipsData(demoClips);
+        setFeedState('fallback');
       } catch {
         if (!cancelled) {
           setClipsData(demoClips);
+          setFeedState('fallback');
         }
       }
     }
@@ -332,8 +397,15 @@ export default function App() {
     };
   }, []);
 
-  const clips = useMemo(() => rankClips(clipsData, profile.interests), [clipsData, profile.interests]);
-  const currentClips = rankedClips.length > 0 ? rankedClips : clips;
+  useEffect(() => {
+    if (feedState !== 'rerank') return;
+    const timeout = setTimeout(() => {
+      setFeedState('normal');
+    }, 2600);
+    return () => clearTimeout(timeout);
+  }, [feedState]);
+
+  const currentClips = useMemo(() => sortClipsForFeed(clipsData, listenedClipKeys), [clipsData, listenedClipKeys]);
   const bookmarkedKeys = useMemo(() => bookmarks.map(item => item.clipKey), [bookmarks]);
   const likedKeys = useMemo(() => new Set(likedClipKeys), [likedClipKeys]);
   const vocabWords = useMemo(() => vocabList.map(item => item.word), [vocabList]);
@@ -356,53 +428,18 @@ export default function App() {
     likeEvents,
   }), [bookmarks, deviceId, knownWords, likeEvents, likedClipKeys, practiceData, profile, vocabList]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function refreshRank() {
-      setFeedState('loading');
-      const next = await maybeRankWithApi(clipsData, profile);
-      if (!cancelled) {
-        setRankedClips(next.clips);
-        setFeedState(next.source === 'remote' ? 'normal' : 'fallback');
-        lastRerankAtRef.current = 0;
-      }
-    }
-
-    void refreshRank();
-    return () => {
-      cancelled = true;
-    };
-  }, [clipsData, profile]);
-
-  useEffect(() => {
-    if (clipsPlayed === 0 || clipsPlayed - lastRerankAtRef.current < 5) return;
-    let cancelled = false;
-
-    async function rerankFeed() {
-      const next = await maybeRankWithApi(clipsData, profile);
-      if (cancelled) return;
-      setRankedClips(next.clips);
-      setFeedState(next.source === 'remote' ? 'rerank' : 'fallback');
-      lastRerankAtRef.current = clipsPlayed;
-
-      if (next.source === 'remote') {
-        setTimeout(() => {
-          setFeedState(prev => (prev === 'rerank' ? 'normal' : prev));
-        }, 3000);
-      }
-    }
-
-    void rerankFeed();
-    return () => {
-      cancelled = true;
-    };
-  }, [clipsData, clipsPlayed, profile]);
-
   const persistSettings = useCallback(async (nextSettings: AppSettings) => {
     setSettings(nextSettings);
     await saveSettings(nextSettings);
   }, []);
+
+  const maybeShowCalibration = useCallback((signals: CalibrationSignals) => {
+    if (practiceClipKey || calibrationSuggestion) return;
+    const suggestion = buildCalibrationSuggestion(signals, calibrationStateRef.current, normalizeLevel(profile.level));
+    if (suggestion) {
+      setCalibrationSuggestion(suggestion);
+    }
+  }, [calibrationSuggestion, practiceClipKey, profile.level]);
 
   const finishAuthFlow = useCallback(async (payload: AuthInitResponse) => {
     const snapshot = await api.migrateLocal(payload.session.token, localMigrationPayload);
@@ -543,6 +580,7 @@ export default function App() {
         : [...profile.interests, normalized].slice(-3),
     };
     setProfile(nextProfile);
+    setFeedState('rerank');
     await saveProfile(nextProfile);
 
     if (authToken) {
@@ -609,7 +647,16 @@ export default function App() {
   };
 
   const handleSaveVocab = async (entry: VocabEntry) => {
-    const normalizedEntry = { ...entry, word: entry.word.toLowerCase() };
+    const now = Date.now();
+    const existing = vocabList.find(item => item.word === entry.word.toLowerCase());
+    const normalizedEntry = {
+      ...existing,
+      ...entry,
+      word: entry.word.toLowerCase(),
+      timestamp: existing?.timestamp || entry.timestamp || now,
+      createdAt: existing?.createdAt || entry.createdAt || new Date(now).toISOString(),
+      updatedAt: new Date(now).toISOString(),
+    };
     const nextVocab = vocabList.some(item => item.word === normalizedEntry.word)
       ? vocabList.map(item => item.word === normalizedEntry.word ? { ...item, ...normalizedEntry } : item)
       : [normalizedEntry, ...vocabList];
@@ -623,6 +670,25 @@ export default function App() {
       }
     }
   };
+
+  const handleRecordWordLookup = useCallback((cefr?: string) => {
+    setCalibrationSignals(prev => {
+      const nextWordsByLevel = { ...prev.wordsByLevel };
+      const normalized = (cefr || '').toUpperCase().replace(/^A$/, 'A2');
+      if (normalized && /^[ABC][12]$/.test(normalized)) {
+        nextWordsByLevel[normalized] = (nextWordsByLevel[normalized] || 0) + 1;
+      }
+
+      const next = {
+        ...prev,
+        wordsLookedUp: prev.wordsLookedUp + 1,
+        wordsByLevel: nextWordsByLevel,
+        avgWordsPerClip: prev.clipsPlayed > 0 ? (prev.wordsLookedUp + 1) / prev.clipsPlayed : 0,
+      };
+      void saveCalibrationSignals(next);
+      return next;
+    });
+  }, []);
 
   const handleMarkKnown = async (word: string) => {
     const normalized = word.toLowerCase();
@@ -693,6 +759,29 @@ export default function App() {
     if (playedKeysRef.current.has(clipKey)) return;
     playedKeysRef.current.add(clipKey);
     setClipsPlayed(prev => prev + 1);
+
+    setListenedClipKeys(prev => {
+      if (prev.includes(clipKey)) return prev;
+      const next = [...prev, clipKey];
+      void saveListenedClips(next);
+      return next;
+    });
+
+    setCalibrationSignals(prev => {
+      const nextClipCount = prev.clipsPlayed + 1;
+      const next = {
+        ...prev,
+        clipsPlayed: nextClipCount,
+        avgWordsPerClip: nextClipCount > 0 ? prev.wordsLookedUp / nextClipCount : 0,
+      };
+      void saveCalibrationSignals(next);
+      if (nextClipCount >= 10 && nextClipCount % 10 === 0) {
+        setTimeout(() => {
+          maybeShowCalibration(next);
+        }, 500);
+      }
+      return next;
+    });
   };
 
   const handlePlaybackRateChange = (rate: number) => {
@@ -721,10 +810,91 @@ export default function App() {
       return next;
     });
 
+    setCalibrationSignals(prev => {
+      const nextSessions = prev.practiceSessions + 1;
+      const clipIndex = findClipIndexByKey(currentClips, clipKey);
+      const sentenceCount = clipIndex >= 0 ? currentClips[clipIndex]?.lines.length || 0 : 0;
+      const next = {
+        ...prev,
+        practiceSessions: nextSessions,
+        practiceHardRate: nextSessions > 0
+          ? ((prev.practiceHardRate * prev.practiceSessions) + (record.hard / Math.max(1, sentenceCount))) / nextSessions
+          : prev.practiceHardRate,
+      };
+      void saveCalibrationSignals(next);
+      return next;
+    });
+
     if (authToken) {
       void api.savePractice(authToken, clipKey, record).catch(() => {});
     }
   };
+
+  const handleReviewAction = useCallback((word: string, action: 'remember' | 'forgot') => {
+    const normalized = word.toLowerCase();
+    const ONE_DAY = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    setReviewState(prev => {
+      const previous = prev[normalized] || { interval: ONE_DAY, nextReview: now + ONE_DAY };
+      const nextEntry = action === 'remember'
+        ? {
+            interval: previous.interval * 2,
+            nextReview: now + previous.interval * 2,
+          }
+        : {
+            interval: ONE_DAY,
+            nextReview: now + ONE_DAY,
+          };
+      const next = { ...prev, [normalized]: nextEntry };
+      void saveReviewState(next);
+      return next;
+    });
+  }, []);
+
+  const handleAcceptCalibration = useCallback(async () => {
+    if (!calibrationSuggestion) return;
+    const directionKey = calibrationSuggestion.direction === 'up' ? 'suggestedUp' : 'suggestedDown';
+    const nextProfile = {
+      ...profile,
+      level: calibrationSuggestion.toLevel,
+    };
+    const nextCalibrationState = {
+      ...calibrationStateRef.current,
+      [directionKey]: true,
+    };
+
+    calibrationStateRef.current = nextCalibrationState;
+    setCalibrationState(nextCalibrationState);
+    await Promise.all([
+      saveCalibrationState(nextCalibrationState),
+      saveProfile(nextProfile),
+    ]);
+    setProfile(nextProfile);
+    setCalibrationSuggestion(null);
+    setFeedState('rerank');
+    showToast(`已调整为 ${calibrationSuggestion.toLevel}`);
+
+    if (authToken) {
+      try {
+        await api.saveProfile(authToken, nextProfile);
+      } catch {
+      }
+    }
+  }, [authToken, calibrationSuggestion, profile, showToast]);
+
+  const handleDismissCalibration = useCallback(async () => {
+    if (!calibrationSuggestion) return;
+    const directionKey = calibrationSuggestion.direction === 'up' ? 'suggestedUp' : 'suggestedDown';
+    const nextCalibrationState = {
+      ...calibrationStateRef.current,
+      [directionKey]: true,
+    };
+    calibrationStateRef.current = nextCalibrationState;
+    setCalibrationState(nextCalibrationState);
+    setCalibrationSuggestion(null);
+    await saveCalibrationState(nextCalibrationState);
+  }, [calibrationSuggestion]);
 
   const handleStartPractice = (clipIndex: number) => {
     const clip = currentClips[clipIndex];
@@ -761,8 +931,15 @@ export default function App() {
     setBookmarks([]);
     setVocabList([]);
     setLikedClipKeys([]);
+    setListenedClipKeys([]);
     setLikeEvents([]);
     setKnownWords([]);
+    setReviewState({});
+    setCalibrationSignals(DEFAULT_CALIBRATION_SIGNALS);
+    setCalibrationState({});
+    playedKeysRef.current = new Set();
+    calibrationStateRef.current = {};
+    setCalibrationSuggestion(null);
     setClipsPlayed(0);
     setActiveScreen('feed');
     setMenuOpen(false);
@@ -818,6 +995,8 @@ export default function App() {
       <PracticeScreen
         bookmarks={bookmarks}
         clips={currentClips}
+        profile={profile}
+        vocabList={vocabList}
         practiceData={practiceData}
         showIntro={!settings.practiceIntroSeen}
         onDismissIntro={handleDismissPracticeIntro}
@@ -838,6 +1017,8 @@ export default function App() {
         bookmarkedKeys={bookmarkedKeys}
         likedKeys={likedClipKeys}
         recoTag={recoTag}
+        reviewState={reviewState}
+        vocabEntries={vocabList}
         vocabWords={vocabWords}
         knownWords={knownWords}
         clipsPlayed={clipsPlayed}
@@ -845,8 +1026,9 @@ export default function App() {
         onToggleBookmark={handleToggleBookmark}
         onSaveVocab={handleSaveVocab}
         onMarkKnown={handleMarkKnown}
+        onRecordWordLookup={handleRecordWordLookup}
+        onReviewAction={handleReviewAction}
         onOpenMenu={() => setMenuOpen(true)}
-        onResetProfile={handleResetProfile}
         onPromoteInterest={handlePromoteInterest}
         onPlaybackRateChange={handlePlaybackRateChange}
         onClipPlayed={handleClipPlayed}
@@ -920,9 +1102,25 @@ export default function App() {
               knownWords={knownWords}
               onSaveVocab={handleSaveVocab}
               onMarkKnown={handleMarkKnown}
+              onRecordWordLookup={handleRecordWordLookup}
               onComplete={handlePracticeComplete}
               onDismiss={handleClosePractice}
               onReturnFeed={handleReturnFeed}
+            />
+
+            <CalibrationToast
+              visible={Boolean(calibrationSuggestion)}
+              message={calibrationSuggestion?.message || ''}
+              acceptLabel={calibrationSuggestion?.direction === 'up' ? '升级' : '调整'}
+              dismissLabel={calibrationSuggestion?.direction === 'up' ? '暂不' : '保持'}
+              onAccept={() => {
+                triggerUiFeedback('success');
+                void handleAcceptCalibration();
+              }}
+              onDismiss={() => {
+                triggerUiFeedback('menu');
+                void handleDismissCalibration();
+              }}
             />
 
             <AppToast message={toastMessage} visible={toastVisible} />

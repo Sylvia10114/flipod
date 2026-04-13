@@ -8,6 +8,7 @@ import {
   getClipDurationSeconds,
   getSentenceMarkers,
   getSentenceRange,
+  getSourceLabel,
   resolveClipAudioUrl,
 } from '../clip-utils';
 import { triggerMediumHaptic, triggerUiFeedback } from '../feedback';
@@ -24,6 +25,11 @@ type PopupState = {
   contextZh: string;
 } | null;
 
+type LookedWord = {
+  word: string;
+  cefr?: string;
+};
+
 type Props = {
   visible: boolean;
   clip: Clip | null;
@@ -32,6 +38,7 @@ type Props = {
   knownWords: string[];
   onSaveVocab: (entry: VocabEntry) => void;
   onMarkKnown: (word: string) => void;
+  onRecordWordLookup: (cefr?: string) => void;
   onComplete: (clipKey: string, record: PracticeRecord) => void;
   onDismiss: () => void;
   onReturnFeed: () => void;
@@ -45,6 +52,15 @@ function stepLabel(step: Step) {
   return '练习完成';
 }
 
+function getHardWords(lineWords: ClipLineWord[] = []) {
+  return lineWords
+    .filter(word => {
+      const bucket = (word.cefr || '').toUpperCase();
+      return bucket && !['A1', 'A2'].includes(bucket);
+    })
+    .slice(0, 4);
+}
+
 export function PracticeSessionModal({
   visible,
   clip,
@@ -53,6 +69,7 @@ export function PracticeSessionModal({
   knownWords,
   onSaveVocab,
   onMarkKnown,
+  onRecordWordLookup,
   onComplete,
   onDismiss,
   onReturnFeed,
@@ -76,15 +93,25 @@ export function PracticeSessionModal({
   const [showSentenceZh, setShowSentenceZh] = useState(false);
   const [hardSentences, setHardSentences] = useState<number[]>([]);
   const [wordsLooked, setWordsLooked] = useState(0);
+  const [lookedWordsList, setLookedWordsList] = useState<LookedWord[]>([]);
   const [flashQueue, setFlashQueue] = useState<number[]>([]);
   const [flashCursor, setFlashCursor] = useState(0);
   const [flashRevealed, setFlashRevealed] = useState(false);
   const [popup, setPopup] = useState<PopupState>(null);
+  const [quizStarted, setQuizStarted] = useState(false);
+  const [quizIndex, setQuizIndex] = useState(0);
+  const [quizSelections, setQuizSelections] = useState<Record<number, string>>({});
+  const [quizCorrectCount, setQuizCorrectCount] = useState(0);
+  const [showQuizResult, setShowQuizResult] = useState(false);
 
   const clipKey = useMemo(() => {
     if (!clip) return '';
     return buildClipKey(clip, clipIndex);
   }, [clip, clipIndex]);
+
+  const questions = clip?.questions || [];
+  const currentQuestion = questions[quizIndex];
+  const currentSelection = quizSelections[quizIndex];
 
   useEffect(() => {
     stepRef.current = step;
@@ -251,10 +278,16 @@ export function PracticeSessionModal({
     setShowSentenceZh(false);
     setHardSentences([]);
     setWordsLooked(0);
+    setLookedWordsList([]);
     setFlashQueue([]);
     setFlashCursor(0);
     setFlashRevealed(false);
     setPopup(null);
+    setQuizStarted(false);
+    setQuizIndex(0);
+    setQuizSelections({});
+    setQuizCorrectCount(0);
+    setShowQuizResult(false);
     wordsLookedRef.current = 0;
     hardSentencesRef.current = [];
 
@@ -304,6 +337,45 @@ export function PracticeSessionModal({
 
   if (!clip) return null;
 
+  const handleWordTap = (word: ClipLineWord, contextEn: string, contextZh: string) => {
+    onRecordWordLookup(word.cefr);
+    setWordsLooked(prev => prev + 1);
+    setLookedWordsList(prev => {
+      const normalized = word.word.toLowerCase();
+      if (prev.some(item => item.word === normalized)) return prev;
+      return [...prev, { word: normalized, cefr: word.cefr }];
+    });
+    setPopup({ word, contextEn, contextZh });
+  };
+
+  const moveToNextSentence = () => {
+    const nextIndex = sentenceIndex + 1;
+    if (nextIndex < lineCount) {
+      setSentenceIndex(nextIndex);
+      return;
+    }
+    if (hardSentencesRef.current.length > 0) {
+      setFlashQueue(hardSentencesRef.current);
+      setFlashCursor(0);
+      setStep(3);
+      return;
+    }
+    setStep(4);
+  };
+
+  const retryQuiz = () => {
+    setQuizStarted(false);
+    setQuizIndex(0);
+    setQuizSelections({});
+    setQuizCorrectCount(0);
+    setShowQuizResult(false);
+    setBlindFinished(false);
+    triggerMediumHaptic();
+    void playWholeClip(0);
+  };
+
+  const currentAnswer = currentQuestion?.answer?.trim().charAt(0).toUpperCase() || '';
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onDismiss}>
       <SafeAreaView style={styles.safeArea}>
@@ -332,34 +404,53 @@ export function PracticeSessionModal({
         <ScrollView contentContainerStyle={styles.body}>
           {step === 1 ? (
             <View style={styles.centerBlock}>
-              <Text style={styles.hintText}>先听一遍，看能抓住多少</Text>
-              <View style={styles.waveRow}>
-                {Array.from({ length: 8 }).map((_, index) => (
-                  <View
-                    key={`wave-${index}`}
-                    style={[
-                      styles.waveBar,
-                      { height: 18 + ((index % 4) + 1) * 9, opacity: status.isPlaying ? 0.95 : 0.4 },
-                    ]}
-                  />
-                ))}
+              <View style={styles.sourceCard}>
+                <Text style={styles.sourceTitle}>{clip.title}</Text>
+                <Text style={styles.sourceMeta}>
+                  {getSourceLabel(clip.source)}
+                  {clip.tag ? ` · ${clip.tag}` : ''}
+                </Text>
               </View>
-              <Pressable
-                onPress={() => {
-                  triggerMediumHaptic();
-                  if (status.isPlaying) {
-                    void pause();
-                    return;
-                  }
-                  const restart = blindFinished || status.positionMillis >= Math.max(0, status.durationMillis - 300);
-                  void playWholeClip(restart ? 0 : status.positionMillis);
-                }}
-                style={styles.primaryCircle}
-              >
-                <Text style={styles.primaryCircleText}>{status.isPlaying ? '暂停' : '播放'}</Text>
-              </Pressable>
 
-              {blindFinished ? (
+              <Text style={styles.hintText}>
+                {blindFinished
+                  ? questions.length > 0
+                    ? '听完了，看看你抓住了多少'
+                    : '听完了，判断一下自己掌握得怎么样'
+                  : '先完整听一遍，不用急着逐句分析'}
+              </Text>
+
+              {!blindFinished ? (
+                <>
+                  <View style={styles.waveRow}>
+                    {Array.from({ length: 8 }).map((_, index) => (
+                      <View
+                        key={`wave-${index}`}
+                        style={[
+                          styles.waveBar,
+                          { height: 18 + ((index % 4) + 1) * 9, opacity: status.isPlaying ? 0.95 : 0.4 },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                  <Pressable
+                    onPress={() => {
+                      triggerMediumHaptic();
+                      if (status.isPlaying) {
+                        void pause();
+                        return;
+                      }
+                      const restart = status.positionMillis >= Math.max(0, status.durationMillis - 300);
+                      void playWholeClip(restart ? 0 : status.positionMillis);
+                    }}
+                    style={styles.primaryCircle}
+                  >
+                    <Text style={styles.primaryCircleText}>{status.isPlaying ? '暂停' : '播放'}</Text>
+                  </Pressable>
+                </>
+              ) : null}
+
+              {blindFinished && questions.length === 0 ? (
                 <View style={styles.choiceRow}>
                   <Pressable onPress={() => {
                     triggerUiFeedback('correct');
@@ -375,6 +466,100 @@ export function PracticeSessionModal({
                   </Pressable>
                 </View>
               ) : null}
+
+              {blindFinished && questions.length > 0 && !quizStarted ? (
+                <Pressable onPress={() => {
+                  triggerUiFeedback('primary');
+                  setQuizStarted(true);
+                }} style={[styles.choiceButton, styles.choiceButtonPrimary, styles.quizStartButton]}>
+                  <Text style={styles.choiceButtonPrimaryText}>开始答题</Text>
+                </Pressable>
+              ) : null}
+
+              {blindFinished && questions.length > 0 && quizStarted && !showQuizResult && currentQuestion ? (
+                <View style={styles.quizCard}>
+                  <Text style={styles.compLabel}>COMPREHENSION · {quizIndex + 1}/{questions.length}</Text>
+                  <Text style={styles.compQuestion}>{currentQuestion.question}</Text>
+                  <View style={styles.compOptions}>
+                    {currentQuestion.options.map(option => {
+                      const letter = option.trim().charAt(0).toUpperCase();
+                      const picked = currentSelection === letter;
+                      const answered = Boolean(currentSelection);
+                      const isCorrect = letter === currentAnswer;
+                      return (
+                        <Pressable
+                          key={option}
+                          disabled={answered}
+                          onPress={() => {
+                            triggerMediumHaptic();
+                            setQuizSelections(prev => ({ ...prev, [quizIndex]: letter }));
+                            if (letter === currentAnswer) {
+                              setQuizCorrectCount(prev => prev + 1);
+                            }
+                          }}
+                          style={[
+                            styles.compOption,
+                            answered && isCorrect ? styles.compOptionCorrect : null,
+                            answered && picked && !isCorrect ? styles.compOptionWrong : null,
+                            answered && !picked && !isCorrect ? styles.compOptionDimmed : null,
+                          ]}
+                        >
+                          <Text style={styles.compOptionText}>
+                            {answered && isCorrect ? `✓ ${option}` : option}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  {currentSelection ? (
+                    <>
+                      {currentQuestion.explanation_zh ? (
+                        <Text style={styles.compExplanation}>{currentQuestion.explanation_zh}</Text>
+                      ) : null}
+                      <Pressable onPress={() => {
+                        triggerUiFeedback('primary');
+                        if (quizIndex >= questions.length - 1) {
+                          setShowQuizResult(true);
+                        } else {
+                          setQuizIndex(prev => prev + 1);
+                        }
+                      }} style={styles.compNextButton}>
+                        <Text style={styles.compNextButtonText}>
+                          {quizIndex >= questions.length - 1 ? '查看结果 →' : '下一题 →'}
+                        </Text>
+                      </Pressable>
+                    </>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {blindFinished && questions.length > 0 && quizStarted && showQuizResult ? (
+                <View style={styles.quizResultCard}>
+                  <Text style={styles.compResultSub}>{quizCorrectCount}/{questions.length}</Text>
+                  <Text style={styles.compResultMsg}>
+                    {quizCorrectCount === questions.length
+                      ? '完全听懂了'
+                      : quizCorrectCount >= 1
+                        ? '核心意思抓到了，细节再听听'
+                        : '没关系，我们一句句来'}
+                  </Text>
+                  <Pressable onPress={() => {
+                    triggerUiFeedback('primary');
+                    if (quizCorrectCount === questions.length) {
+                      setStep(4);
+                    } else {
+                      setStep(2);
+                    }
+                  }} style={styles.compNextButton}>
+                    <Text style={styles.compNextButtonText}>
+                      {quizCorrectCount === questions.length ? '跳到复听 →' : '逐句精听 →'}
+                    </Text>
+                  </Pressable>
+                  <Pressable onPress={retryQuiz}>
+                    <Text style={styles.compRetryText}>从头再听一遍</Text>
+                  </Pressable>
+                </View>
+              ) : null}
             </View>
           ) : null}
 
@@ -387,10 +572,8 @@ export function PracticeSessionModal({
                   currentTime={status.positionMillis / 1000}
                   isActive
                   showZh={showSentenceZh}
-                  onWordTap={(word, line) => {
-                    setWordsLooked(prev => prev + 1);
-                    setPopup({ word, contextEn: line.en, contextZh: line.zh || '' });
-                  }}
+                  compact
+                  onWordTap={(word, line) => handleWordTap(word, line.en, line.zh || '')}
                 />
               </View>
 
@@ -421,18 +604,7 @@ export function PracticeSessionModal({
                   onPress={() => {
                     triggerUiFeedback('correct');
                     void pause();
-                    const nextIndex = sentenceIndex + 1;
-                    if (nextIndex < lineCount) {
-                      setSentenceIndex(nextIndex);
-                      return;
-                    }
-                    if (hardSentences.length > 0) {
-                      setFlashQueue(hardSentences);
-                      setFlashCursor(0);
-                      setStep(3);
-                      return;
-                    }
-                    setStep(4);
+                    moveToNextSentence();
                   }}
                   style={[styles.actionButton, styles.actionButtonEasy]}
                 >
@@ -442,18 +614,17 @@ export function PracticeSessionModal({
                   onPress={() => {
                     triggerUiFeedback('error');
                     void pause();
-                    setHardSentences(prev => {
-                      if (prev.includes(sentenceIndex)) return prev;
-                      return [...prev, sentenceIndex];
-                    });
+                    const nextHard = hardSentencesRef.current.includes(sentenceIndex)
+                      ? hardSentencesRef.current
+                      : [...hardSentencesRef.current, sentenceIndex];
+                    hardSentencesRef.current = nextHard;
+                    setHardSentences(nextHard);
+
                     const nextIndex = sentenceIndex + 1;
                     if (nextIndex < lineCount) {
                       setSentenceIndex(nextIndex);
                       return;
                     }
-                    const nextHard = hardSentences.includes(sentenceIndex)
-                      ? hardSentences
-                      : [...hardSentences, sentenceIndex];
                     if (nextHard.length > 0) {
                       setFlashQueue(nextHard);
                       setFlashCursor(0);
@@ -478,18 +649,7 @@ export function PracticeSessionModal({
               }} style={styles.flashCard}>
                 <Text style={styles.flashLabel}>难句 {flashCursor + 1} / {flashQueue.length}</Text>
                 <Text style={styles.flashEn}>{flashLine.en}</Text>
-                {flashRevealed ? (
-                  <>
-                    <View style={styles.flashDivider} />
-                    <Text style={styles.flashZh}>{flashLine.zh || ''}</Text>
-                    <Text style={styles.flashMeta}>
-                      {(flashLine.words || [])
-                        .filter(word => word.cefr && !['A1', 'A2'].includes(word.cefr.toUpperCase()))
-                        .map(word => `${word.word} (${word.cefr})`)
-                        .join(' · ') || '点击继续'}
-                    </Text>
-                  </>
-                ) : (
+                {!flashRevealed ? (
                   <>
                     <Pressable
                       onPress={event => {
@@ -502,6 +662,23 @@ export function PracticeSessionModal({
                       <Text style={styles.flashPlayButtonText}>再听一遍</Text>
                     </Pressable>
                     <Text style={styles.flashHint}>点开卡片查看翻译和难词</Text>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.flashDivider} />
+                    <Text style={styles.flashZh}>{flashLine.zh || ''}</Text>
+                    <View style={styles.hardWordsRow}>
+                      {getHardWords(flashLine.words).length > 0 ? (
+                        getHardWords(flashLine.words).map(word => (
+                          <View key={`${flashLine.start}-${word.word}`} style={styles.hardWordPill}>
+                            <Text style={styles.hardWordText}>{word.word}</Text>
+                            {word.cefr ? <Text style={styles.hardWordLevel}>{word.cefr}</Text> : null}
+                          </View>
+                        ))
+                      ) : (
+                        <Text style={styles.flashMeta}>这一句主要是句法难，词汇不算太难。</Text>
+                      )}
+                    </View>
                   </>
                 )}
               </Pressable>
@@ -525,9 +702,8 @@ export function PracticeSessionModal({
                   <Pressable
                     onPress={() => {
                       triggerUiFeedback('error');
-                      setFlashQueue(prev => [...prev, flashLineIndex]);
                       const nextCursor = flashCursor + 1;
-                      if (nextCursor < flashQueue.length + 1) {
+                      if (nextCursor < flashQueue.length) {
                         setFlashCursor(nextCursor);
                       } else {
                         setStep(4);
@@ -551,10 +727,9 @@ export function PracticeSessionModal({
                     currentTime={status.positionMillis / 1000}
                     isActive
                     showZh
+                    compact
                     practiced={hardSentences.includes(currentLineIndex)}
-                    onWordTap={(word, line) => {
-                      setPopup({ word, contextEn: line.en, contextZh: line.zh || '' });
-                    }}
+                    onWordTap={(word, line) => handleWordTap(word, line.en, line.zh || '')}
                   />
                 ) : (
                   <Text style={styles.hintText}>准备开始复听…</Text>
@@ -612,6 +787,50 @@ export function PracticeSessionModal({
                   <Text style={styles.summaryLabel}>难句</Text>
                 </View>
               </View>
+
+              <View style={styles.summarySection}>
+                <Text style={styles.summarySectionTitle}>这次查过的词 · 想加入词汇本就点词查看</Text>
+                <View style={styles.summaryChipRow}>
+                  {lookedWordsList.length > 0 ? (
+                    lookedWordsList.map(item => (
+                      <View key={item.word} style={styles.summaryChip}>
+                        <Text style={styles.summaryChipText}>{item.word}</Text>
+                        {item.cefr ? <Text style={styles.summaryChipMeta}>{item.cefr}</Text> : null}
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.summaryEmpty}>这次没有点开查词，说明你已经很顺了。</Text>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.summarySection}>
+                <Text style={styles.summarySectionTitle}>回看这些难句</Text>
+                <View style={styles.summaryList}>
+                  {hardSentences.length > 0 ? (
+                    hardSentences.map(lineIndex => {
+                      const line = clip.lines?.[lineIndex];
+                      if (!line) return null;
+                      return (
+                        <View key={`${lineIndex}-${line.start}`} style={styles.summaryItem}>
+                          <Text style={styles.summaryItemEn}>{line.en}</Text>
+                          <Text style={styles.summaryItemZh}>{line.zh}</Text>
+                        </View>
+                      );
+                    })
+                  ) : (
+                    <Text style={styles.summaryEmpty}>这一段没有留下明显的难句，可以继续往前刷了。</Text>
+                  )}
+                </View>
+              </View>
+
+              <Pressable onPress={() => {
+                triggerUiFeedback('bookmark');
+                onReturnFeed();
+              }} style={styles.summaryInlineButton}>
+                <Text style={styles.summaryInlineButtonText}>回 Feed 收藏更多内容</Text>
+              </Pressable>
+
               <View style={styles.summaryActions}>
                 <Pressable onPress={() => {
                   triggerUiFeedback('menu');
@@ -716,15 +935,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 560,
   },
+  sourceCard: {
+    width: '100%',
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    gap: 6,
+  },
+  sourceTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    lineHeight: 26,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  sourceMeta: {
+    color: 'rgba(255,255,255,0.48)',
+    fontSize: 13,
+    textAlign: 'center',
+  },
   hintText: {
+    marginTop: 20,
     color: 'rgba(255,255,255,0.62)',
     fontSize: 14,
     lineHeight: 22,
     textAlign: 'center',
   },
   waveRow: {
-    marginTop: 36,
-    marginBottom: 32,
+    marginTop: 32,
+    marginBottom: 28,
     height: 72,
     flexDirection: 'row',
     alignItems: 'center',
@@ -765,6 +1007,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#8B9CF7',
     borderColor: '#8B9CF7',
   },
+  quizStartButton: {
+    marginTop: 36,
+    width: '100%',
+  },
   choiceButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
@@ -774,6 +1020,102 @@ const styles = StyleSheet.create({
     color: '#09090B',
     fontSize: 14,
     fontWeight: '700',
+  },
+  quizCard: {
+    marginTop: 28,
+    width: '100%',
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    gap: 14,
+  },
+  compLabel: {
+    color: 'rgba(255,255,255,0.38)',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    textAlign: 'center',
+  },
+  compQuestion: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  compOptions: {
+    gap: 10,
+  },
+  compOption: {
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  compOptionCorrect: {
+    borderColor: '#4ADE80',
+    backgroundColor: 'rgba(74,222,128,0.10)',
+  },
+  compOptionWrong: {
+    borderColor: '#F87171',
+    backgroundColor: 'rgba(248,113,113,0.08)',
+  },
+  compOptionDimmed: {
+    opacity: 0.35,
+  },
+  compOptionText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  compExplanation: {
+    color: 'rgba(255,255,255,0.62)',
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  compNextButton: {
+    alignSelf: 'stretch',
+    borderRadius: 18,
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: '#8B9CF7',
+  },
+  compNextButtonText: {
+    color: '#09090B',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  quizResultCard: {
+    marginTop: 28,
+    width: '100%',
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    paddingVertical: 24,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    gap: 14,
+    alignItems: 'center',
+  },
+  compResultSub: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  compResultMsg: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  compRetryText: {
+    color: 'rgba(255,255,255,0.54)',
+    fontSize: 13,
+    textDecorationLine: 'underline',
   },
   progressText: {
     color: 'rgba(255,255,255,0.48)',
@@ -907,18 +1249,45 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
   },
+  hardWordsRow: {
+    marginTop: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  hardWordPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  hardWordText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  hardWordLevel: {
+    color: '#AFC0FF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
   progressWrap: {
     width: '100%',
     marginTop: 22,
   },
   summaryCard: {
-    marginTop: 60,
+    marginTop: 40,
     borderRadius: 28,
     paddingHorizontal: 24,
     paddingVertical: 28,
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
+    gap: 20,
   },
   summaryTitle: {
     color: '#FFFFFF',
@@ -927,7 +1296,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   summaryStats: {
-    marginTop: 26,
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
@@ -945,8 +1313,75 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.46)',
     fontSize: 12,
   },
+  summarySection: {
+    gap: 12,
+  },
+  summarySectionTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  summaryChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  summaryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  summaryChipText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  summaryChipMeta: {
+    color: '#AFC0FF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  summaryList: {
+    gap: 12,
+  },
+  summaryItem: {
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    gap: 6,
+  },
+  summaryItemEn: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  summaryItemZh: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  summaryEmpty: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  summaryInlineButton: {
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  summaryInlineButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
   summaryActions: {
-    marginTop: 28,
     flexDirection: 'row',
     gap: 12,
   },

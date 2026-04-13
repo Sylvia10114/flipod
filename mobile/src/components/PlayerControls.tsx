@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatTime } from '../clip-utils';
 import { triggerMediumHaptic } from '../feedback';
+import type { DominantHand } from '../types';
 
 const SPEED_OPTIONS = [0.75, 1, 1.25, 1.5, 2] as const;
 
@@ -11,8 +12,7 @@ type Props = {
   positionMillis: number;
   durationMillis: number;
   playbackRate: number;
-  sentenceIndicator: string;
-  clipIndicator: string;
+  dominantHand: DominantHand;
   showZh: boolean;
   masked: boolean;
   onTogglePlay: () => void;
@@ -21,6 +21,7 @@ type Props = {
   onSetRate: (rate: number) => void;
   onToggleZh: () => void;
   onToggleMask: () => void;
+  onOpenMenu: () => void;
 };
 
 export function PlayerControls({
@@ -29,8 +30,7 @@ export function PlayerControls({
   positionMillis,
   durationMillis,
   playbackRate,
-  sentenceIndicator,
-  clipIndicator,
+  dominantHand,
   showZh,
   masked,
   onTogglePlay,
@@ -39,6 +39,7 @@ export function PlayerControls({
   onSetRate,
   onToggleZh,
   onToggleMask,
+  onOpenMenu,
 }: Props) {
   const nextRate = () => {
     const idx = SPEED_OPTIONS.indexOf(playbackRate as typeof SPEED_OPTIONS[number]);
@@ -77,12 +78,7 @@ export function PlayerControls({
       </View>
 
       <View style={styles.bottomRow}>
-        <View style={styles.indicatorGroup}>
-          <Text style={styles.sentenceIndicator}>{sentenceIndicator}</Text>
-          <Text style={styles.clipIndicator}>{clipIndicator}</Text>
-        </View>
-
-        <View style={styles.extraRow}>
+        <View style={[styles.extraRow, dominantHand === 'left' && styles.extraRowLeft]}>
           <Pressable onPress={() => {
             triggerMediumHaptic();
             onToggleMask();
@@ -100,6 +96,12 @@ export function PlayerControls({
             nextRate();
           }} style={[styles.chipButton, playbackRate !== 1 && styles.chipButtonActive]}>
             <Text style={[styles.chipText, playbackRate !== 1 && styles.chipTextActive]}>{playbackRate}x</Text>
+          </Pressable>
+          <Pressable onPress={() => {
+            triggerMediumHaptic();
+            onOpenMenu();
+          }} style={styles.menuButton}>
+            <Text style={styles.menuButtonText}>···</Text>
           </Pressable>
         </View>
       </View>
@@ -157,27 +159,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   bottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  indicatorGroup: {
-    gap: 4,
-  },
-  sentenceIndicator: {
-    color: 'rgba(255,255,255,0.62)',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  clipIndicator: {
-    color: 'rgba(255,255,255,0.32)',
-    fontSize: 12,
-    fontWeight: '600',
+    alignItems: 'stretch',
   },
   extraRow: {
     flexDirection: 'row',
     gap: 10,
+    flex: 1,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  extraRowLeft: {
+    flexDirection: 'row-reverse',
   },
   chipButton: {
     borderRadius: 999,
@@ -197,5 +189,19 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: '#DDE3FF',
+  },
+  menuButton: {
+    minWidth: 44,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  menuButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    lineHeight: 18,
+    fontWeight: '700',
   },
 });

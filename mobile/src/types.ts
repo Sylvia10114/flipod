@@ -1,4 +1,5 @@
 export type Level = 'A1-A2' | 'B1' | 'B2' | 'C1-C2';
+export type ClipDifficulty = 'easy' | 'medium' | 'hard' | 'A1-A2' | 'B1' | 'B1+' | 'B2' | 'C1-C2' | string;
 
 export type ClipLineWord = {
   word: string;
@@ -15,12 +16,34 @@ export type ClipLine = {
   words?: ClipLineWord[];
 };
 
+export type ClipQuestion = {
+  question: string;
+  options: string[];
+  answer: string;
+  explanation_zh?: string;
+};
+
 export type Clip = {
+  id?: number;
   title: string;
-  source: { podcast?: string; episode?: string } | string;
+  source: {
+    podcast?: string;
+    episode?: string;
+    episode_url?: string;
+    timestamp_start?: string;
+    timestamp_end?: string;
+    pub_date?: string;
+    tier?: string;
+  } | string;
   tag?: string;
   audio?: string;
   cdnAudio?: string;
+  duration?: number;
+  difficulty?: ClipDifficulty;
+  overlap_score?: number;
+  info_takeaway?: string;
+  questions?: ClipQuestion[];
+  collocations?: string[];
   lines: ClipLine[];
   _aiReason?: string;
 };
@@ -121,6 +144,7 @@ export type VocabEntry = {
   sourceType?: 'feed' | 'practice';
   practiced?: boolean;
   known?: boolean;
+  timestamp?: number;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -137,4 +161,34 @@ export type PracticeMap = Record<string, PracticeRecord>;
 export type LikeEvent = {
   tag: string;
   timestamp: number;
+};
+
+export type ReviewRecord = {
+  nextReview: number;
+  interval: number;
+};
+
+export type ReviewState = Record<string, ReviewRecord>;
+
+export type CalibrationSignals = {
+  wordsLookedUp: number;
+  wordsByLevel: Record<string, number>;
+  clipsPlayed: number;
+  avgWordsPerClip: number;
+  practiceHardRate: number;
+  practiceSessions: number;
+};
+
+export type CalibrationState = {
+  suggestedUp?: boolean;
+  suggestedDown?: boolean;
+};
+
+export type CalibrationDirection = 'up' | 'down';
+
+export type CalibrationSuggestion = {
+  direction: CalibrationDirection;
+  fromLevel: Level;
+  toLevel: Level;
+  message: string;
 };

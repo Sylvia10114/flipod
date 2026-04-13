@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -14,21 +14,29 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   buildClipKey,
-  getSentenceInfo,
-  getSentenceMarkers,
   getSentenceRange,
   getSourceLabel,
+  getWordTimestamp,
 } from '../clip-utils';
 import { triggerUiFeedback } from '../feedback';
-import { ProgressCard, RecoCard, ReviewCard } from '../components/FeedCards';
+import { RecoCard, ReviewCard } from '../components/FeedCards';
 import { PlayerControls } from '../components/PlayerControls';
 import { ProgressBar } from '../components/ProgressBar';
 import { WordLine } from '../components/WordLine';
 import { WordPopup } from '../components/WordPopup';
 import { useFeedPlayer } from '../hooks/useFeedPlayer';
-import type { Clip, ClipLine, ClipLineWord, DominantHand, Profile, VocabEntry } from '../types';
+import type {
+  Clip,
+  ClipLine,
+  ClipLineWord,
+  DominantHand,
+  Profile,
+  ReviewState,
+  VocabEntry,
+} from '../types';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
+const ONE_DAY = 24 * 60 * 60 * 1000;
 
 type Props = {
   clips: Clip[];
@@ -39,6 +47,8 @@ type Props = {
   bookmarkedKeys: string[];
   likedKeys: string[];
   recoTag: string | null;
+  reviewState: ReviewState;
+  vocabEntries: VocabEntry[];
   vocabWords: string[];
   knownWords: string[];
   clipsPlayed: number;
@@ -46,21 +56,13 @@ type Props = {
   onToggleBookmark: (clip: Clip, index: number) => void;
   onSaveVocab: (entry: VocabEntry) => void;
   onMarkKnown: (word: string) => void;
+  onRecordWordLookup: (cefr?: string) => void;
+  onReviewAction: (word: string, action: 'remember' | 'forgot') => void;
   onOpenMenu: () => void;
-  onResetProfile: () => void;
   onPromoteInterest: (tag: string) => void;
   onPlaybackRateChange: (rate: number) => void;
   onClipPlayed: (clipKey: string) => void;
 };
-
-function buildReason(clip: Clip, profile: Profile, index: number) {
-  if (clip._aiReason) return clip._aiReason;
-  if (index === 0) return '我先用一条更容易进入状态的内容，帮你尽快听起来。';
-  if (profile.interests.some(tag => tag.toLowerCase() === (clip.tag || '').toLowerCase())) {
-    return `你在 onboarding 里选过 ${clip.tag || '这个主题'}，我先延续这个方向。`;
-  }
-  return `这条会更贴近你当前 ${profile.level || 'B1'} 的听感区间，同时保持一点新鲜感。`;
-}
 
 type PopupState = {
   word: ClipLineWord;
@@ -69,6 +71,26 @@ type PopupState = {
   clipKey: string;
   clipTitle: string;
 } | null;
+
+type FeedClipPage = {
+  type: 'clip';
+  key: string;
+  clip: Clip;
+  clipIndex: number;
+};
+
+type FeedReviewPage = {
+  type: 'review';
+  key: string;
+  entry: VocabEntry;
+};
+
+type FeedRecoPage = {
+  type: 'reco';
+  key: string;
+};
+
+type FeedPage = FeedClipPage | FeedReviewPage | FeedRecoPage;
 
 export function FeedScreen({
   clips,
@@ -79,6 +101,8 @@ export function FeedScreen({
   bookmarkedKeys,
   likedKeys,
   recoTag,
+  reviewState,
+  vocabEntries,
   vocabWords,
   knownWords,
   clipsPlayed,
@@ -86,8 +110,9 @@ export function FeedScreen({
   onToggleBookmark,
   onSaveVocab,
   onMarkKnown,
+  onRecordWordLookup,
+  onReviewAction,
   onOpenMenu,
-  onResetProfile,
   onPromoteInterest,
   onPlaybackRateChange,
   onClipPlayed,
@@ -99,7 +124,6 @@ export function FeedScreen({
   const [masked, setMasked] = useState(false);
   const [popup, setPopup] = useState<PopupState>(null);
   const [dismissedCards, setDismissedCards] = useState<Set<string>>(new Set());
-  const [reasonIndex, setReasonIndex] = useState<number | null>(null);
   const [transcriptIndex, setTranscriptIndex] = useState<number | null>(null);
   const playedRef = useRef<Set<string>>(new Set());
 
@@ -110,6 +134,7 @@ export function FeedScreen({
     errorMessage,
     isLoading,
     isPlaying,
+    pause,
     playbackRate: currentPlaybackRate,
     positionMillis,
     playIndex,
@@ -120,24 +145,92 @@ export function FeedScreen({
     togglePlay,
   } = useFeedPlayer(data, playbackRate);
 
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const firstVisible = viewableItems.find(item => item.isViewable && typeof item.index === 'number');
-    if (!firstVisible || typeof firstVisible.index !== 'number') return;
-    void playIndex(firstVisible.index);
-  });
-
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 75 });
-
-  const handleWordTap = useCallback((word: ClipLineWord, line: ClipLine, clipKey: string, clipTitle: string) => {
-    triggerUiFeedback('card');
-    setPopup({ word, contextEn: line.en, contextZh: line.zh || '', clipKey, clipTitle });
-  }, []);
-
   const dismissCard = useCallback((key: string) => {
     setDismissedCards(prev => new Set(prev).add(key));
   }, []);
 
-  useEffect(() => {
+  const reviewEntries = useMemo(() => {
+    const now = Date.now();
+    return vocabEntries
+      .filter(entry => {
+        const timestamp = getWordTimestamp(entry);
+        if (!timestamp || now - timestamp < ONE_DAY) return false;
+        const normalized = entry.word.toLowerCase();
+        const existing = reviewState[normalized];
+        return !existing || existing.nextReview <= now;
+      })
+      .filter(entry => !dismissedCards.has(`review:${entry.word.toLowerCase()}`))
+      .sort((a, b) => getWordTimestamp(a) - getWordTimestamp(b))
+      .slice(0, 3);
+  }, [dismissedCards, reviewState, vocabEntries]);
+
+  const shouldShowReco = clipsPlayed >= 3 && Boolean(recoTag) && !dismissedCards.has('reco');
+  const feedPages = useMemo<FeedPage[]>(() => {
+    const pages: FeedPage[] = [];
+    let reviewIndex = 0;
+
+    data.forEach((clip, clipIndex) => {
+      pages.push({
+        type: 'clip',
+        key: buildClipKey(clip, clipIndex),
+        clip,
+        clipIndex,
+      });
+
+      if (clipIndex === 2 && shouldShowReco) {
+        pages.push({
+          type: 'reco',
+          key: 'reco',
+        });
+      }
+
+      const clipCounter = clipIndex + 1;
+      if (
+        clipCounter > 0 &&
+        clipCounter % 4 === 0 &&
+        reviewIndex < reviewEntries.length
+      ) {
+        const entry = reviewEntries[reviewIndex++];
+        pages.push({
+          type: 'review',
+          key: `review:${entry.word.toLowerCase()}`,
+          entry,
+        });
+      }
+    });
+
+    return pages;
+  }, [data, reviewEntries, shouldShowReco]);
+
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 75 });
+  const transcriptClip = typeof transcriptIndex === 'number' ? data[transcriptIndex] : null;
+  const currentClip = data[activeIndex];
+  const currentTime = positionMillis / 1000;
+  const progress = durationMillis > 0 ? positionMillis / durationMillis : 0;
+  const currentSentenceRange = currentClip ? getSentenceRange(currentClip, activeLineIndex) : null;
+  const feedHint = useMemo(() => {
+    if (feedState === 'loading') return 'AI 正在为你排列内容...';
+    if (feedState === 'rerank') return '刚刚根据你的表现重新调整了顺序';
+    if (feedState === 'fallback') return '这几条已经替你排好了';
+    return '已根据你的偏好排列';
+  }, [feedState]);
+
+  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    const firstVisible = viewableItems.find(viewable => viewable.isViewable && typeof viewable.index === 'number');
+    if (!firstVisible || typeof firstVisible.index !== 'number') return;
+
+    const page = feedPages[firstVisible.index];
+    if (!page) return;
+
+    if (page.type === 'clip') {
+      void playIndex(page.clipIndex);
+      return;
+    }
+
+    void pause();
+  }, [feedPages, pause, playIndex]);
+
+  React.useEffect(() => {
     if (!isPlaying) return;
     const clip = data[activeIndex];
     if (!clip) return;
@@ -147,111 +240,97 @@ export function FeedScreen({
     onClipPlayed(key);
   }, [activeIndex, data, isPlaying, onClipPlayed]);
 
-  useEffect(() => {
-    if (reasonIndex !== null && reasonIndex !== activeIndex) {
-      setReasonIndex(null);
-    }
-  }, [activeIndex, reasonIndex]);
-
-  const currentClip = data[activeIndex];
-  const currentTime = positionMillis / 1000;
-  const progress = durationMillis > 0 ? positionMillis / durationMillis : 0;
-  const sentenceInfo = currentClip ? getSentenceInfo(currentClip, currentTime) : { current: 1, total: 0 };
-  const markers = currentClip ? getSentenceMarkers(currentClip) : [];
-  const currentSentenceRange = currentClip ? getSentenceRange(currentClip, activeLineIndex) : null;
-
-  const shouldShowReview = clipsPlayed >= 3 && vocabWords.length >= 2 && !dismissedCards.has('review');
-  const shouldShowProgress = clipsPlayed >= 5 && !dismissedCards.has('progress');
-  const shouldShowReco = clipsPlayed >= 8 && Boolean(recoTag) && !dismissedCards.has('reco');
-  const transcriptClip = typeof transcriptIndex === 'number' ? data[transcriptIndex] : null;
-  const hintText = {
-    loading: 'AI 正在为你排列内容...',
-    normal: '已根据你的偏好排列',
-    rerank: '刚刚根据你的表现重新调整了顺序',
-    fallback: '这几条已经替你排好了',
-  }[feedState];
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <FlatList
-        data={data}
-        keyExtractor={(item, index) => buildClipKey(item, index)}
+        data={feedPages}
+        keyExtractor={item => item.key}
         pagingEnabled
         snapToInterval={pageHeight}
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
-        onViewableItemsChanged={onViewableItemsChanged.current}
+        onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig.current}
-        renderItem={({ item, index }: ListRenderItemInfo<Clip>) => {
+        renderItem={({ item }: ListRenderItemInfo<FeedPage>) => {
+          if (item.type === 'review') {
+            return (
+              <View style={[styles.feedCardPage, { minHeight: pageHeight, paddingBottom: 18 + insets.bottom }]}>
+                <ReviewCard
+                  entry={item.entry}
+                  onForgot={() => {
+                    onReviewAction(item.entry.word, 'forgot');
+                    dismissCard(`review:${item.entry.word.toLowerCase()}`);
+                  }}
+                  onRemember={() => {
+                    onReviewAction(item.entry.word, 'remember');
+                    dismissCard(`review:${item.entry.word.toLowerCase()}`);
+                  }}
+                />
+              </View>
+            );
+          }
+
+          if (item.type === 'reco') {
+            return (
+              <View style={[styles.feedCardPage, { minHeight: pageHeight, paddingBottom: 18 + insets.bottom }]}>
+                <RecoCard
+                  interests={profile.interests}
+                  recoTag={recoTag}
+                  onAccept={tag => {
+                    void onPromoteInterest(tag);
+                    dismissCard('reco');
+                  }}
+                  onDismiss={() => dismissCard('reco')}
+                />
+              </View>
+            );
+          }
+
+          const clip = item.clip;
+          const index = item.clipIndex;
           const isActive = index === activeIndex;
-          const line = isActive ? item.lines?.[activeLineIndex] : item.lines?.[0];
-          const clipKey = buildClipKey(item, index);
-          const sentenceLabel = isActive
-            ? `第 ${sentenceInfo.current} / ${sentenceInfo.total} 句`
-            : `第 1 / ${item.lines?.length || 0} 句`;
-          const clipIndicator = `${index + 1} / ${data.length}`;
-          const reasonVisible = reasonIndex === index;
+          const line = isActive ? clip.lines?.[activeLineIndex] : clip.lines?.[0];
+          const clipKey = item.key;
           const bookmarkLabel = bookmarkedKeys.includes(clipKey) ? '已收' : '收藏';
           const liked = likedKeys.includes(clipKey);
 
           return (
-            <View style={[styles.card, { minHeight: pageHeight, paddingBottom: 16 + insets.bottom }]}>
-              <View>
-                <View style={[styles.topChrome, dominantHand === 'left' && styles.topChromeLeft]}>
+            <View style={[styles.card, { minHeight: pageHeight, paddingBottom: 18 + insets.bottom }]}>
+              <View style={styles.topArea}>
+                <View style={styles.topRow}>
+                  <Text
+                    style={[
+                      styles.topHint,
+                      feedState === 'loading' ? styles.topHintLoading : null,
+                      feedState === 'rerank' ? styles.topHintRerank : null,
+                      feedState === 'fallback' ? styles.topHintFallback : null,
+                    ]}
+                  >
+                    {feedHint}
+                  </Text>
                   <Pressable onPress={() => {
                     triggerUiFeedback('menu');
-                    onOpenMenu();
-                  }} style={styles.iconButton}>
-                    <View style={styles.menuGlyph}>
-                      <View style={styles.menuLineWide} />
-                      <View style={styles.menuLineShort} />
-                    </View>
+                    setTranscriptIndex(index);
+                  }} style={styles.smallChip}>
+                    <Text style={styles.smallChipText}>Transcript</Text>
                   </Pressable>
-
-                  <View style={styles.topChromeRight}>
-                    <Pressable onPress={() => {
-                      triggerUiFeedback('menu');
-                      setTranscriptIndex(index);
-                    }} style={styles.smallChip}>
-                      <Text style={styles.smallChipText}>Transcript</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => {
-                        triggerUiFeedback('card');
-                        setReasonIndex(prev => (prev === index ? null : index));
-                      }}
-                      style={styles.iconButton}
-                    >
-                      <Text style={styles.helpText}>?</Text>
-                    </Pressable>
-                  </View>
                 </View>
 
-                {reasonVisible ? (
-                  <View style={styles.reasonBubble}>
-                    <Text style={styles.reasonBubbleTitle}>WHY THIS NOW</Text>
-                    <Text style={styles.reasonBubbleText}>{buildReason(item, profile, index)}</Text>
-                  </View>
-                ) : null}
-
                 <View style={styles.topInfo}>
-                  <Text style={[styles.hint, feedState === 'rerank' && styles.hintRerank]}>
-                    {hintText}
-                  </Text>
-                  <Text style={styles.title}>{item.title}</Text>
+                  <Text style={styles.title}>{clip.title}</Text>
                   <Text style={styles.source}>
-                    {getSourceLabel(item.source)}
-                    {item.tag ? ` · ${item.tag}` : ''}
+                    {getSourceLabel(clip.source)}
+                    {clip.tag ? ` · ${clip.tag}` : ''}
                   </Text>
                 </View>
               </View>
 
               <View style={styles.subtitleWrap}>
                 <View style={[styles.sideRail, dominantHand === 'left' ? styles.sideRailLeft : styles.sideRailRight]}>
-                  <Pressable onPress={() => onToggleLike(item, index)} style={[styles.sideRailButton, liked && styles.sideRailButtonActive]}>
+                  <Pressable onPress={() => onToggleLike(clip, index)} style={[styles.sideRailButton, liked && styles.sideRailButtonActive]}>
                     <Text style={[styles.sideRailButtonIcon, liked && styles.sideRailButtonIconActive]}>♥</Text>
                   </Pressable>
-                  <Pressable onPress={() => onToggleBookmark(item, index)} style={styles.sideRailButton}>
+                  <Pressable onPress={() => onToggleBookmark(clip, index)} style={styles.sideRailButton}>
                     <Text style={styles.sideRailButtonText}>{bookmarkLabel}</Text>
                   </Pressable>
                 </View>
@@ -263,7 +342,11 @@ export function FeedScreen({
                     isActive={isActive}
                     showZh={showZh}
                     masked={masked}
-                    onWordTap={(word, lineData) => handleWordTap(word, lineData, clipKey, item.title)}
+                    onWordTap={(word: ClipLineWord, lineData: ClipLine) => {
+                      onRecordWordLookup(word.cefr);
+                      triggerUiFeedback('card');
+                      setPopup({ word, contextEn: lineData.en, contextZh: lineData.zh || '', clipKey, clipTitle: clip.title });
+                    }}
                   />
                 ) : null}
 
@@ -274,7 +357,7 @@ export function FeedScreen({
               <View style={styles.bottomControls}>
                 <ProgressBar
                   progress={isActive ? progress : 0}
-                  markers={isActive ? markers : []}
+                  markers={[]}
                   currentSentenceRange={isActive ? currentSentenceRange : null}
                   onSeek={ratio => {
                     if (!isActive) return;
@@ -287,8 +370,7 @@ export function FeedScreen({
                   positionMillis={isActive ? positionMillis : 0}
                   durationMillis={isActive ? durationMillis : 0}
                   playbackRate={currentPlaybackRate}
-                  sentenceIndicator={sentenceLabel}
-                  clipIndicator={clipIndicator}
+                  dominantHand={dominantHand}
                   showZh={showZh}
                   masked={masked}
                   onTogglePlay={() => void togglePlay(index)}
@@ -306,46 +388,12 @@ export function FeedScreen({
                   }}
                   onToggleZh={() => setShowZh(prev => !prev)}
                   onToggleMask={() => setMasked(prev => !prev)}
+                  onOpenMenu={onOpenMenu}
                 />
               </View>
             </View>
           );
         }}
-        ListFooterComponent={
-          <View style={styles.feedCardsWrap}>
-            {shouldShowReview ? (
-              <ReviewCard
-                reviewWords={vocabWords.slice(0, 5).map(word => ({ word }))}
-                onDismiss={() => dismissCard('review')}
-              />
-            ) : null}
-            {shouldShowProgress ? (
-              <ProgressCard
-                clipsPlayed={clipsPlayed}
-                wordsLearned={vocabWords.length}
-                minutesListened={Math.round(clipsPlayed * 1.2)}
-                onContinue={() => dismissCard('progress')}
-              />
-            ) : null}
-            {shouldShowReco ? (
-              <RecoCard
-                interests={profile.interests}
-                recoTag={recoTag}
-                onAccept={tag => {
-                  void onPromoteInterest(tag);
-                  dismissCard('reco');
-                }}
-                onDismiss={() => dismissCard('reco')}
-              />
-            ) : null}
-            <Pressable onPress={() => {
-              triggerUiFeedback('menu');
-              onResetProfile();
-            }} style={styles.resetButton}>
-              <Text style={styles.resetButtonText}>重新选择等级与兴趣</Text>
-            </Pressable>
-          </View>
-        }
       />
 
       {popup ? (
@@ -419,49 +467,28 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
     justifyContent: 'space-between',
   },
-  topChrome: {
+  topArea: {
+    gap: 18,
+  },
+  topRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  topChromeLeft: {
-    flexDirection: 'row-reverse',
-  },
-  topChromeRight: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  topHint: {
+    flex: 1,
+    color: 'rgba(255,255,255,0.52)',
+    fontSize: 12,
   },
-  menuGlyph: {
-    width: 18,
-    gap: 4,
+  topHintLoading: {
+    color: 'rgba(255,255,255,0.30)',
   },
-  menuLineWide: {
-    height: 1.5,
-    width: 18,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.82)',
+  topHintRerank: {
+    color: 'rgba(255,255,255,0.40)',
   },
-  menuLineShort: {
-    height: 1.5,
-    width: 12,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.82)',
-  },
-  helpText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
+  topHintFallback: {
+    color: 'rgba(255,255,255,0.15)',
   },
   smallChip: {
     borderRadius: 999,
@@ -476,39 +503,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  reasonBubble: {
-    marginTop: 14,
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: 'rgba(23,23,31,0.96)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
-    gap: 6,
-  },
-  reasonBubbleTitle: {
-    color: 'rgba(255,255,255,0.32)',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-  },
-  reasonBubbleText: {
-    color: 'rgba(255,255,255,0.74)',
-    fontSize: 13,
-    lineHeight: 20,
-  },
   topInfo: {
-    marginTop: 24,
     alignItems: 'center',
     gap: 8,
-  },
-  hint: {
-    color: 'rgba(255,255,255,0.22)',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  hintRerank: {
-    color: 'rgba(255,255,255,0.46)',
   },
   title: {
     color: '#FFFFFF',
@@ -585,21 +582,10 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 8,
   },
-  feedCardsWrap: {
-    gap: 20,
-    paddingBottom: 40,
-  },
-  resetButton: {
-    marginHorizontal: 20,
-    borderRadius: 18,
-    paddingVertical: 15,
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  resetButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
+  feedCardPage: {
+    paddingHorizontal: 22,
+    justifyContent: 'center',
+    paddingBottom: 36,
   },
   transcriptSafeArea: {
     flex: 1,

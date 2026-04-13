@@ -1,9 +1,27 @@
 import { CONTENT_BASE_URL } from './services/api';
-import type { Bookmark, Clip } from './types';
+import type { Bookmark, Clip, ClipDifficulty, Level } from './types';
 
 export function getSourceLabel(source: Clip['source']) {
   if (typeof source === 'string') return source;
   return source?.podcast || source?.episode || 'Unknown Source';
+}
+
+export function getSourceMeta(source: Clip['source']) {
+  if (typeof source === 'string') {
+    return {
+      podcast: source,
+      episode: '',
+      timestamp: '',
+      tier: '',
+    };
+  }
+
+  return {
+    podcast: source?.podcast || '',
+    episode: source?.episode || '',
+    timestamp: [source?.timestamp_start, source?.timestamp_end].filter(Boolean).join(' - '),
+    tier: source?.tier || '',
+  };
 }
 
 export function resolveClipAudioUrl(clip: Clip) {
@@ -44,6 +62,9 @@ export function formatTime(ms: number) {
 }
 
 export function getClipDurationSeconds(clip: Clip) {
+  if (typeof clip.duration === 'number' && Number.isFinite(clip.duration)) {
+    return clip.duration;
+  }
   if (!clip.lines?.length) return 0;
   return clip.lines[clip.lines.length - 1].end;
 }
@@ -118,4 +139,52 @@ export function toBookmark(clip: Clip, index: number): Bookmark {
     source: getSourceLabel(clip.source),
     tag: clip.tag || 'featured',
   };
+}
+
+export function getDifficultyWeight(difficulty?: ClipDifficulty) {
+  const normalized = (difficulty || 'medium').toLowerCase();
+  if (normalized === 'easy' || normalized === 'a1-a2') return 0.3;
+  if (normalized === 'medium' || normalized === 'b1') return 0.6;
+  if (normalized === 'b1+') return 0.7;
+  if (normalized === 'b2') return 0.85;
+  if (normalized === 'hard' || normalized === 'c1-c2') return 1;
+  return 0.6;
+}
+
+export function getLevelWeight(level?: Level | string | null) {
+  if (level === null || typeof level === 'undefined') return 2;
+  const normalized = String(level).toUpperCase().trim();
+  if (!normalized) return 0;
+  if (normalized === 'A1-A2' || normalized === 'A1' || normalized === 'A2') return 1;
+  if (normalized === 'B1') return 2;
+  if (normalized === 'B2') return 3;
+  if (normalized === 'C1-C2' || normalized === 'C1' || normalized === 'C2') return 4;
+  return 2;
+}
+
+export function sortClipsForFeed(clips: Clip[], listenedClipKeys: string[]) {
+  const listenedSet = new Set(listenedClipKeys);
+  return clips
+    .map((clip, index) => ({ clip, index }))
+    .sort((a, b) => {
+      const aListened = listenedSet.has(buildClipKey(a.clip, a.index));
+      const bListened = listenedSet.has(buildClipKey(b.clip, b.index));
+      if (aListened !== bListened) return aListened ? 1 : -1;
+
+      const aOverlap = typeof a.clip.overlap_score === 'number' ? a.clip.overlap_score : 0.5;
+      const bOverlap = typeof b.clip.overlap_score === 'number' ? b.clip.overlap_score : 0.5;
+      const aScore = aOverlap * 0.6 + getDifficultyWeight(a.clip.difficulty) * 0.4;
+      const bScore = bOverlap * 0.6 + getDifficultyWeight(b.clip.difficulty) * 0.4;
+
+      if (bScore !== aScore) return bScore - aScore;
+      return a.index - b.index;
+    })
+    .map(item => item.clip);
+}
+
+export function getWordTimestamp(entry: { timestamp?: number; createdAt?: string; updatedAt?: string }) {
+  if (typeof entry.timestamp === 'number' && Number.isFinite(entry.timestamp)) return entry.timestamp;
+  const fromDate = entry.createdAt || entry.updatedAt;
+  const parsed = fromDate ? Date.parse(fromDate) : NaN;
+  return Number.isFinite(parsed) ? parsed : 0;
 }
