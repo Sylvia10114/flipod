@@ -54,7 +54,7 @@ export function WordLine({
   if (!line.words || line.words.length === 0) {
     return (
       <View style={styles.container}>
-        <Text style={styles.plainEn}>{line.en}</Text>
+        <Text style={[styles.plainEn, masked && styles.plainEnMasked]}>{line.en}</Text>
         {showZh && <Text style={styles.zh}>{line.zh || ''}</Text>}
       </View>
     );
@@ -68,15 +68,16 @@ export function WordLine({
         {enriched.map((w, i) => {
           const active = isActive && currentTime >= w.start && currentTime <= w.end;
           const spoken = isActive && currentTime > w.end;
-          const dimmed = masked && !active && !spoken;
           return (
             <Pressable key={`${w.word}-${i}`} onPress={() => onWordTap(w, line)}>
               <Text
                 style={[
                   styles.word,
-                  { color: dimmed ? 'rgba(255,255,255,0.20)' : cefrColor(w.cefr) },
-                  spoken && styles.wordSpoken,
-                  active && styles.wordActive,
+                  !masked && { color: cefrColor(w.cefr) },
+                  !masked && spoken && styles.wordSpoken,
+                  !masked && active && styles.wordActive,
+                  masked && styles.wordMasked,
+                  masked && (spoken || active) && styles.wordMaskedProgress,
                   practiced && styles.wordPracticed,
                 ]}
               >
@@ -106,6 +107,18 @@ const styles = StyleSheet.create({
     lineHeight: 36,
     fontWeight: '500',
   },
+  wordMasked: {
+    color: 'transparent',
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderRadius: 4,
+    paddingHorizontal: 2,
+    paddingVertical: 1,
+    margin: 1,
+  },
+  wordMaskedProgress: {
+    color: 'transparent',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
   wordActive: {
     color: '#8B9CF7',
     backgroundColor: 'rgba(139,156,247,0.18)',
@@ -125,6 +138,13 @@ const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: 36,
     textAlign: 'center',
+  },
+  plainEnMasked: {
+    color: 'transparent',
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
   },
   zh: {
     color: 'rgba(255,255,255,0.52)',

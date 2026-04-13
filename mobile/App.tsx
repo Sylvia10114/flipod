@@ -11,6 +11,7 @@ import { FeedScreen } from './src/screens/FeedScreen';
 import { LibraryScreen } from './src/screens/LibraryScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { PracticeScreen } from './src/screens/PracticeScreen';
+import { StartScreen } from './src/screens/StartScreen';
 import { VocabScreen } from './src/screens/VocabScreen';
 import { api } from './src/services/api';
 import {
@@ -155,12 +156,15 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [rankedClips, setRankedClips] = useState<Clip[]>([]);
   const [feedState, setFeedState] = useState<'loading' | 'normal' | 'rerank' | 'fallback'>('loading');
+  const [showStartScreen, setShowStartScreen] = useState(false);
+  const [showStartTransition, setShowStartTransition] = useState(false);
   const [practiceClipKey, setPracticeClipKey] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
   const playedKeysRef = useRef<Set<string>>(new Set());
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastRerankAtRef = useRef(0);
+  const startTransitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = useCallback((message: string) => {
     setToastMessage(message);
@@ -177,6 +181,9 @@ export default function App() {
     return () => {
       if (toastTimeoutRef.current) {
         clearTimeout(toastTimeoutRef.current);
+      }
+      if (startTransitionTimeoutRef.current) {
+        clearTimeout(startTransitionTimeoutRef.current);
       }
     };
   }, []);
@@ -244,13 +251,18 @@ export default function App() {
             setProfile(mergedProfile);
             setBookmarks(mergedBookmarks);
             setVocabList(mergedVocab);
+            setShowStartScreen(mergedProfile.onboardingDone);
+            setShowStartTransition(false);
           }
           await saveProfile(mergedProfile);
           await saveBookmarks(mergedBookmarks);
           await saveVocab(mergedVocab);
         } catch {
           if (!cancelled) {
-            setProfile(localProfile || defaultProfile);
+            const fallbackProfile = localProfile || defaultProfile;
+            setProfile(fallbackProfile);
+            setShowStartScreen(fallbackProfile.onboardingDone);
+            setShowStartTransition(false);
           }
         }
       } finally {
@@ -355,7 +367,19 @@ export default function App() {
 
   const handleProfileSubmit = async (nextProfile: Profile) => {
     setProfile(nextProfile);
+    setActiveScreen('feed');
+    setMenuOpen(false);
+    setShowStartTransition(true);
+    setShowStartScreen(false);
     await saveProfile(nextProfile);
+
+    if (startTransitionTimeoutRef.current) {
+      clearTimeout(startTransitionTimeoutRef.current);
+    }
+    startTransitionTimeoutRef.current = setTimeout(() => {
+      setShowStartTransition(false);
+      setShowStartScreen(true);
+    }, 1500);
 
     if (deviceId) {
       try {
@@ -394,8 +418,14 @@ export default function App() {
     setProfile(defaultProfile);
     setActiveScreen('feed');
     setMenuOpen(false);
+    setShowStartScreen(false);
+    setShowStartTransition(false);
     setPracticeClipKey(null);
     await saveProfile(defaultProfile);
+    if (startTransitionTimeoutRef.current) {
+      clearTimeout(startTransitionTimeoutRef.current);
+      startTransitionTimeoutRef.current = null;
+    }
     if (deviceId) {
       try {
         await api.saveProfile(deviceId, defaultProfile);
@@ -557,6 +587,17 @@ export default function App() {
     );
   } else if (!profile.onboardingDone) {
     content = <OnboardingScreen initialProfile={profile} onSubmit={handleProfileSubmit} />;
+  } else if (showStartTransition) {
+    content = <StartScreen preparing />;
+  } else if (activeScreen === 'feed' && showStartScreen) {
+    content = (
+      <StartScreen
+        onBegin={() => {
+          setShowStartScreen(false);
+          setActiveScreen('feed');
+        }}
+      />
+    );
   } else if (activeScreen === 'library') {
     content = (
       <LibraryScreen
