@@ -84,17 +84,6 @@ const defaultProfile: Profile = {
   onboardingDone: false,
 };
 
-function hasCurrentContent(clips: Clip[]) {
-  if (clips.length < 30) return false;
-  const enrichedCount = clips.filter(
-    clip =>
-      (Array.isArray(clip.questions) && clip.questions.length > 0) ||
-      typeof clip.overlap_score === 'number' ||
-      Boolean(clip.difficulty)
-  ).length;
-  return enrichedCount >= 10;
-}
-
 function deriveRecoTag(events: LikeEvent[]) {
   if (events.length < 3) return null;
   const recent = events.slice(-10);
@@ -375,7 +364,7 @@ export default function App() {
         const data = await response.json() as { clips?: Clip[] };
         if (cancelled) return;
 
-        if (Array.isArray(data.clips) && data.clips.length > 0 && hasCurrentContent(data.clips)) {
+        if (Array.isArray(data.clips) && data.clips.length > 0) {
           setClipsData(data.clips);
           setFeedState('normal');
           return;
