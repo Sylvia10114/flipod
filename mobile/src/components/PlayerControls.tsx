@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatTime } from '../clip-utils';
+import { triggerMediumHaptic } from '../feedback';
 
 const SPEED_OPTIONS = [0.75, 1, 1.25, 1.5, 2] as const;
 
@@ -53,15 +54,24 @@ export function PlayerControls({
       </View>
 
       <View style={styles.mainRow}>
-        <Pressable onPress={onSeekPrevSentence} style={styles.smallButton}>
+        <Pressable onPress={() => {
+          triggerMediumHaptic();
+          onSeekPrevSentence();
+        }} style={styles.smallButton}>
           <Text style={styles.smallButtonText}>上句</Text>
         </Pressable>
 
-        <Pressable onPress={onTogglePlay} style={[styles.playButton, isPlaying && styles.playButtonActive]}>
+        <Pressable onPress={() => {
+          triggerMediumHaptic();
+          onTogglePlay();
+        }} style={[styles.playButton, isPlaying && styles.playButtonActive]}>
           <Text style={styles.playButtonText}>{isLoading ? '...' : isPlaying ? '暂停' : '播放'}</Text>
         </Pressable>
 
-        <Pressable onPress={onSeekNextSentence} style={styles.smallButton}>
+        <Pressable onPress={() => {
+          triggerMediumHaptic();
+          onSeekNextSentence();
+        }} style={styles.smallButton}>
           <Text style={styles.smallButtonText}>下句</Text>
         </Pressable>
       </View>
@@ -73,13 +83,22 @@ export function PlayerControls({
         </View>
 
         <View style={styles.extraRow}>
-          <Pressable onPress={onToggleMask} style={[styles.chipButton, masked && styles.chipButtonActive]}>
+          <Pressable onPress={() => {
+            triggerMediumHaptic();
+            onToggleMask();
+          }} style={[styles.chipButton, masked && styles.chipButtonActive]}>
             <Text style={[styles.chipText, masked && styles.chipTextActive]}>{masked ? '遮罩开' : '遮罩'}</Text>
           </Pressable>
-          <Pressable onPress={onToggleZh} style={[styles.chipButton, showZh && styles.chipButtonActive]}>
+          <Pressable onPress={() => {
+            triggerMediumHaptic();
+            onToggleZh();
+          }} style={[styles.chipButton, showZh && styles.chipButtonActive]}>
             <Text style={[styles.chipText, showZh && styles.chipTextActive]}>{showZh ? '中文开' : '中文'}</Text>
           </Pressable>
-          <Pressable onPress={nextRate} style={[styles.chipButton, playbackRate !== 1 && styles.chipButtonActive]}>
+          <Pressable onPress={() => {
+            triggerMediumHaptic();
+            nextRate();
+          }} style={[styles.chipButton, playbackRate !== 1 && styles.chipButtonActive]}>
             <Text style={[styles.chipText, playbackRate !== 1 && styles.chipTextActive]}>{playbackRate}x</Text>
           </Pressable>
         </View>

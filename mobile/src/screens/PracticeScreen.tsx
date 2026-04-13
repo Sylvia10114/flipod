@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { findClipIndexByKey } from '../clip-utils';
+import { triggerUiFeedback } from '../feedback';
 import type { Bookmark, Clip, PracticeMap } from '../types';
 
 type Props = {
@@ -30,7 +31,10 @@ export function PracticeScreen({
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Pressable onPress={onOpenMenu} style={styles.menuButton}>
+        <Pressable onPress={() => {
+          triggerUiFeedback('menu');
+          onOpenMenu();
+        }} style={styles.menuButton}>
           <Text style={styles.menuButtonText}>菜单</Text>
         </Pressable>
         <View style={styles.headerCenter}>
@@ -51,7 +55,10 @@ export function PracticeScreen({
               <Text style={styles.introText}>
                 对一段内容反复听、逐句听、搞懂每个词。比泛听累一点，但进步会很实。
               </Text>
-              <Pressable onPress={onDismissIntro} style={styles.introButton}>
+              <Pressable onPress={() => {
+                triggerUiFeedback('onboarding');
+                onDismissIntro();
+              }} style={styles.introButton}>
                 <Text style={styles.introButtonText}>知道了</Text>
               </Pressable>
             </View>
@@ -78,7 +85,10 @@ export function PracticeScreen({
             <Pressable
               disabled={clipIndex < 0}
               onPress={() => {
-                if (clipIndex >= 0) onStartPractice(clipIndex);
+                if (clipIndex >= 0) {
+                  triggerUiFeedback('primary');
+                  onStartPractice(clipIndex);
+                }
               }}
               style={[styles.card, clipIndex < 0 && styles.cardDisabled]}
             >

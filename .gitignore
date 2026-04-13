@@ -1,6 +1,9 @@
 # Audio files (too large for git)
 *.mp3
 *.mp3.bad
+!mobile/assets/
+!mobile/assets/sfx/
+!mobile/assets/sfx/*.mp3
 
 # Data backups
 data.json.bak*

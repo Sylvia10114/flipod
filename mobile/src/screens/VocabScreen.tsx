@@ -1,6 +1,7 @@
 import React from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { triggerUiFeedback } from '../feedback';
 import type { VocabEntry } from '../types';
 
 type Props = {
@@ -12,7 +13,10 @@ export function VocabScreen({ vocabList, onOpenMenu }: Props) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Pressable onPress={onOpenMenu} style={styles.menuButton}>
+        <Pressable onPress={() => {
+          triggerUiFeedback('menu');
+          onOpenMenu();
+        }} style={styles.menuButton}>
           <Text style={styles.menuButtonText}>菜单</Text>
         </Pressable>
         <View style={styles.headerCenter}>

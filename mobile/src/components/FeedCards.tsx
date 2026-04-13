@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { triggerUiFeedback } from '../feedback';
 import type { VocabEntry } from '../types';
 
 type ReviewCardProps = {
@@ -20,7 +21,10 @@ export function ReviewCard({ reviewWords, onDismiss }: ReviewCardProps) {
           </View>
         ))}
       </View>
-      <Pressable onPress={onDismiss} style={styles.cardAction}>
+      <Pressable onPress={() => {
+        triggerUiFeedback('correct');
+        onDismiss();
+      }} style={styles.cardAction}>
         <Text style={styles.cardActionText}>都记住了，继续</Text>
       </Pressable>
     </View>
@@ -53,7 +57,10 @@ export function ProgressCard({ clipsPlayed, wordsLearned, minutesListened, onCon
           <Text style={styles.statLabel}>分钟</Text>
         </View>
       </View>
-      <Pressable onPress={onContinue} style={styles.cardAction}>
+      <Pressable onPress={() => {
+        triggerUiFeedback('primary');
+        onContinue();
+      }} style={styles.cardAction}>
         <Text style={styles.cardActionText}>继续刷</Text>
       </Pressable>
     </View>
@@ -78,12 +85,18 @@ export function RecoCard({ interests, recoTag, onAccept, onDismiss }: RecoCardPr
         当前偏好：{interests.join(' · ') || '未设置'}。要不要多推一些 {tagLabel} 方向？
       </Text>
       <View style={styles.actionsRow}>
-        <Pressable onPress={onDismiss} style={styles.cardAction}>
+        <Pressable onPress={() => {
+          triggerUiFeedback('menu');
+          onDismiss();
+        }} style={styles.cardAction}>
           <Text style={styles.cardActionText}>保持现状</Text>
         </Pressable>
         <Pressable
           onPress={() => {
-            if (recoTag) onAccept(recoTag);
+            if (recoTag) {
+              triggerUiFeedback('like');
+              onAccept(recoTag);
+            }
           }}
           style={[styles.cardAction, styles.cardActionPrimary]}
         >

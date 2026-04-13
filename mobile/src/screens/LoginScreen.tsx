@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { triggerUiFeedback } from '../feedback';
 import type { LinkedIdentity } from '../types';
 
 type SmsRequestResult = {
@@ -70,6 +71,7 @@ function LoginContent({
 
   const handleRequestCode = async () => {
     try {
+      triggerUiFeedback('primary');
       setLocalMessage('');
       const result = await onRequestSms(phoneNumber);
       setRequestedPhone(phoneNumber);
@@ -82,6 +84,7 @@ function LoginContent({
 
   const handleVerify = async () => {
     try {
+      triggerUiFeedback('primary');
       setLocalMessage('');
       await onVerifyPhone(requestedPhone || phoneNumber, code);
       setRequestedPhone('');
@@ -94,6 +97,7 @@ function LoginContent({
 
   const handleAppleButton = async () => {
     try {
+      triggerUiFeedback('primary');
       setLocalMessage('');
       await onApplePress();
     } catch (error) {
@@ -247,7 +251,13 @@ function LoginContent({
         ) : null}
 
         {mode === 'link' && onCancel ? (
-          <Pressable style={styles.cancelButton} onPress={onCancel}>
+          <Pressable
+            style={styles.cancelButton}
+            onPress={() => {
+              triggerUiFeedback('menu');
+              onCancel();
+            }}
+          >
             <Text style={styles.cancelButtonText}>稍后再说</Text>
           </Pressable>
         ) : null}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { triggerUiFeedback } from '../feedback';
 import type { DominantHand, LinkedIdentity, Profile } from '../types';
 
 export type MenuScreen = 'feed' | 'library' | 'practice' | 'vocab';
@@ -70,7 +71,13 @@ export function SlideMenu({
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
+        <Pressable
+          style={styles.backdrop}
+          onPress={() => {
+            triggerUiFeedback('menu');
+            onClose();
+          }}
+        />
         <SafeAreaView style={[styles.sheetWrap, dominantHand === 'left' ? styles.sheetWrapRight : styles.sheetWrapLeft]}>
           <View
             style={[
@@ -94,7 +101,10 @@ export function SlideMenu({
                   </Text>
                   <Text style={styles.meta}>{profile.level || 'B1'} · 已听 {clipsPlayed} 个片段</Text>
                 </View>
-                <Pressable onPress={onClose} style={styles.closeButton}>
+                <Pressable onPress={() => {
+                  triggerUiFeedback('menu');
+                  onClose();
+                }} style={styles.closeButton}>
                   <Text style={styles.closeButtonText}>关闭</Text>
                 </Pressable>
               </View>
@@ -103,25 +113,37 @@ export function SlideMenu({
                 <MenuItem
                   label="继续听"
                   active={activeScreen === 'feed'}
-                  onPress={() => onNavigate('feed')}
+                  onPress={() => {
+                    triggerUiFeedback('menu');
+                    onNavigate('feed');
+                  }}
                 />
                 <MenuItem
                   label="我的收藏"
                   count={bookmarksCount}
                   active={activeScreen === 'library'}
-                  onPress={() => onNavigate('library')}
+                  onPress={() => {
+                    triggerUiFeedback('menu');
+                    onNavigate('library');
+                  }}
                 />
                 <MenuItem
                   label="听力练习"
                   count={practiceCount}
                   active={activeScreen === 'practice'}
-                  onPress={() => onNavigate('practice')}
+                  onPress={() => {
+                    triggerUiFeedback('menu');
+                    onNavigate('practice');
+                  }}
                 />
                 <MenuItem
                   label="词汇本"
                   count={vocabCount}
                   active={activeScreen === 'vocab'}
-                  onPress={() => onNavigate('vocab')}
+                  onPress={() => {
+                    triggerUiFeedback('menu');
+                    onNavigate('vocab');
+                  }}
                 />
               </View>
 
@@ -140,12 +162,18 @@ export function SlideMenu({
                 </Text>
                 <View style={styles.accountActions}>
                   {!hasPhone ? (
-                    <Pressable onPress={onLinkPhone} style={styles.accountButton}>
+                    <Pressable onPress={() => {
+                      triggerUiFeedback('primary');
+                      onLinkPhone();
+                    }} style={styles.accountButton}>
                       <Text style={styles.accountButtonText}>绑定手机号</Text>
                     </Pressable>
                   ) : null}
                   {!hasApple ? (
-                    <Pressable onPress={onLinkApple} style={styles.accountButton}>
+                    <Pressable onPress={() => {
+                      triggerUiFeedback('primary');
+                      onLinkApple();
+                    }} style={styles.accountButton}>
                       <Text style={styles.accountButtonText}>绑定 Apple</Text>
                     </Pressable>
                   ) : null}
@@ -155,17 +183,26 @@ export function SlideMenu({
                     <Text style={styles.logoutTitle}>退出当前账号</Text>
                     <Text style={styles.logoutHint}>会保留这台手机的设备标识和基础设置，重新登录后可以恢复学习进度。</Text>
                   </View>
-                  <Pressable onPress={onLogout} style={styles.logoutButton}>
+                  <Pressable onPress={() => {
+                    triggerUiFeedback('error');
+                    onLogout();
+                  }} style={styles.logoutButton}>
                     <Text style={styles.logoutButtonText}>退出登录</Text>
                   </Pressable>
                 </View>
               </View>
 
               <View style={styles.footer}>
-                <Pressable onPress={onToggleHand} style={styles.footerButton}>
+                <Pressable onPress={() => {
+                  triggerUiFeedback('menu');
+                  onToggleHand();
+                }} style={styles.footerButton}>
                   <Text style={styles.footerButtonText}>{dominantHand === 'left' ? '切回右手模式' : '左手模式'}</Text>
                 </Pressable>
-                <Pressable onPress={onResetOnboarding} style={styles.footerButton}>
+                <Pressable onPress={() => {
+                  triggerUiFeedback('menu');
+                  onResetOnboarding();
+                }} style={styles.footerButton}>
                   <Text style={styles.footerButtonText}>重置引导</Text>
                 </Pressable>
               </View>

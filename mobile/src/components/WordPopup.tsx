@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { triggerUiFeedback } from '../feedback';
 import type { ClipLineWord } from '../types';
 
 type Props = {
@@ -108,7 +109,10 @@ export function WordPopup({ word, contextEn, contextZh, isSaved, isKnown, onSave
   }, [normalizedWord]);
 
   return (
-    <Pressable style={styles.overlay} onPress={onDismiss}>
+    <Pressable style={styles.overlay} onPress={() => {
+      triggerUiFeedback('menu');
+      onDismiss();
+    }}>
       <Pressable style={styles.card} onPress={e => e.stopPropagation()}>
         <View style={styles.header}>
           <Text style={styles.wordText}>{word.word}</Text>
@@ -134,17 +138,26 @@ export function WordPopup({ word, contextEn, contextZh, isSaved, isKnown, onSave
         </View>
 
         <View style={styles.actions}>
-          <Pressable onPress={onSave} style={[styles.actionButton, isSaved && styles.actionButtonActive]}>
+          <Pressable onPress={() => {
+            triggerUiFeedback('bookmark');
+            onSave();
+          }} style={[styles.actionButton, isSaved && styles.actionButtonActive]}>
             <Text style={[styles.actionText, isSaved && styles.actionTextActive]}>
               {isSaved ? '已收藏' : '收藏词'}
             </Text>
           </Pressable>
-          <Pressable onPress={onMarkKnown} style={[styles.actionButton, isKnown && styles.actionButtonActive]}>
+          <Pressable onPress={() => {
+            triggerUiFeedback('correct');
+            onMarkKnown();
+          }} style={[styles.actionButton, isKnown && styles.actionButtonActive]}>
             <Text style={[styles.actionText, isKnown && styles.actionTextActive]}>
               {isKnown ? '已认识' : '我认识'}
             </Text>
           </Pressable>
-          <Pressable onPress={onDismiss} style={styles.actionButton}>
+          <Pressable onPress={() => {
+            triggerUiFeedback('menu');
+            onDismiss();
+          }} style={styles.actionButton}>
             <Text style={styles.actionText}>关闭</Text>
           </Pressable>
         </View>

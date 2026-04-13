@@ -1,6 +1,7 @@
 import React from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { triggerUiFeedback } from '../feedback';
 import type { Bookmark } from '../types';
 
 type Props = {
@@ -13,7 +14,10 @@ export function LibraryScreen({ bookmarks, onRemove, onOpenMenu }: Props) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Pressable onPress={onOpenMenu} style={styles.backButton}>
+        <Pressable onPress={() => {
+          triggerUiFeedback('menu');
+          onOpenMenu();
+        }} style={styles.backButton}>
           <Text style={styles.backButtonText}>菜单</Text>
         </Pressable>
         <Text style={styles.title}>收藏夹</Text>
@@ -36,7 +40,10 @@ export function LibraryScreen({ bookmarks, onRemove, onOpenMenu }: Props) {
               <Text style={styles.cardTitle}>{item.title}</Text>
               <Text style={styles.cardMeta}>{item.source} · {item.tag}</Text>
             </View>
-            <Pressable onPress={() => onRemove(item.clipKey)} style={styles.removeButton}>
+            <Pressable onPress={() => {
+              triggerUiFeedback('bookmark');
+              onRemove(item.clipKey);
+            }} style={styles.removeButton}>
               <Text style={styles.removeButtonText}>移除</Text>
             </Pressable>
           </View>

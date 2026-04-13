@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { INTERESTS, LEVELS } from '../constants';
+import { triggerUiFeedback } from '../feedback';
 import type { Level, Profile } from '../types';
 
 type Props = {
@@ -66,7 +67,10 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
                 return (
                   <Pressable
                     key={level}
-                    onPress={() => setSelectedLevel(level)}
+                    onPress={() => {
+                      triggerUiFeedback('card');
+                      setSelectedLevel(level);
+                    }}
                     style={[styles.optionCard, selected && styles.optionCardSelected]}
                   >
                     <View style={[styles.checkCircle, selected && styles.checkCircleSelected]}>
@@ -87,6 +91,7 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
               disabled={!canContinue}
               onPress={() => {
                 if (!selectedLevel) return;
+                triggerUiFeedback('onboarding');
                 setStep(2);
               }}
               style={[styles.primaryButton, !canContinue && styles.primaryButtonDisabled]}
@@ -105,7 +110,10 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
                 return (
                   <Pressable
                     key={tag}
-                    onPress={() => toggleTag(tag)}
+                    onPress={() => {
+                      triggerUiFeedback('card');
+                      toggleTag(tag);
+                    }}
                     style={[styles.tag, active && styles.tagSelected]}
                   >
                     <Text style={[styles.tagText, active && styles.tagTextSelected]}>{INTEREST_LABELS[tag]}</Text>
@@ -120,6 +128,7 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
               disabled={!canStart}
               onPress={() => {
                 if (!selectedLevel || selectedTags.length !== 3) return;
+                triggerUiFeedback('onboarding');
                 onSubmit({
                   level: selectedLevel,
                   interests: selectedTags,

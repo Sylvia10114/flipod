@@ -19,6 +19,7 @@ import {
   getSentenceRange,
   getSourceLabel,
 } from '../clip-utils';
+import { triggerUiFeedback } from '../feedback';
 import { ProgressCard, RecoCard, ReviewCard } from '../components/FeedCards';
 import { PlayerControls } from '../components/PlayerControls';
 import { ProgressBar } from '../components/ProgressBar';
@@ -128,6 +129,7 @@ export function FeedScreen({
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 75 });
 
   const handleWordTap = useCallback((word: ClipLineWord, line: ClipLine, clipKey: string, clipTitle: string) => {
+    triggerUiFeedback('card');
     setPopup({ word, contextEn: line.en, contextZh: line.zh || '', clipKey, clipTitle });
   }, []);
 
@@ -196,7 +198,10 @@ export function FeedScreen({
             <View style={[styles.card, { minHeight: pageHeight, paddingBottom: 16 + insets.bottom }]}>
               <View>
                 <View style={[styles.topChrome, dominantHand === 'left' && styles.topChromeLeft]}>
-                  <Pressable onPress={onOpenMenu} style={styles.iconButton}>
+                  <Pressable onPress={() => {
+                    triggerUiFeedback('menu');
+                    onOpenMenu();
+                  }} style={styles.iconButton}>
                     <View style={styles.menuGlyph}>
                       <View style={styles.menuLineWide} />
                       <View style={styles.menuLineShort} />
@@ -204,11 +209,17 @@ export function FeedScreen({
                   </Pressable>
 
                   <View style={styles.topChromeRight}>
-                    <Pressable onPress={() => setTranscriptIndex(index)} style={styles.smallChip}>
+                    <Pressable onPress={() => {
+                      triggerUiFeedback('menu');
+                      setTranscriptIndex(index);
+                    }} style={styles.smallChip}>
                       <Text style={styles.smallChipText}>Transcript</Text>
                     </Pressable>
                     <Pressable
-                      onPress={() => setReasonIndex(prev => (prev === index ? null : index))}
+                      onPress={() => {
+                        triggerUiFeedback('card');
+                        setReasonIndex(prev => (prev === index ? null : index));
+                      }}
                       style={styles.iconButton}
                     >
                       <Text style={styles.helpText}>?</Text>
@@ -327,7 +338,10 @@ export function FeedScreen({
                 onDismiss={() => dismissCard('reco')}
               />
             ) : null}
-            <Pressable onPress={onResetProfile} style={styles.resetButton}>
+            <Pressable onPress={() => {
+              triggerUiFeedback('menu');
+              onResetProfile();
+            }} style={styles.resetButton}>
               <Text style={styles.resetButtonText}>重新选择等级与兴趣</Text>
             </Pressable>
           </View>
@@ -372,7 +386,10 @@ export function FeedScreen({
                 {transcriptClip ? getSourceLabel(transcriptClip.source) : ''}
               </Text>
             </View>
-            <Pressable onPress={() => setTranscriptIndex(null)} style={styles.smallChip}>
+            <Pressable onPress={() => {
+              triggerUiFeedback('menu');
+              setTranscriptIndex(null);
+            }} style={styles.smallChip}>
               <Text style={styles.smallChipText}>关闭</Text>
             </Pressable>
           </View>

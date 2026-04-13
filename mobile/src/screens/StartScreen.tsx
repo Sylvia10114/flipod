@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { triggerUiFeedback } from '../feedback';
 
 type Props = {
   preparing?: boolean;
@@ -25,7 +26,13 @@ export function StartScreen({ preparing = false, onBegin }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Pressable style={[styles.container, styles.centered]} onPress={onBegin}>
+      <Pressable
+        style={[styles.container, styles.centered]}
+        onPress={() => {
+          triggerUiFeedback('primary');
+          onBegin?.();
+        }}
+      >
         <View style={styles.ambient} />
         <Text style={styles.title}>先听这一条</Text>
         <Text style={styles.subtitle}>我挑了几段适合现在开始的内容</Text>

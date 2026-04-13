@@ -10,6 +10,7 @@ import {
   getSentenceRange,
   resolveClipAudioUrl,
 } from '../clip-utils';
+import { triggerMediumHaptic, triggerUiFeedback } from '../feedback';
 import type { Clip, ClipLineWord, PracticeRecord, VocabEntry } from '../types';
 import { ProgressBar } from './ProgressBar';
 import { WordLine } from './WordLine';
@@ -114,6 +115,7 @@ export function PracticeSessionModal({
     }
 
     completionSavedRef.current = true;
+    triggerUiFeedback('practiceComplete');
     onComplete(clipKey, {
       done: true,
       words: wordsLookedRef.current,
@@ -306,7 +308,10 @@ export function PracticeSessionModal({
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onDismiss}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={onDismiss} style={styles.closeButton}>
+          <Pressable onPress={() => {
+            triggerUiFeedback('menu');
+            onDismiss();
+          }} style={styles.closeButton}>
             <Text style={styles.closeButtonText}>关闭</Text>
           </Pressable>
           <Text style={styles.stepLabel}>{stepLabel(step)}</Text>
@@ -341,6 +346,7 @@ export function PracticeSessionModal({
               </View>
               <Pressable
                 onPress={() => {
+                  triggerMediumHaptic();
                   if (status.isPlaying) {
                     void pause();
                     return;
@@ -355,10 +361,16 @@ export function PracticeSessionModal({
 
               {blindFinished ? (
                 <View style={styles.choiceRow}>
-                  <Pressable onPress={() => setStep(4)} style={[styles.choiceButton, styles.choiceButtonPrimary]}>
+                  <Pressable onPress={() => {
+                    triggerUiFeedback('correct');
+                    setStep(4);
+                  }} style={[styles.choiceButton, styles.choiceButtonPrimary]}>
                     <Text style={styles.choiceButtonPrimaryText}>大部分听懂了</Text>
                   </Pressable>
-                  <Pressable onPress={() => setStep(2)} style={styles.choiceButton}>
+                  <Pressable onPress={() => {
+                    triggerUiFeedback('primary');
+                    setStep(2);
+                  }} style={styles.choiceButton}>
                     <Text style={styles.choiceButtonText}>有些没听清</Text>
                   </Pressable>
                 </View>
@@ -382,15 +394,24 @@ export function PracticeSessionModal({
                 />
               </View>
 
-              <Pressable onPress={() => setShowSentenceZh(prev => !prev)} style={styles.translationToggle}>
+              <Pressable onPress={() => {
+                triggerMediumHaptic();
+                setShowSentenceZh(prev => !prev);
+              }} style={styles.translationToggle}>
                 <Text style={styles.translationToggleText}>{showSentenceZh ? '隐藏中文' : '显示中文'}</Text>
               </Pressable>
 
               <View style={styles.controlsRow}>
-                <Pressable onPress={() => void playSentence(sentenceIndex)} style={styles.secondaryCircle}>
+                <Pressable onPress={() => {
+                  triggerMediumHaptic();
+                  void playSentence(sentenceIndex);
+                }} style={styles.secondaryCircle}>
                   <Text style={styles.secondaryCircleText}>重播</Text>
                 </Pressable>
-                <Pressable onPress={() => void togglePlay()} style={styles.secondaryCircle}>
+                <Pressable onPress={() => {
+                  triggerMediumHaptic();
+                  void togglePlay();
+                }} style={styles.secondaryCircle}>
                   <Text style={styles.secondaryCircleText}>{status.isPlaying ? '暂停' : '播放'}</Text>
                 </Pressable>
               </View>
@@ -398,6 +419,7 @@ export function PracticeSessionModal({
               <View style={styles.actionRow}>
                 <Pressable
                   onPress={() => {
+                    triggerUiFeedback('correct');
                     void pause();
                     const nextIndex = sentenceIndex + 1;
                     if (nextIndex < lineCount) {
@@ -418,6 +440,7 @@ export function PracticeSessionModal({
                 </Pressable>
                 <Pressable
                   onPress={() => {
+                    triggerUiFeedback('error');
                     void pause();
                     setHardSentences(prev => {
                       if (prev.includes(sentenceIndex)) return prev;
@@ -449,7 +472,10 @@ export function PracticeSessionModal({
 
           {step === 3 && flashLine ? (
             <View style={styles.centerBlock}>
-              <Pressable onPress={() => setFlashRevealed(true)} style={styles.flashCard}>
+              <Pressable onPress={() => {
+                triggerUiFeedback('card');
+                setFlashRevealed(true);
+              }} style={styles.flashCard}>
                 <Text style={styles.flashLabel}>难句 {flashCursor + 1} / {flashQueue.length}</Text>
                 <Text style={styles.flashEn}>{flashLine.en}</Text>
                 {flashRevealed ? (
@@ -468,6 +494,7 @@ export function PracticeSessionModal({
                     <Pressable
                       onPress={event => {
                         event.stopPropagation();
+                        triggerMediumHaptic();
                         void playSentence(flashLineIndex);
                       }}
                       style={styles.flashPlayButton}
@@ -483,6 +510,7 @@ export function PracticeSessionModal({
                 <View style={styles.actionRow}>
                   <Pressable
                     onPress={() => {
+                      triggerUiFeedback('correct');
                       const nextCursor = flashCursor + 1;
                       if (nextCursor < flashQueue.length) {
                         setFlashCursor(nextCursor);
@@ -496,6 +524,7 @@ export function PracticeSessionModal({
                   </Pressable>
                   <Pressable
                     onPress={() => {
+                      triggerUiFeedback('error');
                       setFlashQueue(prev => [...prev, flashLineIndex]);
                       const nextCursor = flashCursor + 1;
                       if (nextCursor < flashQueue.length + 1) {
@@ -546,11 +575,15 @@ export function PracticeSessionModal({
               </View>
 
               <View style={styles.controlsRow}>
-                <Pressable onPress={() => void togglePlay()} style={styles.secondaryCircle}>
+                <Pressable onPress={() => {
+                  triggerMediumHaptic();
+                  void togglePlay();
+                }} style={styles.secondaryCircle}>
                   <Text style={styles.secondaryCircleText}>{status.isPlaying ? '暂停' : '播放'}</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => {
+                    triggerMediumHaptic();
                     void pause();
                     finishPractice();
                   }}
@@ -580,10 +613,16 @@ export function PracticeSessionModal({
                 </View>
               </View>
               <View style={styles.summaryActions}>
-                <Pressable onPress={onReturnFeed} style={styles.summaryButton}>
+                <Pressable onPress={() => {
+                  triggerUiFeedback('menu');
+                  onReturnFeed();
+                }} style={styles.summaryButton}>
                   <Text style={styles.summaryButtonText}>回到 Feed</Text>
                 </Pressable>
-                <Pressable onPress={onDismiss} style={[styles.summaryButton, styles.summaryButtonPrimary]}>
+                <Pressable onPress={() => {
+                  triggerUiFeedback('primary');
+                  onDismiss();
+                }} style={[styles.summaryButton, styles.summaryButtonPrimary]}>
                   <Text style={[styles.summaryButtonText, styles.summaryButtonTextPrimary]}>再练一段</Text>
                 </Pressable>
               </View>
