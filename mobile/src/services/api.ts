@@ -13,7 +13,7 @@ import type {
 const runtimeEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
 export const API_BASE_URL = runtimeEnv?.EXPO_PUBLIC_API_BASE_URL || 'http://115.190.10.83/flipod-api';
 export const CONTENT_BASE_URL =
-  runtimeEnv?.EXPO_PUBLIC_CONTENT_BASE_URL || 'https://listendemo-1407168198.cos.ap-beijing.myqcloud.com';
+  runtimeEnv?.EXPO_PUBLIC_CONTENT_BASE_URL || 'https://sylvia10114.github.io/flipod';
 
 type RequestOptions = {
   deviceId?: string;

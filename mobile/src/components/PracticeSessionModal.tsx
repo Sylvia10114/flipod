@@ -1,7 +1,7 @@
 import { Audio, type AVPlaybackStatus } from 'expo-av';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   buildClipKey,
   findLineAtTime,
@@ -74,6 +74,7 @@ export function PracticeSessionModal({
   onDismiss,
   onReturnFeed,
 }: Props) {
+  const insets = useSafeAreaInsets();
   const soundRef = useRef<Audio.Sound | null>(null);
   const segmentEndRef = useRef<number | null>(null);
   const completionSavedRef = useRef(false);
@@ -378,8 +379,8 @@ export function PracticeSessionModal({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onDismiss}>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
+      <SafeAreaView edges={['bottom']} style={styles.safeArea}>
+        <View style={[styles.header, { paddingTop: Math.max(insets.top + 10, 26) }]}>
           <Pressable onPress={() => {
             triggerUiFeedback('menu');
             onDismiss();
@@ -401,7 +402,7 @@ export function PracticeSessionModal({
           </View>
         </View>
 
-        <ScrollView contentContainerStyle={styles.body}>
+        <ScrollView contentContainerStyle={[styles.body, { paddingBottom: Math.max(insets.bottom + 40, 40) }]}>
           {step === 1 ? (
             <View style={styles.centerBlock}>
               <View style={styles.sourceCard}>
