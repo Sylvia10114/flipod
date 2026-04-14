@@ -1,3 +1,5 @@
+import type { AVPlaybackSource } from 'expo-av';
+import { getBundledClipAudioAsset } from './audio-assets';
 import { CONTENT_BASE_URL } from './services/api';
 import type { Bookmark, Clip, ClipDifficulty, Level } from './types';
 
@@ -29,6 +31,18 @@ export function resolveClipAudioUrl(clip: Clip) {
   if (!raw) return '';
   if (/^https?:\/\//i.test(raw)) return raw;
   return `${CONTENT_BASE_URL}/${normalizeContentPath(raw)}`;
+}
+
+export function resolveClipAudioSource(clip: Clip): AVPlaybackSource | null {
+  const raw = clip.audio || '';
+  if (raw) {
+    const bundled = getBundledClipAudioAsset(raw);
+    if (bundled) return bundled;
+  }
+
+  const url = resolveClipAudioUrl(clip);
+  if (!url) return null;
+  return { uri: url };
 }
 
 export function resolveDataUrl() {

@@ -9,7 +9,7 @@ import {
   getSentenceMarkers,
   getSentenceRange,
   getSourceLabel,
-  resolveClipAudioUrl,
+  resolveClipAudioSource,
 } from '../clip-utils';
 import { triggerMediumHaptic, triggerUiFeedback } from '../feedback';
 import type { Clip, ClipLineWord, PracticeRecord, VocabEntry } from '../types';
@@ -194,8 +194,8 @@ export function PracticeSessionModal({
 
   const loadSound = useCallback(async () => {
     if (!clip || !visible) return;
-    const audioUrl = resolveClipAudioUrl(clip);
-    if (!audioUrl) {
+    const audioSource = resolveClipAudioSource(clip);
+    if (!audioSource) {
       setStatus({
         isPlaying: false,
         isLoading: false,
@@ -214,7 +214,7 @@ export function PracticeSessionModal({
     sound.setOnPlaybackStatusUpdate(handleStatus);
 
     await sound.loadAsync(
-      { uri: audioUrl },
+      audioSource,
       {
         shouldPlay: false,
         progressUpdateIntervalMillis: 120,

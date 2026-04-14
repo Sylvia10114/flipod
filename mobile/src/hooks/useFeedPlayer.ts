@@ -1,6 +1,6 @@
 import { Audio, type AVPlaybackStatus } from 'expo-av';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { findLineAtTime, findNextSentenceStart, findPrevSentenceStart, resolveClipAudioUrl } from '../clip-utils';
+import { findLineAtTime, findNextSentenceStart, findPrevSentenceStart, resolveClipAudioSource } from '../clip-utils';
 import type { Clip } from '../types';
 
 type PlayerState = {
@@ -109,8 +109,8 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
       return;
     }
 
-    const audioUrl = resolveClipAudioUrl(clip);
-    if (!audioUrl) {
+    const audioSource = resolveClipAudioSource(clip);
+    if (!audioSource) {
       setState(prev => ({
         ...prev,
         activeIndex: clipIndex,
@@ -144,7 +144,7 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
 
     try {
       await sound.loadAsync(
-        { uri: audioUrl },
+        audioSource,
         {
           shouldPlay,
           rate: playbackRateRef.current,
