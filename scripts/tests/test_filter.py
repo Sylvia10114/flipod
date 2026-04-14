@@ -31,8 +31,24 @@ class TestDurationCheck:
         assert _check_duration(cand, "Story") is not None
 
     def test_too_short(self):
-        cand = {"start_time": 0, "end_time": 45, "duration_sec": 45}
+        # v2: Business 下限放到 45s，所以 45s 应该通过、30s 才该淘汰
+        cand = {"start_time": 0, "end_time": 30, "duration_sec": 30}
         assert _check_duration(cand, "Business") is not None
+
+    def test_business_45s_pass_v2(self):
+        # v2: Business 45s 应该通过（v1 误杀的 Bloomberg 55s/Short Wave 54s 同理放行）
+        cand = {"start_time": 0, "end_time": 45, "duration_sec": 45}
+        assert _check_duration(cand, "Business") is None
+
+    def test_science_50s_pass_v2(self):
+        # v2: Science 50s 应该通过
+        cand = {"start_time": 0, "end_time": 50, "duration_sec": 50}
+        assert _check_duration(cand, "Science") is None
+
+    def test_tech_50s_still_fail_v2(self):
+        # v2: Tech 仍然 60s 下限，50s 应该淘汰
+        cand = {"start_time": 0, "end_time": 50, "duration_sec": 50}
+        assert _check_duration(cand, "Tech") is not None
 
 
 # ── Rule 2: Start blacklist ───────────────────────────────────

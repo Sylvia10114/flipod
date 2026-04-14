@@ -131,6 +131,45 @@ def batch_cefr_annotation(lines):
     return lines
 
 
+def infer_difficulty(lines):
+    """从 clip 的 CEFR 词分布反推整体难度（B1 / B1+ / B2 / B2+ / C1）。
+
+    设计：基于"已知 CEFR 等级的单词"在 clip 中的占比来估，
+    专有名词（cefr=None）和单字母词不计入分母。
+
+    阈值是首版经验值，建议产出第一批 dry-run/补齐后回看校准。
+    优先用"高难度词占比"做主信号，因为 B1-B2 的用户感知差异主要来自
+    "突然冒出来的不认识的词"，而不是平均难度。
+
+    Returns: 'B1' / 'B1+' / 'B2' / 'B2+' / 'C1'
+    """
+    counts = {"A1": 0, "A2": 0, "B1": 0, "B2": 0, "C1": 0, "C2": 0}
+    total = 0
+    for line in lines:
+        for w in line.get("words", []):
+            level = w.get("cefr")
+            if level in counts:
+                counts[level] += 1
+                total += 1
+    if total == 0:
+        return "B1+"  # 没有标注就回退默认值
+
+    pct_b2 = counts["B2"] / total * 100
+    pct_c1_plus = (counts["C1"] + counts["C2"]) / total * 100
+    pct_advanced = (counts["B2"] + counts["C1"] + counts["C2"]) / total * 100
+
+    # 阶梯式判断（从难到易）
+    if pct_c1_plus >= 8:
+        return "C1"
+    if pct_c1_plus >= 4 or pct_b2 >= 30:
+        return "B2+"
+    if pct_c1_plus >= 2 or pct_b2 >= 20:
+        return "B2"
+    if pct_b2 >= 12 or pct_advanced >= 35:
+        return "B1+"
+    return "B1"
+
+
 def save_cefr_cache(scripts_dir=None):
     """Persist accumulated CEFR word map to disk."""
     if not CEFR_WORD_MAP:

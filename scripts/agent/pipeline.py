@@ -14,13 +14,13 @@ from .transcribe import transcribe_audio
 from .segmentation import select_segments, classify_episode
 from .filter import filter_candidates
 from .audio_cut import cut_audio
-from .cefr import batch_cefr_annotation
+from .cefr import batch_cefr_annotation, infer_difficulty
 from .translate import translate_lines
 from .output import (
     extract_clip_words, extract_collocations,
     generate_comprehension_questions, validate_questions,
 )
-from ..prompts.loader import PROMPT_VERSION
+from prompts.loader import PROMPT_VERSION
 
 
 def process_episode(episode, tmp_dir, output_dir, clip_id_start,
@@ -59,6 +59,7 @@ def process_episode(episode, tmp_dir, output_dir, clip_id_start,
         return clips
 
     words = transcript.get("words", [])
+    segments = transcript.get("segments", [])
     duration_minutes = (words[-1]["end"] / 60.0) if words else 0
 
     step_start("identify")
@@ -71,13 +72,26 @@ def process_episode(episode, tmp_dir, output_dir, clip_id_start,
     if id_time:
         log(f"  ⏱ 片段识别耗时: {id_time}s", "info")
 
-    # Attach text to candidates for filtering
+    # Attach text to candidates for filtering.
+    # IMPORTANT: Whisper word-level output 没有标点，segment-level 有标点（CLAUDE.md 第 37 行）。
+    # filter._check_end_completeness 检查句末标点，必须用 segment 级 text 才准确。
+    # 做法：按候选的时间范围找 overlapping segments，取它们的 text 字段拼接。
+    # 若本集 transcript 不带 segments（历史缓存），回退到 word-level 拼接。
     for cand in candidates:
         st, et = cand.get("start_time", 0), cand.get("end_time", 0)
-        cand_words = [w.get("word", "") for w in words
-                      if w.get("start", 0) >= st - 0.1 and w.get("end", 0) <= et + 0.1]
-        cand["text"] = " ".join(cand_words)
         cand["duration_sec"] = cand.get("duration_sec", et - st)
+
+        if segments:
+            # 选中与候选区间有重叠的 segment：seg.start < et 且 seg.end > st
+            cand_segs = [
+                s for s in segments
+                if s.get("start", 0) < et and s.get("end", 0) > st
+            ]
+            cand["text"] = " ".join(s.get("text", "").strip() for s in cand_segs).strip()
+        else:
+            cand_words = [w.get("word", "") for w in words
+                          if w.get("start", 0) >= st - 0.1 and w.get("end", 0) <= et + 0.1]
+            cand["text"] = " ".join(cand_words)
 
     step_start("filter")
     filtered = filter_candidates(candidates, episode["local_audio"], tier, clips_per_episode)
@@ -122,8 +136,11 @@ def process_episode(episode, tmp_dir, output_dir, clip_id_start,
 
         clip_filename = f"clips/clip_{clip_id:03d}.mp3"
         clip_path = os.path.join(output_dir, clip_filename)
+        # P3 修复：actual_start/actual_end 已经在句子边界（来自 extract_clip_words），
+        # 不再传 segments 让 cut_audio 二次 snap，避免音频比 lines 多出 0-2s 没字幕的内容。
+        # 等到第一批补齐稳定后再考虑做"snap 后重对齐 lines"的进阶版。
         if not cut_audio(episode["local_audio"], actual_start, actual_end,
-                         clip_path, segments=transcript.get("segments")):
+                         clip_path):
             continue
 
         lines = batch_cefr_annotation(lines)
@@ -148,8 +165,11 @@ def process_episode(episode, tmp_dir, output_dir, clip_id_start,
             "tag": tier,
             "audio": clip_filename,
             "duration": round(duration, 1),
-            "difficulty": "B1+",
-            "info_takeaway": seg.get("reason", ""),
+            # P1 修复：从 CEFR 词分布反推，不再硬编码 B1+
+            "difficulty": infer_difficulty(lines),
+            # P2 修复：info_takeaway 用 prompt 的同名字段（"用户能学到啥"），
+            # 不再回退 reason（reason 是审核用的"为啥被选中"，语义不同）。
+            "info_takeaway": seg.get("info_takeaway") or seg.get("reason", ""),
             "source": {
                 "podcast": episode.get("podcast_name", ""),
                 "episode": episode.get("title", ""),

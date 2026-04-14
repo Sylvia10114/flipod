@@ -55,22 +55,33 @@ AD_PATTERN = re.compile(
 
 HOOK_STRENGTH_ORDER = {"high": 0, "medium": 1, "low": 2}
 
+# Per-tier duration bounds (seconds).
+# v2 spec: Science/Business 放宽到 45s 下限（短而锐利的 hook 比 60s 强行凑足更值）；
+# Tech/Culture/Psychology 保持 60s 下限（更需要展开）；
+# Story 上限 150s（完整叙事弧线需要空间）。
+DURATION_LIMITS = {
+    "Science":    (45, 120),
+    "Business":   (45, 120),
+    "Tech":       (60, 120),
+    "Psychology": (60, 120),
+    "Culture":    (60, 120),
+    "Story":      (60, 150),
+}
+DEFAULT_DURATION_LIMIT = (60, 120)  # Fallback for unknown tier
+
 
 # ── Individual checks ──────────────────────────────────────────
 
 def _check_duration(candidate, tier):
-    """Check 1: Duration within tier-specific bounds."""
+    """Check 1: Duration within tier-specific bounds (v2: per-tier)."""
     duration = candidate.get("duration_sec", 0)
     if duration <= 0:
         # Compute from times
         duration = candidate.get("end_time", 0) - candidate.get("start_time", 0)
 
-    if tier == "Story":
-        if duration < 60 or duration > 150:
-            return f"duration_out_of_range_{duration:.0f}s_story"
-    else:
-        if duration < 60 or duration > 120:
-            return f"duration_out_of_range_{duration:.0f}s"
+    lo, hi = DURATION_LIMITS.get(tier, DEFAULT_DURATION_LIMIT)
+    if duration < lo or duration > hi:
+        return f"duration_out_of_range_{duration:.0f}s_{tier.lower() or 'unknown'}_({lo}-{hi})"
     return None
 
 
@@ -126,14 +137,22 @@ def _check_start(candidate):
 
 
 def _check_end_completeness(candidate):
-    """Check 3: Last word ends with sentence-ending punctuation and not a dangling word."""
+    """Check 3: Last word ends with sentence-ending punctuation and not a dangling word.
+
+    Patch B (2026-04-14): 在末尾 8 字符内扫描句末标点，而不是只看最后 1 字。
+    动机：即使 text 来自 segment 级（带标点），Whisper 的 segment 边界与候选
+    时间窗不一定精确对齐——候选末尾词可能比最近一个句号晚 1-2 个 token。
+    只看最后 1 字会误杀明显完整的句子（实测 dry-run 里 25 个 end_no_punct 拒绝
+    目测 ~17 个是完整句）。
+    """
     text = _get_candidate_text(candidate)
     text = text.rstrip()
     if not text:
         return None
 
-    # Check last character is sentence-ending
-    if text[-1] not in '.!?\'"':
+    # Scan the last 8 chars (or whole text if shorter) for a sentence-ending mark.
+    tail = text[-8:]
+    if not any(ch in '.!?"' or ch == "'" for ch in tail):
         return "end_no_punctuation"
 
     # Check last word isn't a dangling connector

@@ -7,7 +7,7 @@ Output: list of candidate segment dicts
 import json
 
 from .utils import log, call_gpt, strip_markdown_fences
-from ..prompts.loader import (
+from prompts.loader import (
     build_segment_prompt,
     EPISODE_CLASSIFY_PROMPT,
     PROMPT_VERSION,
