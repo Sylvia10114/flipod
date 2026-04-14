@@ -953,7 +953,7 @@ export default function App() {
       <LibraryScreen
         bookmarks={bookmarks}
         onRemove={handleRemoveBookmark}
-        onOpenMenu={() => setMenuOpen(true)}
+        onBack={() => setActiveScreen('feed')}
       />
     );
   } else if (activeScreen === 'practice') {
@@ -966,12 +966,12 @@ export default function App() {
         practiceData={practiceData}
         showIntro={!settings.practiceIntroSeen}
         onDismissIntro={handleDismissPracticeIntro}
-        onOpenMenu={() => setMenuOpen(true)}
+        onBackToFeed={() => setActiveScreen('feed')}
         onStartPractice={handleStartPractice}
       />
     );
   } else if (activeScreen === 'vocab') {
-    content = <VocabScreen vocabList={vocabList} onOpenMenu={() => setMenuOpen(true)} />;
+    content = <VocabScreen vocabList={vocabList} onBack={() => setActiveScreen('feed')} />;
   } else {
     content = (
       <FeedScreen

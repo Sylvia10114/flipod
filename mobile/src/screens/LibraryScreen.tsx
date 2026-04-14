@@ -8,16 +8,16 @@ import type { Bookmark } from '../types';
 type Props = {
   bookmarks: Bookmark[];
   onRemove: (clipKey: string) => void;
-  onOpenMenu: () => void;
+  onBack: () => void;
 };
 
-export function LibraryScreen({ bookmarks, onRemove, onOpenMenu }: Props) {
+export function LibraryScreen({ bookmarks, onRemove, onBack }: Props) {
   return (
     <ScreenSurface>
       <ScreenHeader
-        leading={<PillButton label="menu" onPress={() => {
+        leading={<PillButton label="返回" onPress={() => {
           triggerUiFeedback('menu');
-          onOpenMenu();
+          onBack();
         }} />}
         title="我的收藏"
         subtitle="留给反复听和后面精听的片段"

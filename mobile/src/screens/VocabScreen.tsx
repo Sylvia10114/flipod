@@ -7,16 +7,16 @@ import type { VocabEntry } from '../types';
 
 type Props = {
   vocabList: VocabEntry[];
-  onOpenMenu: () => void;
+  onBack: () => void;
 };
 
-export function VocabScreen({ vocabList, onOpenMenu }: Props) {
+export function VocabScreen({ vocabList, onBack }: Props) {
   return (
     <ScreenSurface>
       <ScreenHeader
-        leading={<PillButton label="menu" onPress={() => {
+        leading={<PillButton label="返回" onPress={() => {
           triggerUiFeedback('menu');
-          onOpenMenu();
+          onBack();
         }} />}
         title="词汇本"
         subtitle="Feed 点词和 Practice 查词都会沉淀在这里"

@@ -12,6 +12,7 @@ import {
   type ViewToken,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   buildClipKey,
@@ -214,12 +215,6 @@ export function FeedScreen({
   const currentTime = positionMillis / 1000;
   const progress = durationMillis > 0 ? positionMillis / durationMillis : 0;
   const currentSentenceRange = currentClip ? getSentenceRange(currentClip, activeLineIndex) : null;
-  const feedHint = useMemo(() => {
-    if (feedState === 'loading') return 'AI 正在为你排列内容';
-    if (feedState === 'rerank') return '刚刚根据你的行为微调了顺序';
-    if (feedState === 'fallback') return '当前使用本地预置内容';
-    return recoTag ? `你最近更常点开 ${recoTag}` : '已经按你的偏好排好了';
-  }, [feedState, recoTag]);
   const cefrSegments = useMemo(() => {
     const buckets = { a12: 0, b1: 0, b2plus: 0 };
     vocabEntries.forEach(entry => {
@@ -391,10 +386,18 @@ export function FeedScreen({
                       onPress={() => onToggleLike(clip, index)}
                       style={styles.sideButton}
                     >
-                      <Feather name="heart" size={20} color={liked ? colors.textPrimary : colors.textTertiary} />
+                      <Ionicons
+                        name={liked ? 'heart' : 'heart-outline'}
+                        size={24}
+                        color={liked ? colors.textPrimary : colors.textTertiary}
+                      />
                     </Pressable>
                     <Pressable onPress={() => onToggleBookmark(clip, index)} style={styles.sideButton}>
-                      <Feather name="bookmark" size={20} color={saved ? colors.textPrimary : colors.textTertiary} />
+                      <Ionicons
+                        name={saved ? 'bookmark' : 'bookmark-outline'}
+                        size={24}
+                        color={saved ? colors.textPrimary : colors.textTertiary}
+                      />
                     </Pressable>
                   </View>
 
@@ -420,7 +423,6 @@ export function FeedScreen({
                       />
                     ) : null}
                     {!showZh ? <View style={styles.translationBar} /> : null}
-                    <Text style={styles.feedHint}>{feedHint}</Text>
                     {isActive && errorMessage ? <Text style={styles.audioStateError}>{errorMessage}</Text> : null}
                     {isActive && !errorMessage && isLoading ? <Text style={styles.audioStateHint}>音频加载中...</Text> : null}
                   </View>
@@ -528,11 +530,6 @@ const styles = StyleSheet.create({
     fontSize: typography.caption,
     textAlign: 'center',
   },
-  feedHint: {
-    color: colors.textTertiary,
-    fontSize: typography.micro,
-    textAlign: 'center',
-  },
   controlsWrap: {
     width: layout.playerContentWidth,
     gap: spacing.sm,
@@ -546,7 +543,7 @@ const styles = StyleSheet.create({
   },
   sideRail: {
     position: 'absolute',
-    bottom: 18,
+    bottom: -18,
     gap: spacing.sm,
   },
   sideRailLeft: {
@@ -556,8 +553,8 @@ const styles = StyleSheet.create({
     right: 0,
   },
   sideButton: {
-    width: 28,
-    height: 28,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },

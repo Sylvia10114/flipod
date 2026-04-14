@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { formatTime } from '../clip-utils';
 import { colors, radii, spacing, typography } from '../design';
 import { triggerMediumHaptic } from '../feedback';
@@ -27,19 +28,40 @@ type Props = {
 };
 
 type TransportButtonProps = {
-  icon: React.ComponentProps<typeof Feather>['name'];
+  icon: React.ComponentProps<typeof Feather>['name'] | 'play' | 'pause';
   onPress: () => void;
   primary?: boolean;
 };
 
 function TransportButton({ icon, onPress, primary = false }: TransportButtonProps) {
-  return (
-    <Pressable onPress={onPress} style={[styles.transportButton, primary && styles.transportButtonPrimary]}>
+  const content = (() => {
+    if (icon === 'play') {
+      return (
+        <Ionicons
+          name="play"
+          size={28}
+          color={colors.textOnAccent}
+          style={styles.primaryPlayIcon}
+        />
+      );
+    }
+
+    if (icon === 'pause') {
+      return <Ionicons name="pause" size={24} color={colors.textOnAccent} />;
+    }
+
+    return (
       <Feather
         name={icon}
         size={primary ? 22 : 20}
         color={primary ? colors.textOnAccent : colors.textSecondary}
       />
+    );
+  })();
+
+  return (
+    <Pressable onPress={onPress} style={[styles.transportButton, primary && styles.transportButtonPrimary]}>
+      {content}
     </Pressable>
   );
 }
@@ -106,7 +128,7 @@ export function PlayerControls({
           }}
           style={[styles.utilityButton, showZh && styles.utilityButtonActive]}
         >
-          <Feather name="eye" size={14} color={showZh ? colors.textPrimary : colors.textTertiary} />
+          <Feather name="eye" size={18} color={showZh ? colors.textPrimary : colors.textTertiary} />
         </Pressable>
         <Pressable
           onPress={() => {
@@ -166,6 +188,9 @@ const styles = StyleSheet.create({
     height: 58,
     backgroundColor: colors.accentFeed,
   },
+  primaryPlayIcon: {
+    transform: [{ translateX: 2 }],
+  },
   transportButtonText: {
     color: colors.textSecondary,
     fontSize: typography.title,
@@ -178,17 +203,19 @@ const styles = StyleSheet.create({
   utilityRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: spacing.sm,
+    marginTop: 6,
+    gap: spacing.lg,
   },
   utilityRowLeft: {
     flexDirection: 'row-reverse',
   },
   utilityButton: {
-    minWidth: 24,
+    minWidth: 42,
+    minHeight: 36,
     borderRadius: radii.pill,
     backgroundColor: 'transparent',
-    paddingVertical: 2,
-    paddingHorizontal: 2,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -197,7 +224,7 @@ const styles = StyleSheet.create({
   },
   utilityButtonText: {
     color: colors.textTertiary,
-    fontSize: typography.micro,
+    fontSize: typography.body,
     fontWeight: '600',
   },
   utilityButtonTextActive: {

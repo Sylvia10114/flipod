@@ -37,7 +37,7 @@ type Props = {
   practiceData: PracticeMap;
   showIntro: boolean;
   onDismissIntro: () => void;
-  onOpenMenu: () => void;
+  onBackToFeed: () => void;
   onStartPractice: (clipIndex: number) => void;
 };
 
@@ -49,7 +49,7 @@ export function PracticeScreen({
   practiceData,
   showIntro,
   onDismissIntro,
-  onOpenMenu,
+  onBackToFeed,
   onStartPractice,
 }: Props) {
   const unpracticedCount = useMemo(() => {
@@ -137,9 +137,9 @@ export function PracticeScreen({
   return (
     <ScreenSurface>
       <ScreenHeader
-        leading={<PillButton label="menu" onPress={() => {
+        leading={<PillButton label="返回" onPress={() => {
           triggerUiFeedback('menu');
-          onOpenMenu();
+          onBackToFeed();
         }} />}
         title="听力练习"
         subtitle="先盲听，再精听，再回到整段"
