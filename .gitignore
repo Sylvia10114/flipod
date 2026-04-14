@@ -1,5 +1,4 @@
-# Audio files (too large for git)
-*.mp3
+# Audio intermediates
 *.mp3.bad
 
 # Data backups
