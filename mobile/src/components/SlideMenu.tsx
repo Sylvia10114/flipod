@@ -1,6 +1,8 @@
 import React from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActionButton, GlassCard } from './AppChrome';
+import { colors, radii, spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
 import type { DominantHand, LinkedIdentity, Profile } from '../types';
 
@@ -36,11 +38,7 @@ function MenuItem({ label, count, active, onPress }: MenuItemProps) {
   return (
     <Pressable onPress={onPress} style={[styles.menuItem, active && styles.menuItemActive]}>
       <Text style={[styles.menuItemText, active && styles.menuItemTextActive]}>{label}</Text>
-      {typeof count === 'number' ? (
-        <View style={[styles.badge, active && styles.badgeActive]}>
-          <Text style={[styles.badgeText, active && styles.badgeTextActive]}>{count}</Text>
-        </View>
-      ) : null}
+      {typeof count === 'number' ? <Text style={[styles.menuItemCount, active && styles.menuItemTextActive]}>{count}</Text> : null}
     </Pressable>
   );
 }
@@ -67,45 +65,36 @@ export function SlideMenu({
   const hasPhone = linkedIdentities.some(item => item.provider === 'phone');
   const hasApple = linkedIdentities.some(item => item.provider === 'apple');
   const primaryIdentity = linkedIdentities[0];
+  const interestText = profile.interests.length > 0 ? profile.interests.join(', ') : '未设置兴趣';
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <Pressable
-          style={styles.backdrop}
-          onPress={() => {
-            triggerUiFeedback('menu');
-            onClose();
-          }}
-        />
-        <SafeAreaView style={[styles.sheetWrap, dominantHand === 'left' ? styles.sheetWrapRight : styles.sheetWrapLeft]}>
-          <View
-            style={[
-              styles.sheet,
-              {
-                paddingTop: Math.max(insets.top, 18) + 10,
-                paddingBottom: Math.max(insets.bottom, 24),
-              },
-            ]}
-          >
-            <ScrollView
-              style={styles.scroll}
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-              bounces={false}
-            >
+        <Pressable style={styles.backdrop} onPress={onClose} />
+        <SafeAreaView
+          style={[
+            styles.sheetWrap,
+            dominantHand === 'left' ? styles.sheetWrapRight : styles.sheetWrapLeft,
+            { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 20) },
+          ]}
+        >
+          <View style={styles.sheet}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
               <View style={styles.header}>
-                <View>
+                <View style={styles.headerCopy}>
                   <Text style={styles.greeting}>
                     {primaryIdentity?.provider === 'phone' ? primaryIdentity.displayValue : 'Hi, Learner'}
                   </Text>
                   <Text style={styles.meta}>{profile.level || 'B1'} · 已听 {clipsPlayed} 个片段</Text>
                 </View>
-                <Pressable onPress={() => {
-                  triggerUiFeedback('menu');
-                  onClose();
-                }} style={styles.closeButton}>
-                  <Text style={styles.closeButtonText}>关闭</Text>
+                <Pressable
+                  onPress={() => {
+                    triggerUiFeedback('menu');
+                    onClose();
+                  }}
+                  style={styles.closeButton}
+                >
+                  <Text style={styles.closeButtonText}>x</Text>
                 </Pressable>
               </View>
 
@@ -147,64 +136,50 @@ export function SlideMenu({
                 />
               </View>
 
-              <View style={styles.profileCard}>
-                <Text style={styles.profileLabel}>学习偏好</Text>
-                <Text style={styles.profileValue}>等级：{profile.level || '--'}</Text>
-                <Text style={styles.profileTags}>{profile.interests.join(' · ') || '未设置兴趣'}</Text>
-              </View>
+              <GlassCard style={styles.profileCard}>
+                <Text style={styles.cardLabel}>学习偏好</Text>
+                <Text style={styles.cardValue}>CEFR: {profile.level || 'B1'}</Text>
+                <Text style={styles.cardMeta}>{interestText}</Text>
+              </GlassCard>
 
-              <View style={styles.accountCard}>
-                <Text style={styles.profileLabel}>账号</Text>
-                <Text style={styles.accountMeta}>
+              <GlassCard style={styles.accountCard}>
+                <Text style={styles.cardLabel}>账号</Text>
+                <Text style={styles.cardMeta}>
                   {linkedIdentities.length > 0
                     ? linkedIdentities.map(item => item.provider === 'phone' ? item.displayValue : 'Apple').join(' · ')
                     : '未绑定登录方式'}
                 </Text>
                 <View style={styles.accountActions}>
-                  {!hasPhone ? (
-                    <Pressable onPress={() => {
-                      triggerUiFeedback('primary');
-                      onLinkPhone();
-                    }} style={styles.accountButton}>
-                      <Text style={styles.accountButtonText}>绑定手机号</Text>
-                    </Pressable>
-                  ) : null}
-                  {!hasApple ? (
-                    <Pressable onPress={() => {
-                      triggerUiFeedback('primary');
-                      onLinkApple();
-                    }} style={styles.accountButton}>
-                      <Text style={styles.accountButtonText}>绑定 Apple</Text>
-                    </Pressable>
-                  ) : null}
+                  {!hasPhone ? <ActionButton label="绑定手机号" variant="secondary" onPress={onLinkPhone} style={styles.accountButton} /> : null}
+                  {!hasApple ? <ActionButton label="绑定 Apple" variant="secondary" onPress={onLinkApple} style={styles.accountButton} /> : null}
                 </View>
-                <View style={styles.logoutPanel}>
-                  <View style={styles.logoutCopy}>
-                    <Text style={styles.logoutTitle}>退出当前账号</Text>
-                    <Text style={styles.logoutHint}>会保留这台手机的设备标识和基础设置，重新登录后可以恢复学习进度。</Text>
-                  </View>
-                  <Pressable onPress={() => {
-                    triggerUiFeedback('error');
-                    onLogout();
-                  }} style={styles.logoutButton}>
-                    <Text style={styles.logoutButtonText}>退出登录</Text>
-                  </Pressable>
-                </View>
-              </View>
+              </GlassCard>
 
               <View style={styles.footer}>
-                <Pressable onPress={() => {
-                  triggerUiFeedback('menu');
-                  onToggleHand();
-                }} style={styles.footerButton}>
-                  <Text style={styles.footerButtonText}>{dominantHand === 'left' ? '切回右手模式' : '左手模式'}</Text>
-                </Pressable>
-                <Pressable onPress={() => {
-                  triggerUiFeedback('menu');
-                  onResetOnboarding();
-                }} style={styles.footerButton}>
-                  <Text style={styles.footerButtonText}>重置引导</Text>
-                </Pressable>
+                <ActionButton
+                  label={dominantHand === 'left' ? '切回右手模式' : '左手模式'}
+                  variant="secondary"
+                  onPress={() => {
+                    triggerUiFeedback('menu');
+                    onToggleHand();
+                  }}
+                />
+                <ActionButton
+                  label="重置引导"
+                  variant="secondary"
+                  onPress={() => {
+                    triggerUiFeedback('menu');
+                    onResetOnboarding();
+                  }}
+                />
+                <ActionButton
+                  label="退出登录"
+                  variant="danger"
+                  onPress={() => {
+                    triggerUiFeedback('error');
+                    onLogout();
+                  }}
+                />
               </View>
             </ScrollView>
           </View>
@@ -217,14 +192,14 @@ export function SlideMenu({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.46)',
+    backgroundColor: 'rgba(0,0,0,0.52)',
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
   },
   sheetWrap: {
     flex: 1,
-    maxWidth: 360,
+    maxWidth: 320,
   },
   sheetWrapLeft: {
     alignSelf: 'flex-start',
@@ -234,197 +209,104 @@ const styles = StyleSheet.create({
   },
   sheet: {
     flex: 1,
-    backgroundColor: '#101018',
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    paddingHorizontal: 18,
-  },
-  scroll: {
-    flex: 1,
+    backgroundColor: '#141418',
+    borderRightWidth: 1,
+    borderRightColor: colors.stroke,
+    paddingHorizontal: spacing.lg,
   },
   scrollContent: {
-    flexGrow: 1,
+    gap: spacing.lg,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    paddingTop: 12,
+  },
+  headerCopy: {
+    flex: 1,
+    gap: 4,
   },
   greeting: {
-    color: '#FFFFFF',
-    fontSize: 22,
+    color: colors.textPrimary,
+    fontSize: 24,
     fontWeight: '700',
   },
   meta: {
-    color: 'rgba(255,255,255,0.56)',
-    fontSize: 13,
-    marginTop: 4,
+    color: colors.textSecondary,
+    fontSize: typography.caption,
   },
   closeButton: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    width: 30,
+    height: 30,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.bgSurface2,
   },
   closeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
+    color: colors.textSecondary,
+    fontSize: typography.bodyLg,
+    fontWeight: '700',
   },
   menuList: {
-    marginTop: 26,
-    gap: 10,
+    gap: spacing.xs,
   },
   menuItem: {
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    minHeight: 46,
+    borderRadius: radii.md,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   menuItemActive: {
-    borderColor: '#8B9CF7',
-    backgroundColor: 'rgba(139,156,247,0.14)',
+    backgroundColor: colors.bgSurface2,
   },
   menuItemText: {
-    color: '#FFFFFF',
-    fontSize: 15,
+    color: colors.textSecondary,
+    fontSize: typography.body,
     fontWeight: '600',
   },
   menuItemTextActive: {
-    color: '#E7EAFF',
+    color: colors.textPrimary,
   },
-  badge: {
-    minWidth: 30,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center',
-  },
-  badgeActive: {
-    backgroundColor: '#8B9CF7',
-  },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
+  menuItemCount: {
+    color: colors.textTertiary,
+    fontSize: typography.caption,
     fontWeight: '700',
-  },
-  badgeTextActive: {
-    color: '#09090B',
   },
   profileCard: {
-    marginTop: 22,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-    backgroundColor: 'rgba(139,156,247,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,156,247,0.22)',
-    gap: 8,
-  },
-  profileLabel: {
-    color: '#8B9CF7',
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  profileValue: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  profileTags: {
-    color: 'rgba(255,255,255,0.56)',
-    fontSize: 13,
-    lineHeight: 18,
+    gap: spacing.sm,
   },
   accountCard: {
-    marginTop: 18,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    gap: 10,
+    gap: spacing.sm,
   },
-  accountMeta: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
+  cardLabel: {
+    color: colors.textTertiary,
+    fontSize: typography.micro,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+  },
+  cardValue: {
+    color: colors.textPrimary,
+    fontSize: typography.title,
+    fontWeight: '700',
+  },
+  cardMeta: {
+    color: colors.textSecondary,
+    fontSize: typography.body,
     lineHeight: 20,
   },
   accountActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    gap: spacing.sm,
   },
   accountButton: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(139,156,247,0.16)',
-  },
-  accountButtonText: {
-    color: '#E7EAFF',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  logoutPanel: {
-    marginTop: 4,
-    borderRadius: 18,
-    padding: 14,
-    backgroundColor: 'rgba(248,113,113,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(248,113,113,0.18)',
-    gap: 12,
-  },
-  logoutCopy: {
-    gap: 6,
-  },
-  logoutTitle: {
-    color: '#FECACA',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  logoutHint: {
-    color: 'rgba(255,255,255,0.58)',
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  logoutButton: {
-    borderRadius: 14,
-    paddingVertical: 13,
-    alignItems: 'center',
-    backgroundColor: 'rgba(248,113,113,0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(248,113,113,0.22)',
-  },
-  logoutButtonText: {
-    color: '#FCA5A5',
-    fontSize: 14,
-    fontWeight: '700',
+    minHeight: 42,
   },
   footer: {
-    marginTop: 'auto',
-    paddingTop: 18,
-    gap: 10,
-  },
-  footerButton: {
-    borderRadius: 16,
-    paddingVertical: 15,
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  footerButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
+    gap: spacing.sm,
+    paddingBottom: spacing.lg,
   },
 });

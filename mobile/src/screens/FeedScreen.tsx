@@ -11,6 +11,7 @@ import {
   type ListRenderItemInfo,
   type ViewToken,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   buildClipKey,
@@ -18,12 +19,19 @@ import {
   getSourceLabel,
   getWordTimestamp,
 } from '../clip-utils';
-import { triggerUiFeedback } from '../feedback';
-import { RecoCard, ReviewCard } from '../components/FeedCards';
+import {
+  GlassCard,
+  PillButton,
+  PlayerLayout,
+  ScreenSurface,
+} from '../components/AppChrome';
+import { ProgressCard, ReviewCard } from '../components/FeedCards';
 import { PlayerControls } from '../components/PlayerControls';
 import { ProgressBar } from '../components/ProgressBar';
 import { WordLine } from '../components/WordLine';
 import { WordPopup } from '../components/WordPopup';
+import { colors, layout, radii, spacing, typography } from '../design';
+import { triggerUiFeedback } from '../feedback';
 import { useFeedPlayer } from '../hooks/useFeedPlayer';
 import type {
   Clip,
@@ -47,6 +55,7 @@ type Props = {
   bookmarkedKeys: string[];
   likedKeys: string[];
   recoTag: string | null;
+  minutesListened: number;
   reviewState: ReviewState;
   vocabEntries: VocabEntry[];
   vocabWords: string[];
@@ -85,12 +94,12 @@ type FeedReviewPage = {
   entry: VocabEntry;
 };
 
-type FeedRecoPage = {
-  type: 'reco';
+type FeedProgressPage = {
+  type: 'progress';
   key: string;
 };
 
-type FeedPage = FeedClipPage | FeedReviewPage | FeedRecoPage;
+type FeedPage = FeedClipPage | FeedReviewPage | FeedProgressPage;
 
 export function FeedScreen({
   clips,
@@ -101,6 +110,7 @@ export function FeedScreen({
   bookmarkedKeys,
   likedKeys,
   recoTag,
+  minutesListened,
   reviewState,
   vocabEntries,
   vocabWords,
@@ -113,7 +123,6 @@ export function FeedScreen({
   onRecordWordLookup,
   onReviewAction,
   onOpenMenu,
-  onPromoteInterest,
   onPlaybackRateChange,
   onClipPlayed,
 }: Props) {
@@ -146,7 +155,11 @@ export function FeedScreen({
   } = useFeedPlayer(data, playbackRate);
 
   const dismissCard = useCallback((key: string) => {
-    setDismissedCards(prev => new Set(prev).add(key));
+    setDismissedCards(prev => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
   }, []);
 
   const reviewEntries = useMemo(() => {
@@ -161,10 +174,10 @@ export function FeedScreen({
       })
       .filter(entry => !dismissedCards.has(`review:${entry.word.toLowerCase()}`))
       .sort((a, b) => getWordTimestamp(a) - getWordTimestamp(b))
-      .slice(0, 3);
+      .slice(0, 2);
   }, [dismissedCards, reviewState, vocabEntries]);
 
-  const shouldShowReco = clipsPlayed >= 3 && Boolean(recoTag) && !dismissedCards.has('reco');
+  const showProgressCard = clipsPlayed > 0 && !dismissedCards.has('progress');
   const feedPages = useMemo<FeedPage[]>(() => {
     const pages: FeedPage[] = [];
     let reviewIndex = 0;
@@ -177,19 +190,12 @@ export function FeedScreen({
         clipIndex,
       });
 
-      if (clipIndex === 2 && shouldShowReco) {
-        pages.push({
-          type: 'reco',
-          key: 'reco',
-        });
+      if (clipIndex === 1 && showProgressCard) {
+        pages.push({ type: 'progress', key: 'progress' });
       }
 
       const clipCounter = clipIndex + 1;
-      if (
-        clipCounter > 0 &&
-        clipCounter % 4 === 0 &&
-        reviewIndex < reviewEntries.length
-      ) {
+      if (clipCounter > 0 && clipCounter % 4 === 0 && reviewIndex < reviewEntries.length) {
         const entry = reviewEntries[reviewIndex++];
         pages.push({
           type: 'review',
@@ -200,7 +206,7 @@ export function FeedScreen({
     });
 
     return pages;
-  }, [data, reviewEntries, shouldShowReco]);
+  }, [data, reviewEntries, showProgressCard]);
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 75 });
   const transcriptClip = typeof transcriptIndex === 'number' ? data[transcriptIndex] : null;
@@ -209,11 +215,29 @@ export function FeedScreen({
   const progress = durationMillis > 0 ? positionMillis / durationMillis : 0;
   const currentSentenceRange = currentClip ? getSentenceRange(currentClip, activeLineIndex) : null;
   const feedHint = useMemo(() => {
-    if (feedState === 'loading') return 'AI 正在为你排列内容...';
-    if (feedState === 'rerank') return '刚刚根据你的表现重新调整了顺序';
-    if (feedState === 'fallback') return '这几条已经替你排好了';
-    return '已根据你的偏好排列';
-  }, [feedState]);
+    if (feedState === 'loading') return 'AI 正在为你排列内容';
+    if (feedState === 'rerank') return '刚刚根据你的行为微调了顺序';
+    if (feedState === 'fallback') return '当前使用本地预置内容';
+    return recoTag ? `你最近更常点开 ${recoTag}` : '已经按你的偏好排好了';
+  }, [feedState, recoTag]);
+  const cefrSegments = useMemo(() => {
+    const buckets = { a12: 0, b1: 0, b2plus: 0 };
+    vocabEntries.forEach(entry => {
+      const cefr = (entry.cefr || '').toUpperCase();
+      if (cefr === 'B1') {
+        buckets.b1 += 1;
+      } else if (cefr === 'B2' || cefr === 'C1' || cefr === 'C2') {
+        buckets.b2plus += 1;
+      } else {
+        buckets.a12 += 1;
+      }
+    });
+    return [
+      { label: 'A1/A2', value: buckets.a12, color: '#7AAFC4', labelColor: colors.textPrimary },
+      { label: 'B1', value: buckets.b1, color: '#C4A96E', labelColor: '#7AAFC4' },
+      { label: 'B2+', value: buckets.b2plus, color: '#C47A6E', labelColor: '#C4A96E' },
+    ];
+  }, [vocabEntries]);
 
   const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     const firstVisible = viewableItems.find(viewable => viewable.isViewable && typeof viewable.index === 'number');
@@ -241,7 +265,7 @@ export function FeedScreen({
   }, [activeIndex, data, isPlaying, onClipPlayed]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <ScreenSurface>
       <FlatList
         data={feedPages}
         keyExtractor={item => item.key}
@@ -254,7 +278,7 @@ export function FeedScreen({
         renderItem={({ item }: ListRenderItemInfo<FeedPage>) => {
           if (item.type === 'review') {
             return (
-              <View style={[styles.feedCardPage, { minHeight: pageHeight, paddingBottom: 18 + insets.bottom }]}>
+              <View style={[styles.cardPage, { minHeight: pageHeight, paddingBottom: 18 + insets.bottom }]}>
                 <ReviewCard
                   entry={item.entry}
                   onForgot={() => {
@@ -270,17 +294,15 @@ export function FeedScreen({
             );
           }
 
-          if (item.type === 'reco') {
+          if (item.type === 'progress') {
             return (
-              <View style={[styles.feedCardPage, { minHeight: pageHeight, paddingBottom: 18 + insets.bottom }]}>
-                <RecoCard
-                  interests={profile.interests}
-                  recoTag={recoTag}
-                  onAccept={tag => {
-                    void onPromoteInterest(tag);
-                    dismissCard('reco');
-                  }}
-                  onDismiss={() => dismissCard('reco')}
+              <View style={[styles.cardPage, { minHeight: pageHeight, paddingBottom: 18 + insets.bottom }]}>
+                <ProgressCard
+                  clipsPlayed={clipsPlayed}
+                  minutesListened={minutesListened}
+                  newWordsCount={vocabEntries.length}
+                  cefrSegments={cefrSegments}
+                  onDismiss={() => dismissCard('progress')}
                 />
               </View>
             );
@@ -291,106 +313,119 @@ export function FeedScreen({
           const isActive = index === activeIndex;
           const line = isActive ? clip.lines?.[activeLineIndex] : clip.lines?.[0];
           const clipKey = item.key;
-          const bookmarkLabel = bookmarkedKeys.includes(clipKey) ? '已收' : '收藏';
           const liked = likedKeys.includes(clipKey);
+          const saved = bookmarkedKeys.includes(clipKey);
 
           return (
-            <View style={[styles.card, { minHeight: pageHeight, paddingBottom: 18 + insets.bottom }]}>
-              <View style={styles.topArea}>
-                <View style={styles.topRow}>
-                  <Text
-                    style={[
-                      styles.topHint,
-                      feedState === 'loading' ? styles.topHintLoading : null,
-                      feedState === 'rerank' ? styles.topHintRerank : null,
-                      feedState === 'fallback' ? styles.topHintFallback : null,
-                    ]}
-                  >
-                    {feedHint}
-                  </Text>
-                  <Pressable onPress={() => {
-                    triggerUiFeedback('menu');
-                    setTranscriptIndex(index);
-                  }} style={styles.smallChip}>
-                    <Text style={styles.smallChipText}>Transcript</Text>
-                  </Pressable>
+            <View style={[styles.page, { minHeight: pageHeight, paddingBottom: 18 + insets.bottom }]}>
+              <PlayerLayout
+                header={
+                  <View style={styles.headerBlock}>
+                    <View style={styles.headerActions}>
+                      <Pressable onPress={() => {
+                        triggerUiFeedback('menu');
+                        onOpenMenu();
+                      }} style={styles.iconButton}>
+                        <Feather name="menu" size={18} color={colors.textSecondary} />
+                      </Pressable>
+                      <View style={styles.iconButtonPlaceholder} />
+                    </View>
+                    <View style={styles.headerCopy}>
+                      <Text style={styles.clipTitle}>{clip.title}</Text>
+                      <Pressable
+                        onPress={() => {
+                          triggerUiFeedback('menu');
+                          setTranscriptIndex(index);
+                        }}
+                      >
+                        <Text style={styles.clipSource}>{getSourceLabel(clip.source)}{clip.tag ? ` · ${clip.tag}` : ''}</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                }
+                controls={
+                  <View style={styles.controlsWrap}>
+                    <ProgressBar
+                      progress={isActive ? progress : 0}
+                      markers={[]}
+                      currentSentenceRange={isActive ? currentSentenceRange : null}
+                      onSeek={ratio => {
+                        if (!isActive) return;
+                        void seekToRatio(ratio);
+                      }}
+                    />
+                    <PlayerControls
+                      isPlaying={isActive && isPlaying}
+                      isLoading={isActive && isLoading}
+                      positionMillis={isActive ? positionMillis : 0}
+                      durationMillis={isActive ? durationMillis : 0}
+                      playbackRate={currentPlaybackRate}
+                      dominantHand={dominantHand}
+                      showZh={showZh}
+                      masked={masked}
+                      onTogglePlay={() => {
+                        void togglePlay(index);
+                      }}
+                      onSeekPrevSentence={() => {
+                        if (!isActive) return;
+                        void seekPrevSentence();
+                      }}
+                      onSeekNextSentence={() => {
+                        if (!isActive) return;
+                        void seekNextSentence();
+                      }}
+                      onSetRate={rate => {
+                        void setRate(rate);
+                        onPlaybackRateChange(rate);
+                      }}
+                      onToggleZh={() => setShowZh(prev => !prev)}
+                      onToggleMask={() => setMasked(prev => !prev)}
+                      onOpenMenu={onOpenMenu}
+                    />
+                  </View>
+                }
+              >
+                <View style={styles.contentStage}>
+                  <View style={[styles.sideRail, dominantHand === 'left' ? styles.sideRailLeft : styles.sideRailRight]}>
+                    <Pressable
+                      onPress={() => onToggleLike(clip, index)}
+                      style={styles.sideButton}
+                    >
+                      <Feather name="heart" size={20} color={liked ? colors.textPrimary : colors.textTertiary} />
+                    </Pressable>
+                    <Pressable onPress={() => onToggleBookmark(clip, index)} style={styles.sideButton}>
+                      <Feather name="bookmark" size={20} color={saved ? colors.textPrimary : colors.textTertiary} />
+                    </Pressable>
+                  </View>
+
+                  <View style={styles.lineWrap}>
+                    {line ? (
+                      <WordLine
+                        line={line}
+                        currentTime={isActive ? currentTime : 0}
+                        isActive={isActive}
+                        showZh={showZh}
+                        masked={masked}
+                        onWordTap={(word: ClipLineWord, lineData: ClipLine) => {
+                          onRecordWordLookup(word.cefr);
+                          triggerUiFeedback('card');
+                          setPopup({
+                            word,
+                            contextEn: lineData.en,
+                            contextZh: lineData.zh || '',
+                            clipKey,
+                            clipTitle: clip.title,
+                          });
+                        }}
+                      />
+                    ) : null}
+                    {!showZh ? <View style={styles.translationBar} /> : null}
+                    <Text style={styles.feedHint}>{feedHint}</Text>
+                    {isActive && errorMessage ? <Text style={styles.audioStateError}>{errorMessage}</Text> : null}
+                    {isActive && !errorMessage && isLoading ? <Text style={styles.audioStateHint}>音频加载中...</Text> : null}
+                  </View>
                 </View>
-
-                <View style={styles.topInfo}>
-                  <Text style={styles.title}>{clip.title}</Text>
-                  <Text style={styles.source}>
-                    {getSourceLabel(clip.source)}
-                    {clip.tag ? ` · ${clip.tag}` : ''}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.subtitleWrap}>
-                <View style={[styles.sideRail, dominantHand === 'left' ? styles.sideRailLeft : styles.sideRailRight]}>
-                  <Pressable onPress={() => onToggleLike(clip, index)} style={[styles.sideRailButton, liked && styles.sideRailButtonActive]}>
-                    <Text style={[styles.sideRailButtonIcon, liked && styles.sideRailButtonIconActive]}>♥</Text>
-                  </Pressable>
-                  <Pressable onPress={() => onToggleBookmark(clip, index)} style={styles.sideRailButton}>
-                    <Text style={styles.sideRailButtonText}>{bookmarkLabel}</Text>
-                  </Pressable>
-                </View>
-
-                {line ? (
-                  <WordLine
-                    line={line}
-                    currentTime={isActive ? currentTime : 0}
-                    isActive={isActive}
-                    showZh={showZh}
-                    masked={masked}
-                    onWordTap={(word: ClipLineWord, lineData: ClipLine) => {
-                      onRecordWordLookup(word.cefr);
-                      triggerUiFeedback('card');
-                      setPopup({ word, contextEn: lineData.en, contextZh: lineData.zh || '', clipKey, clipTitle: clip.title });
-                    }}
-                  />
-                ) : null}
-
-                {isActive && errorMessage ? <Text style={styles.audioError}>{errorMessage}</Text> : null}
-                {isActive && !errorMessage && isLoading ? <Text style={styles.loadingText}>音频加载中…</Text> : null}
-              </View>
-
-              <View style={styles.bottomControls}>
-                <ProgressBar
-                  progress={isActive ? progress : 0}
-                  markers={[]}
-                  currentSentenceRange={isActive ? currentSentenceRange : null}
-                  onSeek={ratio => {
-                    if (!isActive) return;
-                    void seekToRatio(ratio);
-                  }}
-                />
-                <PlayerControls
-                  isPlaying={isActive && isPlaying}
-                  isLoading={isActive && isLoading}
-                  positionMillis={isActive ? positionMillis : 0}
-                  durationMillis={isActive ? durationMillis : 0}
-                  playbackRate={currentPlaybackRate}
-                  dominantHand={dominantHand}
-                  showZh={showZh}
-                  masked={masked}
-                  onTogglePlay={() => void togglePlay(index)}
-                  onSeekPrevSentence={() => {
-                    if (!isActive) return;
-                    void seekPrevSentence();
-                  }}
-                  onSeekNextSentence={() => {
-                    if (!isActive) return;
-                    void seekNextSentence();
-                  }}
-                  onSetRate={rate => {
-                    void setRate(rate);
-                    onPlaybackRateChange(rate);
-                  }}
-                  onToggleZh={() => setShowZh(prev => !prev)}
-                  onToggleMask={() => setMasked(prev => !prev)}
-                  onOpenMenu={onOpenMenu}
-                />
-              </View>
+              </PlayerLayout>
             </View>
           );
         }}
@@ -428,110 +463,91 @@ export function FeedScreen({
       >
         <SafeAreaView style={styles.transcriptSafeArea}>
           <View style={styles.transcriptHeader}>
-            <View style={styles.transcriptHeaderText}>
+            <View style={styles.transcriptHeaderCopy}>
               <Text style={styles.transcriptTitle}>{transcriptClip?.title}</Text>
               <Text style={styles.transcriptMeta}>
                 {transcriptClip ? getSourceLabel(transcriptClip.source) : ''}
               </Text>
             </View>
-            <Pressable onPress={() => {
-              triggerUiFeedback('menu');
-              setTranscriptIndex(null);
-            }} style={styles.smallChip}>
-              <Text style={styles.smallChipText}>关闭</Text>
-            </Pressable>
+            <PillButton label="close" onPress={() => setTranscriptIndex(null)} />
           </View>
 
           <ScrollView contentContainerStyle={styles.transcriptBody}>
             {(transcriptClip?.lines || []).map((entry, idx) => (
-              <View key={`${idx}-${entry.start}`} style={styles.transcriptLine}>
+              <GlassCard key={`${idx}-${entry.start}`} style={styles.transcriptLine}>
                 <Text style={styles.transcriptEn}>{entry.en}</Text>
                 <Text style={styles.transcriptZh}>{entry.zh}</Text>
-              </View>
+              </GlassCard>
             ))}
           </ScrollView>
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+    </ScreenSurface>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#09090B',
-  },
-  card: {
-    paddingHorizontal: 22,
-    paddingTop: 8,
-    paddingBottom: 36,
+  page: {
     justifyContent: 'space-between',
   },
-  topArea: {
-    gap: 18,
+  cardPage: {
+    justifyContent: 'center',
+    paddingHorizontal: spacing.page,
   },
-  topRow: {
+  headerBlock: {
+    width: layout.playerContentWidth,
+    gap: spacing.sm,
+  },
+  headerActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 12,
   },
-  topHint: {
-    flex: 1,
-    color: 'rgba(255,255,255,0.52)',
-    fontSize: 12,
-  },
-  topHintLoading: {
-    color: 'rgba(255,255,255,0.30)',
-  },
-  topHintRerank: {
-    color: 'rgba(255,255,255,0.40)',
-  },
-  topHintFallback: {
-    color: 'rgba(255,255,255,0.15)',
-  },
-  smallChip: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  smallChipText: {
-    color: 'rgba(255,255,255,0.84)',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  topInfo: {
+  iconButton: {
+    width: 28,
+    height: 28,
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
   },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 25,
+  iconButtonPlaceholder: {
+    width: 28,
+    height: 28,
+  },
+  headerCopy: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  clipTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.title,
     fontWeight: '700',
     textAlign: 'center',
-    lineHeight: 34,
   },
-  source: {
-    color: 'rgba(255,255,255,0.46)',
-    fontSize: 13,
+  clipSource: {
+    color: colors.textSecondary,
+    fontSize: typography.caption,
     textAlign: 'center',
   },
-  subtitleWrap: {
-    flex: 1,
-    minHeight: 220,
+  feedHint: {
+    color: colors.textTertiary,
+    fontSize: typography.micro,
+    textAlign: 'center',
+  },
+  controlsWrap: {
+    width: layout.playerContentWidth,
+    gap: spacing.sm,
+  },
+  contentStage: {
+    width: layout.playerContentWidth,
+    minHeight: 260,
     justifyContent: 'center',
+    alignItems: 'center',
     position: 'relative',
-    paddingTop: 16,
-    paddingBottom: 20,
   },
   sideRail: {
     position: 'absolute',
-    top: 0,
-    zIndex: 10,
-    gap: 10,
+    bottom: 18,
+    gap: spacing.sm,
   },
   sideRailLeft: {
     left: 0,
@@ -539,101 +555,76 @@ const styles = StyleSheet.create({
   sideRailRight: {
     right: 0,
   },
-  sideRailButton: {
-    minWidth: 52,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+  sideButton: {
+    width: 28,
+    height: 28,
     alignItems: 'center',
-  },
-  sideRailButtonActive: {
-    backgroundColor: 'rgba(255,82,118,0.16)',
-    borderColor: 'rgba(255,82,118,0.22)',
-  },
-  sideRailButtonIcon: {
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  sideRailButtonIconActive: {
-    color: '#FF5A76',
-  },
-  sideRailButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  audioError: {
-    marginTop: 16,
-    color: '#FCA5A5',
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    color: 'rgba(255,255,255,0.34)',
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  bottomControls: {
-    gap: 10,
-    marginTop: 8,
-  },
-  feedCardPage: {
-    paddingHorizontal: 22,
     justifyContent: 'center',
-    paddingBottom: 36,
+  },
+  lineWrap: {
+    width: 280,
+    alignItems: 'center',
+    gap: 12,
+  },
+  translationBar: {
+    width: 190,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: colors.bgSurface2,
+    marginTop: 6,
+  },
+  audioStateError: {
+    color: '#FCA5A5',
+    fontSize: typography.caption,
+    textAlign: 'center',
+  },
+  audioStateHint: {
+    color: colors.textTertiary,
+    fontSize: typography.caption,
+    textAlign: 'center',
   },
   transcriptSafeArea: {
     flex: 1,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bgApp,
   },
   transcriptHeader: {
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.page,
     paddingTop: 12,
-    paddingBottom: 14,
+    paddingBottom: 12,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    gap: spacing.md,
   },
-  transcriptHeaderText: {
+  transcriptHeaderCopy: {
     flex: 1,
     gap: 4,
   },
   transcriptTitle: {
-    color: '#FFFFFF',
-    fontSize: 22,
+    color: colors.textPrimary,
+    fontSize: 20,
     fontWeight: '700',
   },
   transcriptMeta: {
-    color: 'rgba(255,255,255,0.48)',
-    fontSize: 13,
+    color: colors.textSecondary,
+    fontSize: typography.caption,
   },
   transcriptBody: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    gap: 16,
+    paddingHorizontal: spacing.page,
+    paddingBottom: 32,
+    gap: spacing.sm,
   },
   transcriptLine: {
-    gap: 6,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    gap: spacing.sm,
   },
   transcriptEn: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    lineHeight: 24,
+    color: colors.textPrimary,
+    fontSize: typography.bodyLg,
+    lineHeight: 22,
   },
   transcriptZh: {
-    color: 'rgba(255,255,255,0.52)',
-    fontSize: 14,
-    lineHeight: 22,
+    color: colors.textSecondary,
+    fontSize: typography.caption,
+    lineHeight: 18,
   },
 });

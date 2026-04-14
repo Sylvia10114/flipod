@@ -1,6 +1,14 @@
 import React, { useMemo } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  ActionButton,
+  EmptyState,
+  GlassCard,
+  PillButton,
+  ScreenHeader,
+  ScreenSurface,
+} from '../components/AppChrome';
+import { colors, spacing, typography } from '../design';
 import {
   buildClipKey,
   findClipIndexByKey,
@@ -72,13 +80,13 @@ export function PracticeScreen({
         if (bookmarkKeys.has(clipKey) || practicedKeys.has(clipKey)) return null;
 
         let score = 0;
-        let reason = '难度适合你现在的水平';
+        let reason = '难度适合你当前的水平';
         const matchedWords: string[] = [];
 
         const tag = (clip.tag || '').toLowerCase();
         if (tag && interestSet.has(tag)) {
           score += 3;
-          reason = `你可能对 ${clip.tag} 类内容感兴趣`;
+          reason = `你最近更常点开 ${clip.tag} 方向`;
         }
 
         for (const line of clip.lines || []) {
@@ -92,7 +100,7 @@ export function PracticeScreen({
 
         if (matchedWords.length > 0) {
           score += 5 + matchedWords.length;
-          reason = `包含你查过的 ${matchedWords.slice(0, 2).join('、')}`;
+          reason = `包含你查过的 ${matchedWords.slice(0, 2).join(' / ')}`;
         }
 
         let cefrWords = 0;
@@ -111,9 +119,6 @@ export function PracticeScreen({
           const avgLevel = cefrSum / cefrWords;
           if (Math.abs(avgLevel - userLevelNum) <= 1) {
             score += 2;
-            if (!matchedWords.length && !(tag && interestSet.has(tag))) {
-              reason = '难度适合你现在的水平';
-            }
           }
         }
 
@@ -126,24 +131,20 @@ export function PracticeScreen({
       })
       .filter(Boolean)
       .sort((a, b) => (b?.score || 0) - (a?.score || 0))
-      .slice(0, 5) as { clip: Clip; clipIndex: number; reason: string; score: number }[];
+      .slice(0, 3) as { clip: Clip; clipIndex: number; reason: string; score: number }[];
   }, [bookmarks, clips, practiceData, profile.interests, profile.level, vocabList]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Pressable onPress={() => {
+    <ScreenSurface>
+      <ScreenHeader
+        leading={<PillButton label="menu" onPress={() => {
           triggerUiFeedback('menu');
           onOpenMenu();
-        }} style={styles.menuButton}>
-          <Text style={styles.menuButtonText}>菜单</Text>
-        </Pressable>
-        <View style={styles.headerCenter}>
-          <Text style={styles.title}>听力练习</Text>
-          <Text style={styles.subtitle}>收藏下来慢慢精听，或者直接试试 AI 推荐的下一段。</Text>
-        </View>
-        <Text style={styles.count}>{unpracticedCount || bookmarks.length}</Text>
-      </View>
+        }} />}
+        title="听力练习"
+        subtitle="先盲听，再精听，再回到整段"
+        trailing={<Text style={styles.count}>{unpracticedCount || bookmarks.length}</Text>}
+      />
 
       <FlatList
         data={bookmarks}
@@ -152,18 +153,21 @@ export function PracticeScreen({
         ListHeaderComponent={
           <View style={styles.headerContent}>
             {showIntro ? (
-              <View style={styles.introCard}>
-                <Text style={styles.introTitle}>精听练习</Text>
-                <Text style={styles.introText}>
-                  先盲听，再逐句拆开，最后回到整段复听。累一点，但进步会很实。
+              <GlassCard tone="practice" style={styles.introCard}>
+                <Text style={styles.introTitle}>你的练习区</Text>
+                <Text style={styles.introBody}>
+                  好的练习不是把整篇稿子看完，而是把真正卡住的几句掰开来听。
                 </Text>
-                <Pressable onPress={() => {
-                  triggerUiFeedback('onboarding');
-                  onDismissIntro();
-                }} style={styles.introButton}>
-                  <Text style={styles.introButtonText}>知道了</Text>
-                </Pressable>
-              </View>
+                <ActionButton
+                  label="知道了"
+                  onPress={() => {
+                    triggerUiFeedback('onboarding');
+                    onDismissIntro();
+                  }}
+                  variant="secondary"
+                  style={styles.introButton}
+                />
+              </GlassCard>
             ) : null}
 
             <View style={styles.section}>
@@ -176,41 +180,36 @@ export function PracticeScreen({
                     : '';
 
                   return (
-                    <Pressable
-                      key={`reco-${item.clipIndex}`}
-                      onPress={() => {
-                        triggerUiFeedback('primary');
-                        onStartPractice(item.clipIndex);
-                      }}
-                      style={styles.recoCard}
-                    >
+                    <GlassCard key={`reco-${item.clipIndex}`} tone="practice" style={styles.recoCard}>
                       <Text style={styles.cardTitle}>{item.clip.title}</Text>
                       <Text style={styles.cardMeta}>
                         {getSourceLabel(item.clip.source)}
                         {item.clip.tag ? ` · ${item.clip.tag}` : ''}
                         {durationLabel ? ` · ${durationLabel}` : ''}
                       </Text>
-                      <Text style={styles.recoReason}>{item.reason}</Text>
-                    </Pressable>
+                      <Text style={styles.reason}>{item.reason}</Text>
+                      <ActionButton
+                        label="开始这一段"
+                        onPress={() => {
+                          triggerUiFeedback('primary');
+                          onStartPractice(item.clipIndex);
+                        }}
+                      />
+                    </GlassCard>
                   );
                 })
               ) : (
-                <View style={styles.recoEmpty}>
-                  <Text style={styles.recoEmptyText}>所有内容都练过了，新内容正在路上</Text>
-                </View>
+                <GlassCard style={styles.recoCard}>
+                  <Text style={styles.reason}>所有内容都练过了，新内容正在路上。</Text>
+                </GlassCard>
               )}
             </View>
 
-            <Text style={styles.sectionTitle}>已收藏内容</Text>
+            <Text style={styles.sectionTitle}>收藏里的练习素材</Text>
           </View>
         }
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>这里还在等第一条收藏</Text>
-            <Text style={styles.emptyText}>
-              在 Feed 里收藏感兴趣的片段，它们会出现在这里等你精听。
-            </Text>
-          </View>
+          <EmptyState title="这里还没有可练的内容" body="先在 Feed 里收藏片段，它们会在这里等你慢慢精听。" />
         }
         renderItem={({ item }) => {
           const clipIndex = (() => {
@@ -230,213 +229,122 @@ export function PracticeScreen({
                   onStartPractice(clipIndex);
                 }
               }}
-              style={[styles.card, clipIndex < 0 && styles.cardDisabled]}
             >
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.cardMeta}>{item.source} · {item.tag}</Text>
-              <View style={styles.cardFooter}>
-                <View style={[styles.statusBadge, done ? styles.statusBadgeDone : styles.statusBadgeFresh]}>
-                  <Text style={[styles.statusBadgeText, done ? styles.statusBadgeTextDone : styles.statusBadgeTextFresh]}>
-                    {done ? `已练习 · 查了 ${record?.words || 0} 个词` : '未练习'}
-                  </Text>
+              <GlassCard style={[styles.savedCard, clipIndex < 0 && styles.savedCardDisabled]}>
+                <Text style={styles.cardTitle}>{item.title}</Text>
+                <Text style={styles.cardMeta}>{item.source} · {item.tag}</Text>
+                <View style={styles.footer}>
+                  <View style={[styles.statusBadge, done ? styles.statusDone : styles.statusFresh]}>
+                    <Text style={[styles.statusText, done ? styles.statusTextDone : styles.statusTextFresh]}>
+                      {done ? `已练过 · 查了 ${record?.words || 0} 个词` : '未练习'}
+                    </Text>
+                  </View>
+                  <Text style={styles.cta}>{clipIndex >= 0 ? '开始' : '未找到音频'}</Text>
                 </View>
-                <Text style={styles.cta}>{clipIndex >= 0 ? '开始' : '未找到音频'}</Text>
-              </View>
+              </GlassCard>
             </Pressable>
           );
         }}
       />
-    </SafeAreaView>
+    </ScreenSurface>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#09090B',
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  menuButton: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  menuButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  subtitle: {
-    color: 'rgba(255,255,255,0.48)',
-    fontSize: 12,
-    marginTop: 4,
-    textAlign: 'center',
-  },
   count: {
-    width: 32,
+    color: colors.textSecondary,
+    fontSize: typography.body,
+    fontWeight: '600',
+    minWidth: 20,
     textAlign: 'right',
-    color: 'rgba(255,255,255,0.52)',
-    fontSize: 14,
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.page,
     paddingBottom: 32,
-    gap: 12,
+    gap: spacing.md,
   },
   headerContent: {
-    gap: 18,
+    gap: spacing.lg,
     marginBottom: 6,
   },
   introCard: {
-    borderRadius: 24,
-    paddingHorizontal: 18,
-    paddingVertical: 20,
-    backgroundColor: 'rgba(139,156,247,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,156,247,0.24)',
+    gap: spacing.sm,
   },
   introTitle: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '700',
   },
-  introText: {
-    marginTop: 8,
-    color: 'rgba(255,255,255,0.68)',
-    fontSize: 14,
-    lineHeight: 22,
+  introBody: {
+    color: colors.textSecondary,
+    fontSize: typography.body,
+    lineHeight: 20,
   },
   introButton: {
     alignSelf: 'flex-start',
-    marginTop: 14,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    backgroundColor: '#8B9CF7',
-  },
-  introButtonText: {
-    color: '#09090B',
-    fontSize: 12,
-    fontWeight: '700',
+    minWidth: 96,
   },
   section: {
-    gap: 10,
+    gap: spacing.sm,
   },
   sectionTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: colors.textPrimary,
+    fontSize: typography.title,
     fontWeight: '700',
   },
   recoCard: {
-    borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    backgroundColor: 'rgba(139,156,247,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,156,247,0.24)',
-    gap: 8,
-  },
-  recoReason: {
-    color: '#AFC0FF',
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  recoEmpty: {
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  recoEmptyText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  emptyState: {
-    marginTop: 40,
-    paddingHorizontal: 32,
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  emptyText: {
-    marginTop: 8,
-    color: 'rgba(255,255,255,0.56)',
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-  card: {
-    borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    gap: 10,
-  },
-  cardDisabled: {
-    opacity: 0.45,
+    gap: spacing.sm,
   },
   cardTitle: {
-    color: '#FFFFFF',
-    fontSize: 17,
+    color: colors.textPrimary,
+    fontSize: 16,
     fontWeight: '700',
   },
   cardMeta: {
-    color: 'rgba(255,255,255,0.52)',
-    fontSize: 13,
+    color: colors.textSecondary,
+    fontSize: typography.caption,
   },
-  cardFooter: {
+  reason: {
+    color: colors.textSecondary,
+    fontSize: typography.body,
+    lineHeight: 20,
+  },
+  savedCard: {
+    gap: spacing.sm,
+  },
+  savedCardDisabled: {
+    opacity: 0.45,
+  },
+  footer: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.md,
   },
   statusBadge: {
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 7,
   },
-  statusBadgeFresh: {
-    backgroundColor: 'rgba(139,156,247,0.16)',
+  statusFresh: {
+    backgroundColor: 'rgba(168,85,247,0.14)',
   },
-  statusBadgeDone: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+  statusDone: {
+    backgroundColor: colors.bgSurface2,
   },
-  statusBadgeText: {
-    fontSize: 11,
+  statusText: {
+    fontSize: typography.micro,
     fontWeight: '700',
   },
-  statusBadgeTextFresh: {
-    color: '#8B9CF7',
+  statusTextFresh: {
+    color: colors.accentPractice,
   },
-  statusBadgeTextDone: {
-    color: 'rgba(255,255,255,0.68)',
+  statusTextDone: {
+    color: colors.textSecondary,
   },
   cta: {
-    color: '#FFFFFF',
-    fontSize: 13,
+    color: colors.textPrimary,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
 });

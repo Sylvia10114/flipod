@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActionButton, GlassCard, ScreenSurface, StepDots } from '../components/AppChrome';
+import { colors, radii, spacing, typography } from '../design';
 import { INTERESTS, LEVELS } from '../constants';
 import { triggerUiFeedback } from '../feedback';
 import type { Level, Profile } from '../types';
@@ -11,30 +12,44 @@ type Props = {
 };
 
 const LEVEL_COPY: Record<Level, string> = {
-  'A1-A2': '基本听不懂，偶尔抓到几个词',
-  B1: '能听懂大意，细节经常漏',
-  B2: '大部分能跟上，复杂话题偶尔吃力',
-  'C1-C2': '基本无障碍，想挑战更难的',
+  'A1-A2': '能抓到少量单词，需要更多帮助',
+  B1: '大意大概能跟上，细节经常漏掉',
+  B2: '大部分能听懂，偶尔卡在复杂句',
+  'C1-C2': '基本无障碍，想听更难一点的',
 };
 
 const INTEREST_LABELS: Record<(typeof INTERESTS)[number], string> = {
-  science: '🔬 Science',
-  business: '💼 Business',
-  psychology: '🧠 Psychology',
-  story: '📖 Story',
-  history: '🏛 History',
-  culture: '🎵 Culture',
-  tech: '💻 Tech',
-  society: '🌍 Society',
+  science: 'science',
+  business: 'business',
+  psychology: 'psychology',
+  story: 'story',
+  history: 'history',
+  culture: 'culture',
+  tech: 'technology',
+  society: 'society',
 };
 
 export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedLevel, setSelectedLevel] = useState<Level | null>(initialProfile?.level || null);
   const [selectedTags, setSelectedTags] = useState<string[]>(initialProfile?.interests || []);
 
   const canContinue = useMemo(() => Boolean(selectedLevel), [selectedLevel]);
   const canStart = useMemo(() => selectedTags.length === 3, [selectedTags]);
+
+  useEffect(() => {
+    if (step !== 3 || !selectedLevel || selectedTags.length !== 3) return;
+    const timeout = setTimeout(() => {
+      onSubmit({
+        level: selectedLevel,
+        interests: selectedTags,
+        theme: initialProfile?.theme || 'dark',
+        onboardingDone: true,
+      });
+    }, 1200);
+
+    return () => clearTimeout(timeout);
+  }, [initialProfile?.theme, onSubmit, selectedLevel, selectedTags, step]);
 
   const toggleTag = (tag: string) => {
     setSelectedTags(prev => {
@@ -49,19 +64,17 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <ScreenSurface>
       <View style={styles.container}>
-        <View style={styles.dotsRow}>
-          <View style={[styles.dot, step === 1 && styles.dotActive]} />
-          <View style={[styles.dot, step === 2 && styles.dotActive]} />
-        </View>
-
         {step === 1 ? (
           <>
-            <Text style={styles.title}>你现在听英语播客的感受？</Text>
-            <Text style={styles.subtitle}>选择最接近你的描述</Text>
+            <View style={styles.topBlock}>
+              <StepDots count={2} active={1} accent={colors.accentFeed} />
+              <Text style={styles.title}>你现在听英语播客时的感觉？</Text>
+              <Text style={styles.subtitle}>先大概定一个难度，后面 AI 会继续校准。</Text>
+            </View>
 
-            <View style={styles.cardGroup}>
+            <View style={styles.levelList}>
               {LEVELS.map(level => {
                 const selected = selectedLevel === level;
                 return (
@@ -71,38 +84,41 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
                       triggerUiFeedback('card');
                       setSelectedLevel(level);
                     }}
-                    style={[styles.optionCard, selected && styles.optionCardSelected]}
                   >
-                    <View style={[styles.checkCircle, selected && styles.checkCircleSelected]}>
-                      <Text style={[styles.checkMark, selected && styles.checkMarkSelected]}>✓</Text>
-                    </View>
-                    <View style={styles.optionTextWrap}>
-                      <Text style={styles.optionLabel}>{LEVEL_COPY[level]}</Text>
-                      <Text style={[styles.optionLevel, selected && styles.optionLevelSelected]}>{level}</Text>
-                    </View>
+                    <GlassCard style={[styles.levelCard, selected && styles.levelCardActive]}>
+                      <View style={styles.levelCardTop}>
+                        <Text style={styles.levelCopy}>{LEVEL_COPY[level]}</Text>
+                        <View style={[styles.levelBadge, selected && styles.levelBadgeActive]}>
+                          <Text style={[styles.levelBadgeText, selected && styles.levelBadgeTextActive]}>{level}</Text>
+                        </View>
+                      </View>
+                    </GlassCard>
                   </Pressable>
                 );
               })}
             </View>
 
-            <Text style={styles.hint}>不确定也没关系，AI 会根据你的表现自动调整</Text>
-
-            <Pressable
+            <Text style={styles.hint}>不确定也没关系，先选最接近的一档。</Text>
+            <ActionButton
+              label="继续"
               disabled={!canContinue}
               onPress={() => {
                 if (!selectedLevel) return;
                 triggerUiFeedback('onboarding');
                 setStep(2);
               }}
-              style={[styles.primaryButton, !canContinue && styles.primaryButtonDisabled]}
-            >
-              <Text style={styles.primaryButtonText}>下一步</Text>
-            </Pressable>
+              style={styles.primaryAction}
+            />
           </>
-        ) : (
+        ) : null}
+
+        {step === 2 ? (
           <>
-            <Text style={styles.title}>你对什么话题感兴趣？</Text>
-            <Text style={styles.subtitle}>选择 3 个你感兴趣的领域</Text>
+            <View style={styles.topBlock}>
+              <StepDots count={2} active={2} accent={colors.accentFeed} />
+              <Text style={styles.title}>你对哪些主题更有兴趣？</Text>
+              <Text style={styles.subtitle}>选 3 个，Feed 会先从这些方向开始推。</Text>
+            </View>
 
             <View style={styles.tagWrap}>
               {INTERESTS.map(tag => {
@@ -114,180 +130,169 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
                       triggerUiFeedback('card');
                       toggleTag(tag);
                     }}
-                    style={[styles.tag, active && styles.tagSelected]}
+                    style={[styles.tag, active && styles.tagActive]}
                   >
-                    <Text style={[styles.tagText, active && styles.tagTextSelected]}>{INTEREST_LABELS[tag]}</Text>
+                    <Text style={[styles.tagText, active && styles.tagTextActive]}>{INTEREST_LABELS[tag]}</Text>
                   </Pressable>
                 );
               })}
             </View>
 
-            <Text style={styles.hint}>随便选几个就行，AI 会从你的行为中学习</Text>
+            <Text style={styles.hint}>已选 {selectedTags.length}/3，随便选也行，后面会继续学习你的偏好。</Text>
 
-            <Pressable
+            <ActionButton
+              label="开始探索"
               disabled={!canStart}
               onPress={() => {
                 if (!selectedLevel || selectedTags.length !== 3) return;
                 triggerUiFeedback('onboarding');
-                onSubmit({
-                  level: selectedLevel,
-                  interests: selectedTags,
-                  theme: initialProfile?.theme || 'dark',
-                  onboardingDone: true,
-                });
+                setStep(3);
               }}
-              style={[styles.primaryButton, !canStart && styles.primaryButtonDisabled]}
-            >
-              <Text style={styles.primaryButtonText}>开始探索</Text>
-            </Pressable>
+              style={styles.primaryAction}
+            />
           </>
-        )}
+        ) : null}
+
+        {step === 3 ? (
+          <View style={styles.loadingBlock}>
+            <Text style={styles.loadingCopy}>正在为你准备第一批内容...</Text>
+            <View style={styles.loadingDots}>
+              {[0, 1, 2].map(item => (
+                <View key={`loading-${item}`} style={[styles.loadingDot, item === 1 && styles.loadingDotActive]} />
+              ))}
+            </View>
+          </View>
+        ) : null}
       </View>
-    </SafeAreaView>
+    </ScreenSurface>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#09090B',
-  },
   container: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.page,
     paddingTop: 24,
-    paddingBottom: 32,
+    paddingBottom: 28,
   },
-  dotsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
+  topBlock: {
+    alignItems: 'center',
+    gap: spacing.md,
     marginBottom: 28,
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  dotActive: {
-    backgroundColor: '#FFFFFF',
-  },
   title: {
-    color: '#FFFFFF',
-    fontSize: 28,
+    color: colors.textPrimary,
+    fontSize: 24,
     fontWeight: '700',
     textAlign: 'center',
   },
   subtitle: {
-    color: 'rgba(255,255,255,0.52)',
-    fontSize: 15,
-    marginTop: 10,
+    color: colors.textSecondary,
+    fontSize: typography.bodyLg,
+    lineHeight: 22,
     textAlign: 'center',
-  },
-  cardGroup: {
-    gap: 12,
-    marginTop: 28,
-  },
-  optionCard: {
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 22,
     paddingHorizontal: 18,
+  },
+  levelList: {
+    gap: spacing.md,
+  },
+  levelCard: {
+    borderRadius: radii.lg,
     paddingVertical: 18,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: 'transparent',
+  },
+  levelCardActive: {
+    backgroundColor: 'rgba(139,156,247,0.14)',
+    borderColor: 'rgba(139,156,247,0.28)',
+  },
+  levelCardTop: {
     flexDirection: 'row',
-    gap: 14,
+    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.md,
   },
-  optionCardSelected: {
-    borderColor: '#8B9CF7',
-    backgroundColor: 'rgba(139,156,247,0.16)',
+  levelCopy: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: typography.body,
+    lineHeight: 20,
+    fontWeight: '600',
   },
-  checkCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  levelBadge: {
+    borderRadius: radii.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: colors.bgSurface2,
   },
-  checkCircleSelected: {
-    backgroundColor: '#8B9CF7',
-    borderColor: '#8B9CF7',
+  levelBadgeActive: {
+    backgroundColor: colors.accentFeed,
   },
-  checkMark: {
-    color: 'transparent',
-    fontSize: 13,
+  levelBadgeText: {
+    color: colors.textPrimary,
+    fontSize: typography.micro,
     fontWeight: '700',
   },
-  checkMarkSelected: {
-    color: '#FFFFFF',
-  },
-  optionTextWrap: {
-    flex: 1,
-  },
-  optionLabel: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  optionLevel: {
-    marginTop: 6,
-    color: 'rgba(255,255,255,0.42)',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  optionLevelSelected: {
-    color: '#DDE3FF',
+  levelBadgeTextActive: {
+    color: colors.textOnAccent,
   },
   tagWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginTop: 28,
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: 6,
   },
   tag: {
-    borderRadius: 999,
+    borderRadius: radii.pill,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: colors.stroke,
+    backgroundColor: colors.bgSurface1,
   },
-  tagSelected: {
-    backgroundColor: '#8B9CF7',
-    borderColor: '#8B9CF7',
+  tagActive: {
+    backgroundColor: colors.accentFeed,
+    borderColor: colors.accentFeed,
   },
   tagText: {
-    color: 'rgba(255,255,255,0.82)',
-    fontSize: 14,
+    color: colors.textPrimary,
+    fontSize: typography.caption,
     fontWeight: '600',
   },
-  tagTextSelected: {
-    color: '#0B1020',
+  tagTextActive: {
+    color: colors.textOnAccent,
   },
   hint: {
-    marginTop: 16,
-    color: 'rgba(255,255,255,0.42)',
-    fontSize: 13,
-    lineHeight: 20,
+    marginTop: 18,
+    color: colors.textTertiary,
+    fontSize: typography.caption,
+    lineHeight: 18,
     textAlign: 'center',
   },
-  primaryButton: {
+  primaryAction: {
     marginTop: 'auto',
-    borderRadius: 18,
-    backgroundColor: '#8B9CF7',
-    paddingVertical: 16,
+  },
+  loadingBlock: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xl,
   },
-  primaryButtonDisabled: {
-    opacity: 0.35,
+  loadingCopy: {
+    color: colors.textSecondary,
+    fontSize: typography.bodyLg,
   },
-  primaryButtonText: {
-    color: '#0B1020',
-    fontSize: 16,
-    fontWeight: '700',
+  loadingDots: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  loadingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: radii.pill,
+    backgroundColor: colors.textFaint,
+  },
+  loadingDotActive: {
+    backgroundColor: colors.accentFeed,
   },
 });

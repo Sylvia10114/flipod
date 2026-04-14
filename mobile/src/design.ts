@@ -1,0 +1,59 @@
+export const colors = {
+  bgApp: '#0C0C0E',
+  bgSurface1: 'rgba(255,255,255,0.04)',
+  bgSurface2: 'rgba(255,255,255,0.06)',
+  bgSurface3: 'rgba(255,255,255,0.10)',
+  bgOverlay: 'rgba(18,18,22,0.96)',
+  bgDim: 'rgba(0,0,0,0.62)',
+  textPrimary: 'rgba(255,255,255,0.92)',
+  textSecondary: 'rgba(255,255,255,0.58)',
+  textTertiary: 'rgba(255,255,255,0.34)',
+  textFaint: 'rgba(255,255,255,0.16)',
+  stroke: 'rgba(255,255,255,0.08)',
+  strokeStrong: 'rgba(255,255,255,0.14)',
+  accentFeed: '#8B9CF7',
+  accentPractice: '#A855F7',
+  accentGold: '#C4A96E',
+  accentSuccess: '#22C55E',
+  accentError: '#EF4444',
+  accentOrange: '#F97316',
+  accentBlue: '#3B82F6',
+  accentPink: '#F472B6',
+  textOnAccent: '#09090B',
+};
+
+export const spacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+  xxxl: 28,
+  page: 20,
+};
+
+export const radii = {
+  sm: 10,
+  md: 14,
+  lg: 18,
+  xl: 24,
+  pill: 999,
+};
+
+export const typography = {
+  hero: 22,
+  title: 16,
+  body: 14,
+  bodyLg: 15,
+  caption: 12,
+  micro: 11,
+  stat: 30,
+};
+
+export const layout = {
+  pagePadding: 20,
+  playerHeaderHeight: 120,
+  playerControlsHeight: 180,
+  playerContentWidth: 335,
+};

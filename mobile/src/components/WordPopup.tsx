@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActionButton, GlassCard, PillButton } from './AppChrome';
+import { colors, radii, spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
 import type { ClipLineWord } from '../types';
 
@@ -21,12 +23,12 @@ type WordInfo = {
 };
 
 const CEFR_LABEL: Record<string, string> = {
-  A1: 'A1 基础',
-  A2: 'A2 初级',
-  B1: 'B1 中级',
-  B2: 'B2 中高',
-  C1: 'C1 高级',
-  C2: 'C2 精通/专名',
+  A1: 'A1',
+  A2: 'A2',
+  B1: 'B1',
+  B2: 'B2',
+  C1: 'C1',
+  C2: 'C2',
 };
 
 const wordInfoCache = new Map<string, WordInfo>();
@@ -106,61 +108,69 @@ export function WordPopup({ word, contextEn, contextZh, isSaved, isKnown, onSave
     return () => {
       cancelled = true;
     };
-  }, [normalizedWord]);
+  }, [normalizedWord, contextZh]);
 
   return (
-    <Pressable style={styles.overlay} onPress={() => {
-      triggerUiFeedback('menu');
-      onDismiss();
-    }}>
-      <Pressable style={styles.card} onPress={e => e.stopPropagation()}>
-        <View style={styles.header}>
-          <Text style={styles.wordText}>{word.word}</Text>
-          {word.cefr ? <Text style={styles.cefrBadge}>{CEFR_LABEL[word.cefr.toUpperCase()] || word.cefr}</Text> : null}
-        </View>
-
-        {loading ? (
-          <View style={styles.loadingWrap}>
-            <ActivityIndicator size="small" color="#8B9CF7" />
-            <Text style={styles.loadingText}>正在查询词义…</Text>
+    <Pressable style={styles.overlay} onPress={onDismiss}>
+      <Pressable style={styles.positioner} onPress={e => e.stopPropagation()}>
+        <GlassCard style={styles.card}>
+          <View style={styles.topRow}>
+            <View style={styles.wordBlock}>
+              <Text style={styles.word}>{word.word}</Text>
+              <View style={styles.metaRow}>
+                {word.cefr ? <PillButton label={CEFR_LABEL[word.cefr.toUpperCase()] || word.cefr} subtle /> : null}
+                {info?.phonetic ? <Text style={styles.phonetic}>{info.phonetic}</Text> : null}
+              </View>
+            </View>
+            <Pressable
+              onPress={() => {
+                triggerUiFeedback('menu');
+                onDismiss();
+              }}
+              style={styles.closeButton}
+            >
+              <Text style={styles.closeButtonText}>x</Text>
+            </Pressable>
           </View>
-        ) : (
-          <View style={styles.definitionWrap}>
-            {info?.phonetic ? <Text style={styles.phonetic}>{info.phonetic}</Text> : null}
-            {info?.pos ? <Text style={styles.pos}>{info.pos}</Text> : null}
-            {info?.definition ? <Text style={styles.definition}>{info.definition}</Text> : null}
+
+          {loading ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator size="small" color={colors.accentFeed} />
+              <Text style={styles.loadingText}>正在查询词义...</Text>
+            </View>
+          ) : (
+            <View style={styles.definitionBlock}>
+              {info?.pos ? <Text style={styles.partOfSpeech}>{info.pos}</Text> : null}
+              {info?.definition ? <Text style={styles.definition}>{info.definition}</Text> : null}
+            </View>
+          )}
+
+          <View style={styles.contextBlock}>
+            <Text style={styles.contextEn}>{contextEn}</Text>
+            <Text style={styles.contextZh}>{contextZh}</Text>
           </View>
-        )}
 
-        <View style={styles.contextWrap}>
-          <Text style={styles.contextEn}>{contextEn}</Text>
-          <Text style={styles.contextZh}>{contextZh}</Text>
-        </View>
-
-        <View style={styles.actions}>
-          <Pressable onPress={() => {
-            triggerUiFeedback('bookmark');
-            onSave();
-          }} style={[styles.actionButton, isSaved && styles.actionButtonActive]}>
-            <Text style={[styles.actionText, isSaved && styles.actionTextActive]}>
-              {isSaved ? '已收藏' : '收藏词'}
-            </Text>
-          </Pressable>
-          <Pressable onPress={() => {
-            triggerUiFeedback('correct');
-            onMarkKnown();
-          }} style={[styles.actionButton, isKnown && styles.actionButtonActive]}>
-            <Text style={[styles.actionText, isKnown && styles.actionTextActive]}>
-              {isKnown ? '已认识' : '我认识'}
-            </Text>
-          </Pressable>
-          <Pressable onPress={() => {
-            triggerUiFeedback('menu');
-            onDismiss();
-          }} style={styles.actionButton}>
-            <Text style={styles.actionText}>关闭</Text>
-          </Pressable>
-        </View>
+          <View style={styles.actionRow}>
+            <ActionButton
+              label={isSaved ? '已收藏' : '收藏'}
+              variant={isSaved ? 'secondary' : 'primary'}
+              onPress={() => {
+                triggerUiFeedback('bookmark');
+                onSave();
+              }}
+              style={styles.action}
+            />
+            <ActionButton
+              label={isKnown ? '已认识' : '我认识'}
+              variant={isKnown ? 'secondary' : 'success'}
+              onPress={() => {
+                triggerUiFeedback('correct');
+                onMarkKnown();
+              }}
+              style={styles.action}
+            />
+          </View>
+        </GlassCard>
       </Pressable>
     </Pressable>
   );
@@ -173,102 +183,104 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-    paddingBottom: 120,
-    paddingHorizontal: 16,
+    backgroundColor: 'transparent',
     zIndex: 100,
   },
+  positioner: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 108,
+  },
   card: {
-    backgroundColor: '#1A1A2E',
-    borderRadius: 24,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    gap: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.bgOverlay,
+    borderColor: colors.strokeStrong,
+    gap: spacing.md,
+    shadowColor: '#000000',
+    shadowOpacity: 0.26,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 16,
   },
-  header: {
+  topRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    justifyContent: 'space-between',
+    gap: spacing.md,
   },
-  wordText: {
-    color: '#FFFFFF',
+  wordBlock: {
+    flex: 1,
+    gap: spacing.sm,
+  },
+  word: {
+    color: colors.textPrimary,
     fontSize: 28,
     fontWeight: '700',
   },
-  cefrBadge: {
-    color: 'rgba(255,255,255,0.64)',
-    fontSize: 12,
-    fontWeight: '600',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    overflow: 'hidden',
-  },
-  loadingWrap: {
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-  },
-  loadingText: {
-    color: 'rgba(255,255,255,0.56)',
-    fontSize: 13,
-  },
-  definitionWrap: {
-    gap: 6,
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   phonetic: {
-    color: '#8B9CF7',
-    fontSize: 14,
+    color: colors.accentFeed,
+    fontSize: typography.caption,
     fontWeight: '600',
   },
-  pos: {
-    color: 'rgba(255,255,255,0.48)',
-    fontSize: 12,
-    fontWeight: '600',
+  closeButton: {
+    width: 30,
+    height: 30,
+    borderRadius: radii.pill,
+    backgroundColor: colors.bgSurface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeButtonText: {
+    color: colors.textSecondary,
+    fontSize: typography.bodyLg,
+    fontWeight: '700',
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  loadingText: {
+    color: colors.textSecondary,
+    fontSize: typography.caption,
+  },
+  definitionBlock: {
+    gap: spacing.sm,
+  },
+  partOfSpeech: {
+    color: colors.textTertiary,
+    fontSize: typography.micro,
+    fontWeight: '700',
   },
   definition: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    lineHeight: 24,
+    color: colors.textPrimary,
+    fontSize: typography.bodyLg,
+    lineHeight: 22,
     fontWeight: '600',
   },
-  contextWrap: {
-    gap: 6,
+  contextBlock: {
+    gap: spacing.sm,
   },
   contextEn: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  contextZh: {
-    color: 'rgba(255,255,255,0.48)',
-    fontSize: 14,
+    color: colors.textPrimary,
+    fontSize: typography.body,
     lineHeight: 20,
   },
-  actions: {
+  contextZh: {
+    color: colors.textSecondary,
+    fontSize: typography.caption,
+    lineHeight: 18,
+  },
+  actionRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: spacing.sm,
   },
-  actionButton: {
+  action: {
     flex: 1,
-    borderRadius: 14,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center',
-  },
-  actionButtonActive: {
-    backgroundColor: '#8B9CF7',
-  },
-  actionText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  actionTextActive: {
-    color: '#09090B',
   },
 });

@@ -1,6 +1,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { formatTime } from '../clip-utils';
+import { colors, radii, spacing, typography } from '../design';
 import { triggerMediumHaptic } from '../feedback';
 import type { DominantHand } from '../types';
 
@@ -24,6 +26,24 @@ type Props = {
   onOpenMenu: () => void;
 };
 
+type TransportButtonProps = {
+  icon: React.ComponentProps<typeof Feather>['name'];
+  onPress: () => void;
+  primary?: boolean;
+};
+
+function TransportButton({ icon, onPress, primary = false }: TransportButtonProps) {
+  return (
+    <Pressable onPress={onPress} style={[styles.transportButton, primary && styles.transportButtonPrimary]}>
+      <Feather
+        name={icon}
+        size={primary ? 22 : 20}
+        color={primary ? colors.textOnAccent : colors.textSecondary}
+      />
+    </Pressable>
+  );
+}
+
 export function PlayerControls({
   isPlaying,
   isLoading,
@@ -39,7 +59,6 @@ export function PlayerControls({
   onSetRate,
   onToggleZh,
   onToggleMask,
-  onOpenMenu,
 }: Props) {
   const nextRate = () => {
     const idx = SPEED_OPTIONS.indexOf(playbackRate as typeof SPEED_OPTIONS[number]);
@@ -50,60 +69,65 @@ export function PlayerControls({
   return (
     <View style={styles.container}>
       <View style={styles.timeRow}>
-        <Text style={styles.time}>{formatTime(positionMillis)}</Text>
-        <Text style={styles.time}>{formatTime(durationMillis)}</Text>
+        <Text style={styles.timeText}>{formatTime(positionMillis)}</Text>
+        <Text style={styles.timeText}>{formatTime(durationMillis)}</Text>
       </View>
 
-      <View style={styles.mainRow}>
-        <Pressable onPress={() => {
-          triggerMediumHaptic();
-          onSeekPrevSentence();
-        }} style={styles.smallButton}>
-          <Text style={styles.smallButtonText}>上句</Text>
-        </Pressable>
-
-        <Pressable onPress={() => {
-          triggerMediumHaptic();
-          onTogglePlay();
-        }} style={[styles.playButton, isPlaying && styles.playButtonActive]}>
-          <Text style={styles.playButtonText}>{isLoading ? '...' : isPlaying ? '暂停' : '播放'}</Text>
-        </Pressable>
-
-        <Pressable onPress={() => {
-          triggerMediumHaptic();
-          onSeekNextSentence();
-        }} style={styles.smallButton}>
-          <Text style={styles.smallButtonText}>下句</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.bottomRow}>
-        <View style={[styles.extraRow, dominantHand === 'left' && styles.extraRowLeft]}>
-          <Pressable onPress={() => {
+      <View style={styles.transportRow}>
+        <TransportButton
+          icon="rotate-ccw"
+          onPress={() => {
             triggerMediumHaptic();
-            onToggleMask();
-          }} style={[styles.chipButton, masked && styles.chipButtonActive]}>
-            <Text style={[styles.chipText, masked && styles.chipTextActive]}>{masked ? '遮罩开' : '遮罩'}</Text>
-          </Pressable>
-          <Pressable onPress={() => {
+            onSeekPrevSentence();
+          }}
+        />
+        <TransportButton
+          icon={isLoading ? 'minus' : isPlaying ? 'pause' : 'play'}
+          primary
+          onPress={() => {
+            triggerMediumHaptic();
+            onTogglePlay();
+          }}
+        />
+        <TransportButton
+          icon="rotate-cw"
+          onPress={() => {
+            triggerMediumHaptic();
+            onSeekNextSentence();
+          }}
+        />
+      </View>
+
+      <View style={[styles.utilityRow, dominantHand === 'left' && styles.utilityRowLeft]}>
+        <Pressable
+          onPress={() => {
             triggerMediumHaptic();
             onToggleZh();
-          }} style={[styles.chipButton, showZh && styles.chipButtonActive]}>
-            <Text style={[styles.chipText, showZh && styles.chipTextActive]}>{showZh ? '中文开' : '中文'}</Text>
-          </Pressable>
-          <Pressable onPress={() => {
+          }}
+          style={[styles.utilityButton, showZh && styles.utilityButtonActive]}
+        >
+          <Feather name="eye" size={14} color={showZh ? colors.textPrimary : colors.textTertiary} />
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            triggerMediumHaptic();
+            onToggleMask();
+          }}
+          style={[styles.utilityButton, masked && styles.utilityButtonActive]}
+        >
+          <Text style={[styles.utilityButtonText, masked && styles.utilityButtonTextActive]}>A</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => {
             triggerMediumHaptic();
             nextRate();
-          }} style={[styles.chipButton, playbackRate !== 1 && styles.chipButtonActive]}>
-            <Text style={[styles.chipText, playbackRate !== 1 && styles.chipTextActive]}>{playbackRate}x</Text>
-          </Pressable>
-          <Pressable onPress={() => {
-            triggerMediumHaptic();
-            onOpenMenu();
-          }} style={styles.menuButton}>
-            <Text style={styles.menuButtonText}>···</Text>
-          </Pressable>
-        </View>
+          }}
+          style={[styles.utilityButton, playbackRate !== 1 && styles.utilityButtonActive]}
+        >
+          <Text style={[styles.utilityButtonText, playbackRate !== 1 && styles.utilityButtonTextActive]}>
+            {playbackRate}x
+          </Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -111,97 +135,72 @@ export function PlayerControls({
 
 const styles = StyleSheet.create({
   container: {
-    gap: 12,
+    width: '100%',
+    gap: spacing.md,
   },
   timeRow: {
+    width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  time: {
-    color: 'rgba(255,255,255,0.48)',
-    fontSize: 12,
+  timeText: {
+    color: colors.textTertiary,
+    fontSize: typography.micro,
     fontWeight: '600',
   },
-  mainRow: {
+  transportRow: {
     flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.xl,
+  },
+  transportButton: {
+    width: 42,
+    height: 42,
+    borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
   },
-  smallButton: {
-    minWidth: 68,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
+  transportButtonPrimary: {
+    width: 58,
+    height: 58,
+    backgroundColor: colors.accentFeed,
   },
-  smallButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
+  transportButtonText: {
+    color: colors.textSecondary,
+    fontSize: typography.title,
     fontWeight: '700',
   },
-  playButton: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
+  transportButtonTextPrimary: {
+    color: colors.textOnAccent,
+    fontSize: 18,
   },
-  playButtonActive: {
-    backgroundColor: '#8B9CF7',
-  },
-  playButtonText: {
-    color: '#09090B',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  bottomRow: {
-    alignItems: 'stretch',
-  },
-  extraRow: {
+  utilityRow: {
     flexDirection: 'row',
-    gap: 10,
-    flex: 1,
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
   },
-  extraRowLeft: {
+  utilityRowLeft: {
     flexDirection: 'row-reverse',
   },
-  chipButton: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+  utilityButton: {
+    minWidth: 24,
+    borderRadius: radii.pill,
+    backgroundColor: 'transparent',
+    paddingVertical: 2,
+    paddingHorizontal: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  chipButtonActive: {
-    backgroundColor: 'rgba(139,156,247,0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,156,247,0.28)',
+  utilityButtonActive: {
+    opacity: 1,
   },
-  chipText: {
-    color: '#FFFFFF',
-    fontSize: 12,
+  utilityButtonText: {
+    color: colors.textTertiary,
+    fontSize: typography.micro,
     fontWeight: '600',
   },
-  chipTextActive: {
-    color: '#DDE3FF',
-  },
-  menuButton: {
-    minWidth: 44,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  menuButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    lineHeight: 18,
-    fontWeight: '700',
+  utilityButtonTextActive: {
+    color: colors.textPrimary,
   },
 });

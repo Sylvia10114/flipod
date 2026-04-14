@@ -1,5 +1,6 @@
 import React, { useCallback, useRef } from 'react';
 import { type GestureResponderEvent, StyleSheet, View } from 'react-native';
+import { colors } from '../design';
 
 type Range = {
   start: number;
@@ -22,7 +23,7 @@ export function ProgressBar({ progress, markers = [], currentSentenceRange, high
   const offsetRef = useRef(0);
 
   const measure = useCallback(() => {
-    barRef.current?.measure((_x, _y, width, _height, pageX, _pageY) => {
+    barRef.current?.measure((_x, _y, width, _height, pageX) => {
       widthRef.current = width;
       offsetRef.current = pageX;
     });
@@ -38,7 +39,10 @@ export function ProgressBar({ progress, markers = [], currentSentenceRange, high
       ref={barRef}
       style={styles.track}
       onLayout={measure}
-      onStartShouldSetResponder={() => { measure(); return true; }}
+      onStartShouldSetResponder={() => {
+        measure();
+        return true;
+      }}
       onMoveShouldSetResponder={() => true}
       onResponderGrant={evt => onSeek(ratioFromEvent(evt))}
       onResponderMove={evt => onSeek(ratioFromEvent(evt))}
@@ -49,11 +53,11 @@ export function ProgressBar({ progress, markers = [], currentSentenceRange, high
         <View
           key={`highlight-${index}`}
           style={[
-            styles.segment,
+            styles.range,
             {
               left: `${Math.max(0, Math.min(100, range.start * 100))}%`,
               width: `${Math.max(0, Math.min(100, (range.end - range.start) * 100))}%`,
-              backgroundColor: range.color || 'rgba(139,156,247,0.24)',
+              backgroundColor: range.color || 'rgba(168,85,247,0.18)',
               opacity: range.opacity ?? 1,
             },
           ]}
@@ -62,8 +66,8 @@ export function ProgressBar({ progress, markers = [], currentSentenceRange, high
       {currentSentenceRange ? (
         <View
           style={[
-            styles.segment,
-            styles.currentSentence,
+            styles.range,
+            styles.currentRange,
             {
               left: `${Math.max(0, Math.min(100, currentSentenceRange.start * 100))}%`,
               width: `${Math.max(0, Math.min(100, (currentSentenceRange.end - currentSentenceRange.start) * 100))}%`,
@@ -85,51 +89,51 @@ export function ProgressBar({ progress, markers = [], currentSentenceRange, high
 
 const styles = StyleSheet.create({
   track: {
-    height: 32,
+    width: '100%',
+    height: 22,
     justifyContent: 'center',
-    paddingVertical: 12,
   },
   rail: {
     position: 'absolute',
+    top: 9,
     left: 0,
     right: 0,
-    top: 13,
-    height: 6,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    height: 4,
     borderRadius: 999,
+    backgroundColor: colors.bgSurface3,
   },
-  segment: {
+  range: {
     position: 'absolute',
-    top: 13,
-    height: 6,
+    top: 9,
+    height: 4,
     borderRadius: 999,
   },
-  currentSentence: {
-    backgroundColor: 'rgba(139,156,247,0.5)',
+  currentRange: {
+    backgroundColor: 'rgba(139,156,247,0.45)',
   },
   fill: {
     position: 'absolute',
+    top: 9,
     left: 0,
-    top: 13,
-    height: 6,
-    backgroundColor: '#8B9CF7',
+    height: 4,
     borderRadius: 999,
+    backgroundColor: colors.accentFeed,
   },
   marker: {
     position: 'absolute',
-    top: 11,
+    top: 7,
     width: 1,
-    height: 10,
+    height: 8,
     marginLeft: -0.5,
-    backgroundColor: 'rgba(255,255,255,0.28)',
+    backgroundColor: colors.textTertiary,
   },
   thumb: {
     position: 'absolute',
-    top: 8,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    top: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    marginLeft: -5,
     backgroundColor: '#FFFFFF',
-    marginLeft: -8,
   },
 });

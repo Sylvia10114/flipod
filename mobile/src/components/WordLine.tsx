@@ -1,19 +1,16 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { colors, radii, spacing } from '../design';
 import type { ClipLine, ClipLineWord } from '../types';
 
-const CEFR_COLORS: Record<string, string> = {
-  A1: 'rgba(255,255,255,0.92)',
-  A2: 'rgba(255,255,255,0.92)',
-  B1: '#7DD3FC',
-  B2: '#A78BFA',
-  C1: '#FB923C',
-  C2: '#F87171',
-};
-
-function cefrColor(cefr?: string) {
-  if (!cefr) return 'rgba(255,255,255,0.92)';
-  return CEFR_COLORS[cefr.toUpperCase()] || 'rgba(255,255,255,0.92)';
+function spokenWordStyle(cefr?: string) {
+  const normalized = (cefr || '').toUpperCase();
+  if (normalized === 'A1' || normalized === 'A2') return styles.wordSpokenA;
+  if (normalized === 'B1') return styles.wordSpokenB1;
+  if (normalized === 'B2') return styles.wordSpokenB2;
+  if (normalized === 'C1') return styles.wordSpokenC1;
+  if (normalized === 'C2') return styles.wordSpokenC2;
+  return styles.wordSpokenBase;
 }
 
 type Props = {
@@ -56,7 +53,7 @@ export function WordLine({
   if (!line.words || line.words.length === 0) {
     return (
       <View style={styles.container}>
-        <Text style={[styles.plainEn, masked && styles.plainEnMasked]}>{line.en}</Text>
+        <Text style={[styles.plainEn, compact && styles.plainEnCompact, masked && styles.plainEnMasked]}>{line.en}</Text>
         {showZh && <Text style={styles.zh}>{line.zh || ''}</Text>}
       </View>
     );
@@ -68,16 +65,16 @@ export function WordLine({
     <View style={styles.container}>
       <View style={styles.wordRow}>
         {enriched.map((w, i) => {
-          const active = isActive && currentTime >= w.start && currentTime <= w.end;
-          const spoken = isActive && currentTime > w.end;
+          const active = isActive && currentTime >= w.start && currentTime < w.end;
+          const spoken = isActive && currentTime >= w.end;
           return (
             <Pressable key={`${w.word}-${i}`} onPress={() => onWordTap(w, line)}>
               <Text
                 style={[
-                styles.word,
+                  styles.word,
                   compact && styles.wordCompact,
-                  !masked && { color: cefrColor(w.cefr) },
-                  !masked && spoken && styles.wordSpoken,
+                  !masked && styles.wordDim,
+                  !masked && spoken && spokenWordStyle(w.cefr),
                   !masked && active && styles.wordActive,
                   masked && styles.wordMasked,
                   masked && (spoken || active) && styles.wordMaskedProgress,
@@ -98,7 +95,7 @@ export function WordLine({
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    gap: 10,
+    gap: spacing.sm,
   },
   wordRow: {
     flexDirection: 'row',
@@ -106,58 +103,81 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   word: {
-    fontSize: 24,
-    lineHeight: 36,
-    fontWeight: '500',
+    fontSize: 22,
+    lineHeight: 33,
+    fontWeight: '400',
+    textAlign: 'center',
+  },
+  wordDim: {
+    color: 'rgba(255,255,255,0.20)',
   },
   wordCompact: {
-    fontSize: 22,
-    lineHeight: 32,
+    fontSize: 18,
+    lineHeight: 28,
   },
   wordMasked: {
     color: 'transparent',
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderRadius: 6,
-    paddingHorizontal: 4,
-    paddingVertical: 3,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderRadius: radii.sm,
+    paddingHorizontal: 3,
+    paddingVertical: 2,
     marginHorizontal: 1,
     marginVertical: 2,
   },
   wordMaskedProgress: {
-    color: 'transparent',
-    backgroundColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   wordActive: {
-    color: '#8B9CF7',
-    backgroundColor: 'rgba(139,156,247,0.18)',
-    borderRadius: 4,
-    overflow: 'hidden',
+    color: colors.accentFeed,
   },
-  wordSpoken: {
+  wordSpokenBase: {
     color: 'rgba(255,255,255,0.93)',
+  },
+  wordSpokenA: {
+    color: 'rgba(255,255,255,0.87)',
+  },
+  wordSpokenB1: {
+    color: '#7AAFC4',
+    fontWeight: '700',
+  },
+  wordSpokenB2: {
+    color: '#C4A96E',
+    fontWeight: '700',
+  },
+  wordSpokenC1: {
+    color: '#C47A6E',
+    fontWeight: '700',
+  },
+  wordSpokenC2: {
+    color: '#C97BDB',
+    fontWeight: '700',
   },
   wordPracticed: {
     textDecorationLine: 'underline',
     textDecorationStyle: 'dotted',
-    textDecorationColor: '#8B9CF7',
+    textDecorationColor: colors.accentPractice,
   },
   plainEn: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    lineHeight: 36,
+    color: colors.textPrimary,
+    fontSize: 22,
+    lineHeight: 33,
     textAlign: 'center',
+  },
+  plainEnCompact: {
+    fontSize: 18,
+    lineHeight: 28,
   },
   plainEnMasked: {
     color: 'transparent',
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderRadius: 10,
+    backgroundColor: colors.bgSurface2,
+    borderRadius: radii.md,
     paddingHorizontal: 8,
     paddingVertical: 6,
   },
   zh: {
-    color: 'rgba(255,255,255,0.52)',
-    fontSize: 16,
-    lineHeight: 24,
+    color: colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
     textAlign: 'center',
   },
 });

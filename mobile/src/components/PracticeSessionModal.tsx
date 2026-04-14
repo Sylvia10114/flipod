@@ -11,6 +11,8 @@ import {
   getSourceLabel,
   resolveClipAudioSource,
 } from '../clip-utils';
+import { CircularProgressPlayButton } from './CircularProgressPlayButton';
+import { colors } from '../design';
 import { triggerMediumHaptic, triggerUiFeedback } from '../feedback';
 import type { Clip, ClipLineWord, PracticeRecord, VocabEntry } from '../types';
 import { ProgressBar } from './ProgressBar';
@@ -42,6 +44,7 @@ type Props = {
   onComplete: (clipKey: string, record: PracticeRecord) => void;
   onDismiss: () => void;
   onReturnFeed: () => void;
+  onPracticeAgain: () => void;
 };
 
 function stepLabel(step: Step) {
@@ -73,8 +76,10 @@ export function PracticeSessionModal({
   onComplete,
   onDismiss,
   onReturnFeed,
+  onPracticeAgain,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
   const segmentEndRef = useRef<number | null>(null);
   const completionSavedRef = useRef(false);
@@ -163,12 +168,13 @@ export function PracticeSessionModal({
       return;
     }
 
-    setStatus({
+    setStatus(prev => ({
+      ...prev,
       isPlaying: nextStatus.isPlaying,
       isLoading: false,
       positionMillis: nextStatus.positionMillis,
-      durationMillis: nextStatus.durationMillis || nextStatus.positionMillis || 0,
-    });
+      durationMillis: nextStatus.durationMillis || prev.durationMillis,
+    }));
 
     if (
       segmentEndRef.current !== null &&
@@ -221,6 +227,13 @@ export function PracticeSessionModal({
         positionMillis: 0,
       }
     );
+
+    try {
+      await sound.setProgressUpdateIntervalAsync(120);
+      const initialStatus = await sound.getStatusAsync();
+      handleStatus(initialStatus);
+    } catch {
+    }
   }, [clip, handleStatus, unloadSound, visible]);
 
   const playWholeClip = useCallback(async (fromMillis = 0) => {
@@ -316,7 +329,39 @@ export function PracticeSessionModal({
     void playWholeClip(0);
   }, [clip, playWholeClip, step, visible]);
 
+  useEffect(() => {
+    if (!visible) return;
+
+    let cancelled = false;
+    const timer = setInterval(() => {
+      const sound = soundRef.current;
+      if (!sound) return;
+
+      void sound.getStatusAsync().then(nextStatus => {
+        if (cancelled) return;
+        handleStatus(nextStatus);
+      }).catch(() => {
+      });
+    }, 180);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [handleStatus, visible]);
+
+  useEffect(() => {
+    if (!visible || step !== 5) return;
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    });
+  }, [step, visible]);
+
   const lineCount = clip?.lines?.length || 0;
+  const clipDurationMillis = Math.max(
+    status.durationMillis,
+    Math.floor((clip ? getClipDurationSeconds(clip) : 0) * 1000)
+  );
   const currentLineIndex = clip ? Math.max(0, findLineAtTime(clip, status.positionMillis / 1000)) : 0;
   const currentLine = clip?.lines?.[currentLineIndex] || null;
   const sentenceLine = clip?.lines?.[sentenceIndex] || null;
@@ -402,7 +447,10 @@ export function PracticeSessionModal({
           </View>
         </View>
 
-        <ScrollView contentContainerStyle={[styles.body, { paddingBottom: Math.max(insets.bottom + 40, 40) }]}>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={[styles.body, { paddingBottom: Math.max(insets.bottom + 40, 40) }]}
+        >
           {step === 1 ? (
             <View style={styles.centerBlock}>
               <View style={styles.sourceCard}>
@@ -434,20 +482,24 @@ export function PracticeSessionModal({
                       />
                     ))}
                   </View>
-                  <Pressable
-                    onPress={() => {
-                      triggerMediumHaptic();
-                      if (status.isPlaying) {
-                        void pause();
-                        return;
-                      }
-                      const restart = status.positionMillis >= Math.max(0, status.durationMillis - 300);
-                      void playWholeClip(restart ? 0 : status.positionMillis);
-                    }}
-                    style={styles.primaryCircle}
-                  >
-                    <Text style={styles.primaryCircleText}>{status.isPlaying ? '暂停' : '播放'}</Text>
-                  </Pressable>
+                  <View style={styles.primaryPlayWrap}>
+                    <CircularProgressPlayButton
+                      progress={clipDurationMillis > 0 ? status.positionMillis / clipDurationMillis : 0}
+                      isPlaying={status.isPlaying}
+                      onPress={() => {
+                        triggerMediumHaptic();
+                        if (status.isPlaying) {
+                          void pause();
+                          return;
+                        }
+                        const restart = status.positionMillis >= Math.max(0, clipDurationMillis - 300);
+                        void playWholeClip(restart ? 0 : status.positionMillis);
+                      }}
+                      size={80}
+                      buttonSize={64}
+                      color={colors.accentPractice}
+                    />
+                  </View>
                 </>
               ) : null}
 
@@ -772,78 +824,36 @@ export function PracticeSessionModal({
           ) : null}
 
           {step === 5 ? (
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>这段练完了</Text>
-              <View style={styles.summaryStats}>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryValue}>{wordsLooked}</Text>
-                  <Text style={styles.summaryLabel}>查了词</Text>
-                </View>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryValue}>{lineCount}</Text>
-                  <Text style={styles.summaryLabel}>精听句数</Text>
-                </View>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryValue}>{hardSentences.length}</Text>
-                  <Text style={styles.summaryLabel}>难句</Text>
-                </View>
-              </View>
-
-              <View style={styles.summarySection}>
-                <Text style={styles.summarySectionTitle}>这次查过的词 · 想加入词汇本就点词查看</Text>
-                <View style={styles.summaryChipRow}>
-                  {lookedWordsList.length > 0 ? (
-                    lookedWordsList.map(item => (
-                      <View key={item.word} style={styles.summaryChip}>
-                        <Text style={styles.summaryChipText}>{item.word}</Text>
-                        {item.cefr ? <Text style={styles.summaryChipMeta}>{item.cefr}</Text> : null}
-                      </View>
-                    ))
-                  ) : (
-                    <Text style={styles.summaryEmpty}>这次没有点开查词，说明你已经很顺了。</Text>
-                  )}
+            <View style={styles.summaryScreen}>
+              <View style={styles.summaryCenter}>
+                <Text style={styles.summaryTitle}>这段练完了</Text>
+                <View style={styles.summaryRows}>
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryValue}>{wordsLooked}</Text>
+                    <Text style={styles.summaryLabel}>个词查了释义</Text>
+                  </View>
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryValue}>{lineCount}</Text>
+                    <Text style={styles.summaryLabel}>句精听</Text>
+                  </View>
+                  <View style={styles.summaryRow}>
+                    <Text style={[styles.summaryValue, styles.summaryValueHard]}>{hardSentences.length}</Text>
+                    <Text style={styles.summaryLabel}>句觉得难</Text>
+                  </View>
                 </View>
               </View>
-
-              <View style={styles.summarySection}>
-                <Text style={styles.summarySectionTitle}>回看这些难句</Text>
-                <View style={styles.summaryList}>
-                  {hardSentences.length > 0 ? (
-                    hardSentences.map(lineIndex => {
-                      const line = clip.lines?.[lineIndex];
-                      if (!line) return null;
-                      return (
-                        <View key={`${lineIndex}-${line.start}`} style={styles.summaryItem}>
-                          <Text style={styles.summaryItemEn}>{line.en}</Text>
-                          <Text style={styles.summaryItemZh}>{line.zh}</Text>
-                        </View>
-                      );
-                    })
-                  ) : (
-                    <Text style={styles.summaryEmpty}>这一段没有留下明显的难句，可以继续往前刷了。</Text>
-                  )}
-                </View>
-              </View>
-
-              <Pressable onPress={() => {
-                triggerUiFeedback('bookmark');
-                onReturnFeed();
-              }} style={styles.summaryInlineButton}>
-                <Text style={styles.summaryInlineButtonText}>回 Feed 收藏更多内容</Text>
-              </Pressable>
-
               <View style={styles.summaryActions}>
+                <Pressable onPress={() => {
+                  triggerUiFeedback('primary');
+                  onPracticeAgain();
+                }} style={[styles.summaryButton, styles.summaryButtonPrimary]}>
+                  <Text style={[styles.summaryButtonText, styles.summaryButtonTextPrimary]}>再练一段</Text>
+                </Pressable>
                 <Pressable onPress={() => {
                   triggerUiFeedback('menu');
                   onReturnFeed();
                 }} style={styles.summaryButton}>
                   <Text style={styles.summaryButtonText}>回到 Feed</Text>
-                </Pressable>
-                <Pressable onPress={() => {
-                  triggerUiFeedback('primary');
-                  onDismiss();
-                }} style={[styles.summaryButton, styles.summaryButtonPrimary]}>
-                  <Text style={[styles.summaryButtonText, styles.summaryButtonTextPrimary]}>再练一段</Text>
                 </Pressable>
               </View>
             </View>
@@ -881,7 +891,7 @@ export function PracticeSessionModal({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#09090B',
+    backgroundColor: colors.bgApp,
   },
   header: {
     paddingHorizontal: 20,
@@ -895,15 +905,15 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.bgSurface2,
   },
   closeButtonText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 12,
     fontWeight: '600',
   },
   stepLabel: {
-    color: 'rgba(255,255,255,0.68)',
+    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -915,15 +925,15 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: colors.textFaint,
   },
   stepDotActive: {
     width: 20,
     borderRadius: 6,
-    backgroundColor: '#8B9CF7',
+    backgroundColor: colors.accentPractice,
   },
   stepDotDone: {
-    backgroundColor: 'rgba(139,156,247,0.5)',
+    backgroundColor: 'rgba(168,85,247,0.5)',
   },
   body: {
     flexGrow: 1,
@@ -941,26 +951,26 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     paddingHorizontal: 18,
     paddingVertical: 16,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(168,85,247,0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(168,85,247,0.24)',
     gap: 6,
   },
   sourceTitle: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 18,
     lineHeight: 26,
     fontWeight: '700',
     textAlign: 'center',
   },
   sourceMeta: {
-    color: 'rgba(255,255,255,0.48)',
+    color: colors.textSecondary,
     fontSize: 13,
     textAlign: 'center',
   },
   hintText: {
     marginTop: 20,
-    color: 'rgba(255,255,255,0.62)',
+    color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 22,
     textAlign: 'center',
@@ -976,20 +986,10 @@ const styles = StyleSheet.create({
   waveBar: {
     width: 5,
     borderRadius: 999,
-    backgroundColor: '#8B9CF7',
+    backgroundColor: colors.accentPractice,
   },
-  primaryCircle: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#8B9CF7',
-  },
-  primaryCircleText: {
-    color: '#09090B',
-    fontSize: 16,
-    fontWeight: '700',
+  primaryPlayWrap: {
+    marginBottom: 12,
   },
   choiceRow: {
     marginTop: 36,
@@ -1000,25 +1000,25 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 15,
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.bgSurface2,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.stroke,
   },
   choiceButtonPrimary: {
-    backgroundColor: '#8B9CF7',
-    borderColor: '#8B9CF7',
+    backgroundColor: colors.accentPractice,
+    borderColor: colors.accentPractice,
   },
   quizStartButton: {
     marginTop: 36,
     width: '100%',
   },
   choiceButtonText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '700',
   },
   choiceButtonPrimaryText: {
-    color: '#09090B',
+    color: colors.textOnAccent,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -1028,13 +1028,13 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     paddingHorizontal: 18,
     paddingVertical: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.bgSurface1,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.stroke,
     gap: 14,
   },
   compLabel: {
-    color: 'rgba(255,255,255,0.38)',
+    color: colors.textTertiary,
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -1042,7 +1042,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   compQuestion: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 16,
     lineHeight: 24,
   },
@@ -1053,9 +1053,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.bgSurface2,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.stroke,
   },
   compOptionCorrect: {
     borderColor: '#4ADE80',
@@ -1069,12 +1069,12 @@ const styles = StyleSheet.create({
     opacity: 0.35,
   },
   compOptionText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 14,
     lineHeight: 20,
   },
   compExplanation: {
-    color: 'rgba(255,255,255,0.62)',
+    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 20,
   },
@@ -1083,10 +1083,10 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 14,
     alignItems: 'center',
-    backgroundColor: '#8B9CF7',
+    backgroundColor: colors.accentPractice,
   },
   compNextButtonText: {
-    color: '#09090B',
+    color: colors.textOnAccent,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -1096,30 +1096,30 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     paddingHorizontal: 18,
     paddingVertical: 24,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.bgSurface1,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.stroke,
     gap: 14,
     alignItems: 'center',
   },
   compResultSub: {
-    color: 'rgba(255,255,255,0.5)',
+    color: colors.textSecondary,
     fontSize: 16,
     fontWeight: '700',
   },
   compResultMsg: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 20,
     fontWeight: '700',
     textAlign: 'center',
   },
   compRetryText: {
-    color: 'rgba(255,255,255,0.54)',
+    color: colors.textSecondary,
     fontSize: 13,
     textDecorationLine: 'underline',
   },
   progressText: {
-    color: 'rgba(255,255,255,0.48)',
+    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -1134,10 +1134,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.bgSurface2,
   },
   translationToggleText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -1152,10 +1152,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 12,
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.bgSurface2,
   },
   secondaryCircleText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -1195,13 +1195,13 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     paddingHorizontal: 22,
     paddingVertical: 28,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(168,85,247,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(168,85,247,0.22)',
     alignItems: 'center',
   },
   flashLabel: {
-    color: 'rgba(255,255,255,0.38)',
+    color: colors.textTertiary,
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -1209,7 +1209,7 @@ const styles = StyleSheet.create({
   },
   flashEn: {
     marginTop: 16,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 20,
     lineHeight: 30,
     textAlign: 'center',
@@ -1219,33 +1219,33 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.bgSurface2,
   },
   flashPlayButtonText: {
-    color: '#8B9CF7',
+    color: colors.accentPractice,
     fontSize: 13,
     fontWeight: '700',
   },
   flashHint: {
     marginTop: 12,
-    color: 'rgba(255,255,255,0.42)',
+    color: colors.textTertiary,
     fontSize: 12,
   },
   flashDivider: {
     width: 46,
     height: 1,
     marginVertical: 18,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: colors.strokeStrong,
   },
   flashZh: {
-    color: 'rgba(255,255,255,0.68)',
+    color: colors.textSecondary,
     fontSize: 15,
     lineHeight: 22,
     textAlign: 'center',
   },
   flashMeta: {
     marginTop: 14,
-    color: 'rgba(255,255,255,0.42)',
+    color: colors.textTertiary,
     fontSize: 12,
     lineHeight: 18,
     textAlign: 'center',
@@ -1264,15 +1264,15 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.bgSurface2,
   },
   hardWordText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 13,
     fontWeight: '700',
   },
   hardWordLevel: {
-    color: '#AFC0FF',
+    color: colors.accentPractice,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -1280,128 +1280,65 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 22,
   },
-  summaryCard: {
-    marginTop: 40,
-    borderRadius: 28,
-    paddingHorizontal: 24,
-    paddingVertical: 28,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    gap: 20,
-  },
-  summaryTitle: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  summaryStats: {
-    flexDirection: 'row',
+  summaryScreen: {
+    minHeight: 560,
+    width: '100%',
     justifyContent: 'space-between',
   },
-  summaryStat: {
+  summaryCenter: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 24,
+  },
+  summaryTitle: {
+    color: colors.textPrimary,
+    fontSize: 22,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  summaryRows: {
+    gap: 12,
     alignItems: 'center',
   },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   summaryValue: {
-    color: '#8B9CF7',
+    color: colors.accentPractice,
     fontSize: 28,
     fontWeight: '700',
   },
+  summaryValueHard: {
+    color: colors.accentError,
+  },
   summaryLabel: {
-    marginTop: 6,
-    color: 'rgba(255,255,255,0.46)',
-    fontSize: 12,
-  },
-  summarySection: {
-    gap: 12,
-  },
-  summarySectionTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  summaryChipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  summaryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  summaryChipText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  summaryChipMeta: {
-    color: '#AFC0FF',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  summaryList: {
-    gap: 12,
-  },
-  summaryItem: {
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    gap: 6,
-  },
-  summaryItemEn: {
-    color: '#FFFFFF',
+    color: colors.textSecondary,
     fontSize: 14,
-    lineHeight: 22,
-  },
-  summaryItemZh: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  summaryEmpty: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  summaryInlineButton: {
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  summaryInlineButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
   },
   summaryActions: {
-    flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   summaryButton: {
-    flex: 1,
-    borderRadius: 18,
-    paddingVertical: 15,
+    borderRadius: 10,
+    paddingVertical: 12,
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: colors.textFaint,
+    backgroundColor: 'transparent',
   },
   summaryButtonPrimary: {
-    backgroundColor: '#8B9CF7',
+    backgroundColor: colors.accentPractice,
+    borderColor: colors.accentPractice,
   },
   summaryButtonText: {
-    color: '#FFFFFF',
+    color: colors.textSecondary,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '500',
   },
   summaryButtonTextPrimary: {
-    color: '#09090B',
+    color: colors.textPrimary,
   },
 });

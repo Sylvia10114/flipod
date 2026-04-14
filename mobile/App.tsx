@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   buildClipKey,
   findClipIndexByKey,
+  getClipDurationSeconds,
   getLevelWeight,
   resolveDataUrl,
   sortClipsForFeed,
@@ -21,7 +22,6 @@ import { LibraryScreen } from './src/screens/LibraryScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { PracticeScreen } from './src/screens/PracticeScreen';
-import { StartScreen } from './src/screens/StartScreen';
 import { VocabScreen } from './src/screens/VocabScreen';
 import { api } from './src/services/api';
 import { disposeUiFeedback, primeUiFeedback, triggerUiFeedback } from './src/feedback';
@@ -187,15 +187,12 @@ export default function App() {
   const [activeScreen, setActiveScreen] = useState<MenuScreen>('feed');
   const [menuOpen, setMenuOpen] = useState(false);
   const [feedState, setFeedState] = useState<'loading' | 'normal' | 'rerank' | 'fallback'>('loading');
-  const [showStartScreen, setShowStartScreen] = useState(false);
-  const [showStartTransition, setShowStartTransition] = useState(false);
   const [practiceClipKey, setPracticeClipKey] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
   const playedKeysRef = useRef<Set<string>>(new Set());
   const calibrationStateRef = useRef<CalibrationState>({});
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const startTransitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyAuthSnapshot = useCallback((snapshot: AuthBootstrapResponse) => {
     setProfile({
@@ -211,8 +208,7 @@ export default function App() {
     setLikedClipKeys(snapshot.likedClipKeys || []);
     setLikeEvents(snapshot.likeEvents || []);
     setLinkedIdentities(snapshot.linkedIdentities || []);
-    setShowStartTransition(false);
-    setShowStartScreen(Boolean(snapshot.profile.onboardingDone));
+    setActiveScreen('feed');
     setPracticeClipKey(null);
   }, []);
 
@@ -231,9 +227,6 @@ export default function App() {
     return () => {
       if (toastTimeoutRef.current) {
         clearTimeout(toastTimeoutRef.current);
-      }
-      if (startTransitionTimeoutRef.current) {
-        clearTimeout(startTransitionTimeoutRef.current);
       }
     };
   }, []);
@@ -335,7 +328,6 @@ export default function App() {
             if (!cancelled) {
               setAuthToken(null);
               setLinkedIdentities([]);
-              setShowStartScreen(false);
             }
           }
         }
@@ -399,6 +391,15 @@ export default function App() {
   const likedKeys = useMemo(() => new Set(likedClipKeys), [likedClipKeys]);
   const vocabWords = useMemo(() => vocabList.map(item => item.word), [vocabList]);
   const recoTag = useMemo(() => deriveRecoTag(likeEvents), [likeEvents]);
+  const minutesListened = useMemo(() => {
+    const listenedSet = new Set(listenedClipKeys);
+    const totalSeconds = clipsData.reduce((sum, clip, index) => {
+      const clipKey = buildClipKey(clip, index);
+      if (!listenedSet.has(clipKey)) return sum;
+      return sum + getClipDurationSeconds(clip);
+    }, 0);
+    return Math.max(0, Math.round(totalSeconds / 60));
+  }, [clipsData, listenedClipKeys]);
   const practiceCount = useMemo(() => {
     return bookmarks.filter(item => !practiceData[item.clipKey]?.done).length || bookmarks.length;
   }, [bookmarks, practiceData]);
@@ -534,17 +535,7 @@ export default function App() {
     setProfile(nextProfile);
     setActiveScreen('feed');
     setMenuOpen(false);
-    setShowStartTransition(true);
-    setShowStartScreen(false);
     await saveProfile(nextProfile);
-
-    if (startTransitionTimeoutRef.current) {
-      clearTimeout(startTransitionTimeoutRef.current);
-    }
-    startTransitionTimeoutRef.current = setTimeout(() => {
-      setShowStartTransition(false);
-      setShowStartScreen(true);
-    }, 1500);
 
     if (authToken) {
       try {
@@ -584,14 +575,8 @@ export default function App() {
     setProfile(defaultProfile);
     setActiveScreen('feed');
     setMenuOpen(false);
-    setShowStartScreen(false);
-    setShowStartTransition(false);
     setPracticeClipKey(null);
     await saveProfile(defaultProfile);
-    if (startTransitionTimeoutRef.current) {
-      clearTimeout(startTransitionTimeoutRef.current);
-      startTransitionTimeoutRef.current = null;
-    }
     if (authToken) {
       try {
         await api.saveProfile(authToken, defaultProfile);
@@ -779,7 +764,7 @@ export default function App() {
   };
 
   const handleToggleHand = () => {
-    const nextSettings = {
+    const nextSettings: AppSettings = {
       ...settings,
       dominantHand: settings.dominantHand === 'left' ? 'right' : 'left',
     };
@@ -792,7 +777,7 @@ export default function App() {
     void persistSettings(nextSettings);
   };
 
-  const handlePracticeComplete = (clipKey: string, record: PracticeMap[string]) => {
+  const handlePracticeComplete = useCallback((clipKey: string, record: PracticeMap[string]) => {
     setPracticeData(prev => {
       const next = { ...prev, [clipKey]: record };
       void savePracticeData(next);
@@ -817,7 +802,7 @@ export default function App() {
     if (authToken) {
       void api.savePractice(authToken, clipKey, record).catch(() => {});
     }
-  };
+  }, [authToken, currentClips]);
 
   const handleReviewAction = useCallback((word: string, action: 'remember' | 'forgot') => {
     const normalized = word.toLowerCase();
@@ -885,20 +870,25 @@ export default function App() {
     await saveCalibrationState(nextCalibrationState);
   }, [calibrationSuggestion]);
 
-  const handleStartPractice = (clipIndex: number) => {
+  const handleStartPractice = useCallback((clipIndex: number) => {
     const clip = currentClips[clipIndex];
     if (!clip) return;
     setPracticeClipKey(buildClipKey(clip, clipIndex));
-  };
+  }, [currentClips]);
 
-  const handleClosePractice = () => {
+  const handleClosePractice = useCallback(() => {
     setPracticeClipKey(null);
-  };
+  }, []);
 
-  const handleReturnFeed = () => {
+  const handleReturnFeed = useCallback(() => {
     setPracticeClipKey(null);
     setActiveScreen('feed');
-  };
+  }, []);
+
+  const handlePracticeAgain = useCallback(() => {
+    setPracticeClipKey(null);
+    setActiveScreen('practice');
+  }, []);
 
   const handleLogout = useCallback(async () => {
     if (authToken) {
@@ -933,8 +923,6 @@ export default function App() {
     setActiveScreen('feed');
     setMenuOpen(false);
     setShowAuthSheet(false);
-    setShowStartScreen(false);
-    setShowStartTransition(false);
     setPracticeClipKey(null);
     setAuthError('');
   }, [authToken]);
@@ -960,17 +948,6 @@ export default function App() {
     );
   } else if (!profile.onboardingDone) {
     content = <OnboardingScreen initialProfile={profile} onSubmit={handleProfileSubmit} />;
-  } else if (showStartTransition) {
-    content = <StartScreen preparing />;
-  } else if (activeScreen === 'feed' && showStartScreen) {
-    content = (
-      <StartScreen
-        onBegin={() => {
-          setShowStartScreen(false);
-          setActiveScreen('feed');
-        }}
-      />
-    );
   } else if (activeScreen === 'library') {
     content = (
       <LibraryScreen
@@ -1006,6 +983,7 @@ export default function App() {
         bookmarkedKeys={bookmarkedKeys}
         likedKeys={likedClipKeys}
         recoTag={recoTag}
+        minutesListened={minutesListened}
         reviewState={reviewState}
         vocabEntries={vocabList}
         vocabWords={vocabWords}
@@ -1095,6 +1073,7 @@ export default function App() {
               onComplete={handlePracticeComplete}
               onDismiss={handleClosePractice}
               onReturnFeed={handleReturnFeed}
+              onPracticeAgain={handlePracticeAgain}
             />
 
             <CalibrationToast

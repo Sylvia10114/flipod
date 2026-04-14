@@ -1,6 +1,7 @@
 import React from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { EmptyState, GlassCard, PillButton, ScreenHeader, ScreenSurface } from '../components/AppChrome';
+import { colors, spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
 import type { Bookmark } from '../types';
 
@@ -12,138 +13,92 @@ type Props = {
 
 export function LibraryScreen({ bookmarks, onRemove, onOpenMenu }: Props) {
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Pressable onPress={() => {
+    <ScreenSurface>
+      <ScreenHeader
+        leading={<PillButton label="menu" onPress={() => {
           triggerUiFeedback('menu');
           onOpenMenu();
-        }} style={styles.backButton}>
-          <Text style={styles.backButtonText}>菜单</Text>
-        </Pressable>
-        <Text style={styles.title}>收藏夹</Text>
-        <Text style={styles.count}>{bookmarks.length}</Text>
-      </View>
+        }} />}
+        title="我的收藏"
+        subtitle="留给反复听和后面精听的片段"
+        trailing={<Text style={styles.count}>{bookmarks.length}</Text>}
+      />
 
       <FlatList
         data={bookmarks}
         keyExtractor={item => item.clipKey}
         contentContainerStyle={styles.content}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>你还没有收藏内容</Text>
-            <Text style={styles.emptyText}>先在 feed 里保存几条想反复听的 clip。</Text>
-          </View>
+          <EmptyState title="还没有收藏内容" body="在 Feed 里点一下 bookmark，想回听的片段都会沉淀在这里。" />
         }
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={styles.cardBody}>
+          <GlassCard style={styles.card}>
+            <View style={styles.cardMain}>
               <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.cardMeta}>{item.source} · {item.tag}</Text>
+              <Text style={styles.cardMeta}>
+                {item.source}
+                {item.tag ? ` · ${item.tag}` : ''}
+              </Text>
             </View>
-            <Pressable onPress={() => {
-              triggerUiFeedback('bookmark');
-              onRemove(item.clipKey);
-            }} style={styles.removeButton}>
+            <Pressable
+              onPress={() => {
+                triggerUiFeedback('bookmark');
+                onRemove(item.clipKey);
+              }}
+              style={styles.removeButton}
+            >
               <Text style={styles.removeButtonText}>移除</Text>
             </Pressable>
-          </View>
+          </GlassCard>
         )}
       />
-    </SafeAreaView>
+    </ScreenSurface>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#09090B',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 16,
-  },
-  backButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  backButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '700',
-  },
   count: {
-    color: 'rgba(255,255,255,0.48)',
-    fontSize: 14,
-    width: 40,
+    color: colors.textSecondary,
+    fontSize: typography.body,
+    fontWeight: '600',
+    minWidth: 20,
     textAlign: 'right',
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.page,
     paddingBottom: 40,
-    gap: 12,
-  },
-  emptyState: {
-    marginTop: 120,
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  emptyTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  emptyText: {
-    color: 'rgba(255,255,255,0.56)',
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: 'center',
-    marginTop: 10,
+    gap: spacing.md,
   },
   card: {
-    borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.md,
   },
-  cardBody: {
+  cardMain: {
     flex: 1,
-    paddingRight: 16,
+    gap: spacing.sm,
   },
   cardTitle: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '700',
   },
   cardMeta: {
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: 8,
-    fontSize: 13,
+    color: colors.textSecondary,
+    fontSize: typography.caption,
   },
   removeButton: {
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.bgSurface2,
+    borderWidth: 1,
+    borderColor: colors.stroke,
   },
   removeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
+    color: colors.textPrimary,
+    fontSize: typography.caption,
+    fontWeight: '700',
   },
 });
