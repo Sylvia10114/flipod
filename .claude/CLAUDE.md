@@ -36,7 +36,8 @@
 - **输出路径格式** — 音频输出到 `output/clips/clip_001.mp3`（三位编号），日志到 `output/logs/`，data 到 `output/new_clips.json`
 - **句子分割** — Whisper word 级输出**没有标点**，segment 级输出**有标点**。正确做法：用 segment 文本按标点分句，再把 word 时间戳按顺序映射到每个句子。不要在 word 上找标点（找不到）
 - **翻译行数必须校验** — 用 JSON 格式（`[{"idx":0,"zh":"..."}]`）而非纯文本按行对齐，每 10 句一批，失败退回逐句翻译
-- **CEFR 标注优先用本地词表** — 首次运行会通过 LLM 生成 COCA-CEFR 基础词表（~3000+ 词）并缓存到 `cefr_wordlist.json`，后续只对未命中词走 LLM
+- **CEFR 词表用 CEFR-J + Octanove C1/C2**（2026-04-15 从假 COCA-CEFR 迁移）— 源：`openlanguageprofiles/olp-en-cefrj`（A1-B2 主表 `cefrj-vocabulary-profile-1.5.csv` + C1-C2 扩展 `octanove-vocabulary-profile-c1c2-1.0.csv`），共 ~8650 词。**许可证 CC BY-SA 4.0**，前端必须在侧面板底部显示归属行（已在 `index.html` `.sp-attribution` 里）。迁移脚本 `tools/migrate_cefr_to_cefrj.py`，未命中词走 LLM fallback。**旧的 LLM 生成 COCA-CEFR 已弃用**——频率 ≠ 难度，会把 `add`/`agree`/`afternoon` 这种 A1 词标成 B2，严重高估难度
+- **Prompt 末尾完整性约束不能靠 LLM 自查**（Patch D 失败教训，2026-04-15）— v2.2 让 LLM 在 prompt 层硬约束末尾不能是逗号/连词/悬挂短语并自评 `completeness`，实测 9 条 `end_no_punct` 零改善且 LLM 全部自评 `completeness=high`（实际 8/9 真半截）。**LLM 按内容语义选段，对 word-level 边界盲视**。正确做法：在 `filter.py` 加 code-level 末尾 snap（往前回扫 Whisper segment 级标点位置，调整 end_word_index 到最近句号/问号/感叹号/引号）
 - **词提取边界** — 收紧到 ±0.05s，避免超出片段边界的词混入
 - **Whisper 语言检测** — 转录后检查 `language` 字段，非英语直接跳过
 - **输出必须经过 validate_all_clips()** — 校验时间戳连续性、翻译完整性、CEFR 覆盖率、音频文件存在性

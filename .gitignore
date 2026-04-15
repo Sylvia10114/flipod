@@ -1,5 +1,6 @@
 # Audio intermediates
 *.mp3.bad
+clips/clip_*.mp3
 
 # Data backups
 data.json.bak*
