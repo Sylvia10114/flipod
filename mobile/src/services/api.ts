@@ -5,6 +5,7 @@ import type {
   LikeEvent,
   PracticeRecord,
   Profile,
+  RankRequest,
   RankResponse,
   SessionResponse,
   VocabEntry,
@@ -133,11 +134,11 @@ export const api = {
       body: JSON.stringify(profile),
     }, { token });
   },
-  rankFeed(payload: Record<string, unknown>) {
+  rankFeed(payload: RankRequest, token?: string) {
     return request<RankResponse>('/api/rank', {
       method: 'POST',
       body: JSON.stringify(payload),
-    });
+    }, { token });
   },
   listBookmarks(token: string) {
     return request<{ bookmarks: Bookmark[] }>('/api/bookmarks', { method: 'GET' }, { token });

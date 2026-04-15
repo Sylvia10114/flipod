@@ -1,4 +1,13 @@
 export type Level = 'A1-A2' | 'B1' | 'B2' | 'C1-C2';
+export type Topic =
+  | 'science'
+  | 'business'
+  | 'psychology'
+  | 'story'
+  | 'history'
+  | 'culture'
+  | 'tech'
+  | 'society';
 export type ClipDifficulty = 'easy' | 'medium' | 'hard' | 'A1-A2' | 'B1' | 'B1+' | 'B2' | 'C1-C2' | string;
 
 export type ClipLineWord = {
@@ -25,6 +34,7 @@ export type ClipQuestion = {
 
 export type Clip = {
   id?: number;
+  topic?: Topic | string;
   title: string;
   source: {
     podcast?: string;
@@ -39,6 +49,7 @@ export type Clip = {
   audio?: string;
   cdnAudio?: string;
   duration?: number;
+  difficulty_score?: number;
   difficulty?: ClipDifficulty;
   overlap_score?: number;
   info_takeaway?: string;
@@ -118,9 +129,32 @@ export type RankedFeedItem = {
   reason: string;
 };
 
+export type RankMode = 'starter' | 'rerank';
+
+export type RankRequest = {
+  mode: RankMode;
+  level: Level;
+  interests: string[];
+  listenedClipIds: number[];
+  skippedClipIds: number[];
+  likedTopics: string[];
+  wordsLookedUp: number;
+  maxItems?: number;
+};
+
 export type RankResponse = {
   feed: RankedFeedItem[];
-  clip_count: number;
+  clip_count?: number;
+  algorithm?: string;
+  generatedAt?: string;
+};
+
+export type ClipManifestEntry = {
+  id: number;
+  topic: Topic;
+  source: string;
+  duration: number;
+  difficulty_score: number;
 };
 
 export type Bookmark = {

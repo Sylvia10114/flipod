@@ -8,8 +8,8 @@ import {
   findClipIndexByKey,
   getClipDurationSeconds,
   getLevelWeight,
+  getSourceLabel,
   resolveDataUrl,
-  sortClipsForFeed,
   toBookmark,
 } from './src/clip-utils';
 import { AppToast } from './src/components/AppToast';
@@ -17,6 +17,15 @@ import { CalibrationToast } from './src/components/CalibrationToast';
 import { PracticeSessionModal } from './src/components/PracticeSessionModal';
 import { type MenuScreen, SlideMenu } from './src/components/SlideMenu';
 import { demoClips } from './src/demo-clips';
+import {
+  applyRankedFeedOrder,
+  buildClipManifest,
+  buildLocalStarterFeedFallback,
+  collectClipIdsByKeys,
+  deriveLikedTopics,
+  normalizeClips,
+  normalizeTopic,
+} from './src/feed-ranking';
 import { FeedScreen } from './src/screens/FeedScreen';
 import { LibraryScreen } from './src/screens/LibraryScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -73,6 +82,9 @@ import type {
   LinkedIdentity,
   PracticeMap,
   Profile,
+  RankMode,
+  RankRequest,
+  RankedFeedItem,
   ReviewState,
   VocabEntry,
 } from './src/types';
@@ -161,6 +173,27 @@ function readErrorMessage(error: unknown) {
   return '请求失败，请稍后重试';
 }
 
+function getClipTopic(clip: Clip) {
+  return normalizeTopic(String(clip.topic || clip.tag || 'story'));
+}
+
+function buildFeedSignature(profile: Profile, clipCount: number) {
+  return JSON.stringify({
+    level: normalizeLevel(profile.level),
+    interests: (profile.interests || []).map(item => String(item).trim().toLowerCase()).slice(0, 3),
+    clipCount,
+  });
+}
+
+function buildFeedReasonMap(feed: RankedFeedItem[]) {
+  return feed.reduce<Record<number, string>>((acc, item) => {
+    if (Number.isInteger(item.id)) {
+      acc[item.id] = item.reason;
+    }
+    return acc;
+  }, {});
+}
+
 export default function App() {
   const [booting, setBooting] = useState(true);
   const [deviceId, setDeviceId] = useState('');
@@ -173,6 +206,10 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [practiceData, setPracticeData] = useState<PracticeMap>({});
   const [clipsData, setClipsData] = useState<Clip[]>(demoClips);
+  const [clipsLoaded, setClipsLoaded] = useState(false);
+  const [feedOrderIds, setFeedOrderIds] = useState<number[]>([]);
+  const [feedReasons, setFeedReasons] = useState<Record<number, string>>({});
+  const [skippedClipIds, setSkippedClipIds] = useState<number[]>([]);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [vocabList, setVocabList] = useState<VocabEntry[]>([]);
   const [likedClipKeys, setLikedClipKeys] = useState<string[]>([]);
@@ -192,6 +229,20 @@ export default function App() {
   const [toastVisible, setToastVisible] = useState(false);
   const playedKeysRef = useRef<Set<string>>(new Set());
   const calibrationStateRef = useRef<CalibrationState>({});
+  const lastFeedSignatureRef = useRef<string | null>(null);
+  const rankContextRef = useRef<{
+    manifest: ReturnType<typeof buildClipManifest>;
+    listenedClipIds: number[];
+    skippedClipIds: number[];
+    likedTopics: string[];
+    wordsLookedUp: number;
+  }>({
+    manifest: buildClipManifest(demoClips),
+    listenedClipIds: [],
+    skippedClipIds: [],
+    likedTopics: [],
+    wordsLookedUp: 0,
+  });
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyAuthSnapshot = useCallback((snapshot: AuthBootstrapResponse) => {
@@ -210,6 +261,10 @@ export default function App() {
     setLinkedIdentities(snapshot.linkedIdentities || []);
     setActiveScreen('feed');
     setPracticeClipKey(null);
+    setFeedOrderIds([]);
+    setFeedReasons({});
+    setSkippedClipIds([]);
+    lastFeedSignatureRef.current = null;
   }, []);
 
   const showToast = useCallback((message: string) => {
@@ -357,17 +412,17 @@ export default function App() {
         if (cancelled) return;
 
         if (Array.isArray(data.clips) && data.clips.length > 0) {
-          setClipsData(data.clips);
-          setFeedState('normal');
+          setClipsData(normalizeClips(data.clips));
+          setClipsLoaded(true);
           return;
         }
 
         setClipsData(demoClips);
-        setFeedState('fallback');
+        setClipsLoaded(true);
       } catch {
         if (!cancelled) {
           setClipsData(demoClips);
-          setFeedState('fallback');
+          setClipsLoaded(true);
         }
       }
     }
@@ -377,20 +432,28 @@ export default function App() {
       cancelled = true;
     };
   }, []);
-
-  useEffect(() => {
-    if (feedState !== 'rerank') return;
-    const timeout = setTimeout(() => {
-      setFeedState('normal');
-    }, 2600);
-    return () => clearTimeout(timeout);
-  }, [feedState]);
-
-  const currentClips = useMemo(() => sortClipsForFeed(clipsData, listenedClipKeys), [clipsData, listenedClipKeys]);
   const bookmarkedKeys = useMemo(() => bookmarks.map(item => item.clipKey), [bookmarks]);
   const likedKeys = useMemo(() => new Set(likedClipKeys), [likedClipKeys]);
   const vocabWords = useMemo(() => vocabList.map(item => item.word), [vocabList]);
   const recoTag = useMemo(() => deriveRecoTag(likeEvents), [likeEvents]);
+  const clipManifest = useMemo(() => buildClipManifest(clipsData), [clipsData]);
+  const listenedClipIds = useMemo(() => {
+    return collectClipIdsByKeys(clipsData, listenedClipKeys, buildClipKey);
+  }, [clipsData, listenedClipKeys]);
+  const likedTopics = useMemo(() => deriveLikedTopics(likeEvents), [likeEvents]);
+  const rankedFeed = useMemo<RankedFeedItem[]>(() => {
+    return feedOrderIds.map(id => ({
+      id,
+      reason: feedReasons[id] || '',
+    }));
+  }, [feedOrderIds, feedReasons]);
+  const currentClips = useMemo(() => {
+    const rankedClips = applyRankedFeedOrder(clipsData, rankedFeed);
+    if (rankedClips.length > 0) {
+      return rankedClips;
+    }
+    return clipsData.slice(0, 10);
+  }, [clipsData, rankedFeed]);
   const minutesListened = useMemo(() => {
     const listenedSet = new Set(listenedClipKeys);
     const totalSeconds = clipsData.reduce((sum, clip, index) => {
@@ -403,8 +466,8 @@ export default function App() {
   const practiceCount = useMemo(() => {
     return bookmarks.filter(item => !practiceData[item.clipKey]?.done).length || bookmarks.length;
   }, [bookmarks, practiceData]);
-  const practiceClipIndex = practiceClipKey ? findClipIndexByKey(currentClips, practiceClipKey) : -1;
-  const practiceClip = practiceClipIndex >= 0 ? currentClips[practiceClipIndex] : null;
+  const practiceClipIndex = practiceClipKey ? findClipIndexByKey(clipsData, practiceClipKey) : -1;
+  const practiceClip = practiceClipIndex >= 0 ? clipsData[practiceClipIndex] : null;
   const isAuthenticated = Boolean(authToken);
 
   const localMigrationPayload = useMemo(() => ({
@@ -417,6 +480,94 @@ export default function App() {
     likedClipKeys,
     likeEvents,
   }), [bookmarks, deviceId, knownWords, likeEvents, likedClipKeys, practiceData, profile, vocabList]);
+
+  useEffect(() => {
+    rankContextRef.current = {
+      manifest: clipManifest,
+      listenedClipIds,
+      skippedClipIds,
+      likedTopics,
+      wordsLookedUp: calibrationSignals.wordsLookedUp,
+    };
+  }, [calibrationSignals.wordsLookedUp, clipManifest, likedTopics, listenedClipIds, skippedClipIds]);
+
+  const applyFeedItems = useCallback((feed: RankedFeedItem[], nextState: 'normal' | 'fallback') => {
+    setFeedOrderIds(feed.map(item => item.id));
+    setFeedReasons(buildFeedReasonMap(feed));
+    setFeedState(nextState);
+  }, []);
+
+  const buildRankRequestForProfile = useCallback((nextProfile: Profile, mode: RankMode = 'starter'): RankRequest => {
+    const context = rankContextRef.current;
+    return {
+      mode,
+      level: normalizeLevel(nextProfile.level),
+      interests: nextProfile.interests.slice(0, 3),
+      listenedClipIds: context.listenedClipIds,
+      skippedClipIds: context.skippedClipIds,
+      likedTopics: context.likedTopics,
+      wordsLookedUp: context.wordsLookedUp,
+      maxItems: 10,
+    };
+  }, []);
+
+  const requestRankedFeed = useCallback(async (
+    nextProfile: Profile,
+    options: { mode?: RankMode; pendingState?: 'loading' | 'rerank'; signature?: string | null } = {}
+  ) => {
+    const request = buildRankRequestForProfile(nextProfile, options.mode || 'starter');
+    const fallbackFeed = buildLocalStarterFeedFallback(rankContextRef.current.manifest, request);
+
+    if (options.pendingState) {
+      setFeedState(options.pendingState);
+    }
+
+    const applySignature = () => {
+      if (options.signature) {
+        lastFeedSignatureRef.current = options.signature;
+      }
+    };
+
+    if (!authToken) {
+      applyFeedItems(fallbackFeed, 'fallback');
+      applySignature();
+      return fallbackFeed;
+    }
+
+    try {
+      const response = await api.rankFeed(request, authToken);
+      const remoteFeed = Array.isArray(response.feed) && response.feed.length > 0 ? response.feed : fallbackFeed;
+      applyFeedItems(remoteFeed, response.feed?.length ? 'normal' : 'fallback');
+      applySignature();
+      return remoteFeed;
+    } catch {
+      applyFeedItems(fallbackFeed, 'fallback');
+      applySignature();
+      return fallbackFeed;
+    }
+  }, [applyFeedItems, authToken, buildRankRequestForProfile]);
+
+  useEffect(() => {
+    if (!authToken || !clipsLoaded || !profile.onboardingDone) return;
+
+    const signature = buildFeedSignature(profile, clipManifest.length);
+    if (lastFeedSignatureRef.current === signature) {
+      return;
+    }
+
+    void requestRankedFeed(profile, {
+      mode: 'starter',
+      pendingState: feedOrderIds.length > 0 ? 'rerank' : 'loading',
+      signature,
+    });
+  }, [
+    authToken,
+    clipManifest.length,
+    clipsLoaded,
+    feedOrderIds.length,
+    profile,
+    requestRankedFeed,
+  ]);
 
   const persistSettings = useCallback(async (nextSettings: AppSettings) => {
     setSettings(nextSettings);
@@ -533,9 +684,9 @@ export default function App() {
 
   const handleProfileSubmit = async (nextProfile: Profile) => {
     setProfile(nextProfile);
-    setActiveScreen('feed');
     setMenuOpen(false);
     await saveProfile(nextProfile);
+    const signature = buildFeedSignature(nextProfile, rankContextRef.current.manifest.length);
 
     if (authToken) {
       try {
@@ -547,10 +698,18 @@ export default function App() {
       } catch {
       }
     }
+
+    await requestRankedFeed(nextProfile, {
+      mode: 'starter',
+      pendingState: 'loading',
+      signature,
+    });
+
+    setActiveScreen('feed');
   };
 
   const handlePromoteInterest = async (tag: string) => {
-    const normalized = tag.trim();
+    const normalized = normalizeTopic(tag);
     if (!normalized) return;
 
     const nextProfile = {
@@ -560,15 +719,27 @@ export default function App() {
         : [...profile.interests, normalized].slice(-3),
     };
     setProfile(nextProfile);
-    setFeedState('rerank');
     await saveProfile(nextProfile);
+    const signature = buildFeedSignature(nextProfile, rankContextRef.current.manifest.length);
 
     if (authToken) {
       try {
-        await api.saveProfile(authToken, nextProfile);
+        await Promise.all([
+          api.saveProfile(authToken, nextProfile),
+          api.trackEvent(authToken, 'topic_promoted', {
+            topic: normalized,
+            interests: nextProfile.interests,
+          }),
+        ]);
       } catch {
       }
     }
+
+    await requestRankedFeed(nextProfile, {
+      mode: 'rerank',
+      pendingState: 'rerank',
+      signature,
+    });
   };
 
   const handleResetProfile = async () => {
@@ -576,6 +747,10 @@ export default function App() {
     setActiveScreen('feed');
     setMenuOpen(false);
     setPracticeClipKey(null);
+    setFeedOrderIds([]);
+    setFeedReasons({});
+    setSkippedClipIds([]);
+    lastFeedSignatureRef.current = null;
     await saveProfile(defaultProfile);
     if (authToken) {
       try {
@@ -645,7 +820,7 @@ export default function App() {
     }
   };
 
-  const handleRecordWordLookup = useCallback((cefr?: string) => {
+  const handleRecordWordLookup = useCallback((cefr?: string, details?: { clip?: Clip | null; word?: string }) => {
     setCalibrationSignals(prev => {
       const nextWordsByLevel = { ...prev.wordsByLevel };
       const normalized = (cefr || '').toUpperCase().replace(/^A$/, 'A2');
@@ -662,7 +837,21 @@ export default function App() {
       void saveCalibrationSignals(next);
       return next;
     });
-  }, []);
+
+    if (authToken && details?.clip && details.word) {
+      void api.trackEvent(
+        authToken,
+        'word_lookup',
+        {
+          word: details.word.toLowerCase(),
+          cefr,
+          topic: getClipTopic(details.clip),
+          source: getSourceLabel(details.clip.source),
+        },
+        details.clip.id
+      ).catch(() => {});
+    }
+  }, [authToken]);
 
   const handleMarkKnown = async (word: string) => {
     const normalized = word.toLowerCase();
@@ -698,6 +887,7 @@ export default function App() {
     triggerUiFeedback('like');
     const clipKey = buildClipKey(clip, index);
     const isLiked = likedKeys.has(clipKey);
+    const topic = getClipTopic(clip);
 
     if (isLiked) {
       const nextLikedClips = likedClipKeys.filter(item => item !== clipKey);
@@ -713,7 +903,7 @@ export default function App() {
     }
 
     const nextLikedClips = [...likedClipKeys, clipKey];
-    const nextLikeEvents = [...likeEvents, { tag: clip.tag || '', timestamp: Date.now() }];
+    const nextLikeEvents = [...likeEvents, { tag: topic, timestamp: Date.now() }];
     setLikedClipKeys(nextLikedClips);
     setLikeEvents(nextLikeEvents);
     await Promise.all([
@@ -723,13 +913,22 @@ export default function App() {
 
     if (authToken) {
       try {
-        await api.saveLike(authToken, clipKey, clip.tag || '', nextLikeEvents[nextLikeEvents.length - 1].timestamp);
+        const timestamp = nextLikeEvents[nextLikeEvents.length - 1].timestamp;
+        await Promise.all([
+          api.saveLike(authToken, clipKey, topic, timestamp),
+          api.trackEvent(authToken, 'clip_liked', {
+            clipKey,
+            topic,
+            source: getSourceLabel(clip.source),
+          }, clip.id),
+        ]);
       } catch {
       }
     }
   };
 
-  const handleClipPlayed = (clipKey: string) => {
+  const handleClipStarted = useCallback((clip: Clip, index: number) => {
+    const clipKey = buildClipKey(clip, index);
     if (playedKeysRef.current.has(clipKey)) return;
     playedKeysRef.current.add(clipKey);
     setClipsPlayed(prev => prev + 1);
@@ -756,7 +955,38 @@ export default function App() {
       }
       return next;
     });
-  };
+
+    if (authToken) {
+      void api.trackEvent(authToken, 'clip_started', {
+        clipKey,
+        topic: getClipTopic(clip),
+        source: getSourceLabel(clip.source),
+      }, clip.id).catch(() => {});
+    }
+  }, [authToken, maybeShowCalibration]);
+
+  const handleClipCompleted = useCallback((clip: Clip, index: number, progressRatio: number) => {
+    if (!authToken) return;
+    void api.trackEvent(authToken, 'clip_completed', {
+      clipKey: buildClipKey(clip, index),
+      progressRatio,
+      topic: getClipTopic(clip),
+    }, clip.id).catch(() => {});
+  }, [authToken]);
+
+  const handleClipSkipped = useCallback((clip: Clip, index: number, progressRatio: number, dwellMs: number) => {
+    if (typeof clip.id === 'number') {
+      setSkippedClipIds(prev => (prev.includes(clip.id as number) ? prev : [...prev, clip.id as number]));
+    }
+
+    if (!authToken) return;
+    void api.trackEvent(authToken, 'clip_skipped', {
+      clipKey: buildClipKey(clip, index),
+      progressRatio,
+      dwellMs,
+      topic: getClipTopic(clip),
+    }, clip.id).catch(() => {});
+  }, [authToken]);
 
   const handlePlaybackRateChange = (rate: number) => {
     const nextSettings = { ...settings, playbackRate: rate };
@@ -786,8 +1016,8 @@ export default function App() {
 
     setCalibrationSignals(prev => {
       const nextSessions = prev.practiceSessions + 1;
-      const clipIndex = findClipIndexByKey(currentClips, clipKey);
-      const sentenceCount = clipIndex >= 0 ? currentClips[clipIndex]?.lines.length || 0 : 0;
+      const clipIndex = findClipIndexByKey(clipsData, clipKey);
+      const sentenceCount = clipIndex >= 0 ? clipsData[clipIndex]?.lines.length || 0 : 0;
       const next = {
         ...prev,
         practiceSessions: nextSessions,
@@ -802,7 +1032,7 @@ export default function App() {
     if (authToken) {
       void api.savePractice(authToken, clipKey, record).catch(() => {});
     }
-  }, [authToken, currentClips]);
+  }, [authToken, clipsData]);
 
   const handleReviewAction = useCallback((word: string, action: 'remember' | 'forgot') => {
     const normalized = word.toLowerCase();
@@ -846,8 +1076,8 @@ export default function App() {
     ]);
     setProfile(nextProfile);
     setCalibrationSuggestion(null);
-    setFeedState('rerank');
     showToast(`已调整为 ${calibrationSuggestion.toLevel}`);
+    const signature = buildFeedSignature(nextProfile, rankContextRef.current.manifest.length);
 
     if (authToken) {
       try {
@@ -855,7 +1085,13 @@ export default function App() {
       } catch {
       }
     }
-  }, [authToken, calibrationSuggestion, profile, showToast]);
+
+    await requestRankedFeed(nextProfile, {
+      mode: 'rerank',
+      pendingState: 'rerank',
+      signature,
+    });
+  }, [authToken, calibrationSuggestion, profile, requestRankedFeed, showToast]);
 
   const handleDismissCalibration = useCallback(async () => {
     if (!calibrationSuggestion) return;
@@ -871,10 +1107,10 @@ export default function App() {
   }, [calibrationSuggestion]);
 
   const handleStartPractice = useCallback((clipIndex: number) => {
-    const clip = currentClips[clipIndex];
+    const clip = clipsData[clipIndex];
     if (!clip) return;
     setPracticeClipKey(buildClipKey(clip, clipIndex));
-  }, [currentClips]);
+  }, [clipsData]);
 
   const handleClosePractice = useCallback(() => {
     setPracticeClipKey(null);
@@ -920,6 +1156,10 @@ export default function App() {
     calibrationStateRef.current = {};
     setCalibrationSuggestion(null);
     setClipsPlayed(0);
+    setFeedOrderIds([]);
+    setFeedReasons({});
+    setSkippedClipIds([]);
+    lastFeedSignatureRef.current = null;
     setActiveScreen('feed');
     setMenuOpen(false);
     setShowAuthSheet(false);
@@ -960,7 +1200,7 @@ export default function App() {
     content = (
       <PracticeScreen
         bookmarks={bookmarks}
-        clips={currentClips}
+        clips={clipsData}
         profile={profile}
         vocabList={vocabList}
         practiceData={practiceData}
@@ -998,7 +1238,9 @@ export default function App() {
         onOpenMenu={() => setMenuOpen(true)}
         onPromoteInterest={handlePromoteInterest}
         onPlaybackRateChange={handlePlaybackRateChange}
-        onClipPlayed={handleClipPlayed}
+        onClipStarted={handleClipStarted}
+        onClipCompleted={handleClipCompleted}
+        onClipSkipped={handleClipSkipped}
       />
     );
   }

@@ -66,12 +66,14 @@ type Props = {
   onToggleBookmark: (clip: Clip, index: number) => void;
   onSaveVocab: (entry: VocabEntry) => void;
   onMarkKnown: (word: string) => void;
-  onRecordWordLookup: (cefr?: string) => void;
+  onRecordWordLookup: (cefr?: string, details?: { clip?: Clip | null; word?: string }) => void;
   onReviewAction: (word: string, action: 'remember' | 'forgot') => void;
   onOpenMenu: () => void;
   onPromoteInterest: (tag: string) => void;
   onPlaybackRateChange: (rate: number) => void;
-  onClipPlayed: (clipKey: string) => void;
+  onClipStarted: (clip: Clip, index: number) => void;
+  onClipCompleted: (clip: Clip, index: number, progressRatio: number) => void;
+  onClipSkipped: (clip: Clip, index: number, progressRatio: number, dwellMs: number) => void;
 };
 
 type PopupState = {
@@ -124,8 +126,11 @@ export function FeedScreen({
   onRecordWordLookup,
   onReviewAction,
   onOpenMenu,
+  onPromoteInterest,
   onPlaybackRateChange,
-  onClipPlayed,
+  onClipStarted,
+  onClipCompleted,
+  onClipSkipped,
 }: Props) {
   const insets = useSafeAreaInsets();
   const data = useMemo(() => clips.slice(0, 20), [clips]);
@@ -135,7 +140,15 @@ export function FeedScreen({
   const [popup, setPopup] = useState<PopupState>(null);
   const [dismissedCards, setDismissedCards] = useState<Set<string>>(new Set());
   const [transcriptIndex, setTranscriptIndex] = useState<number | null>(null);
-  const playedRef = useRef<Set<string>>(new Set());
+  const startedRef = useRef<Set<string>>(new Set());
+  const completedRef = useRef<Set<string>>(new Set());
+  const sessionRef = useRef<{
+    clip: Clip;
+    clipIndex: number;
+    clipKey: string;
+    startedAt: number;
+    lastProgress: number;
+  } | null>(null);
 
   const {
     activeIndex,
@@ -249,15 +262,60 @@ export function FeedScreen({
     void pause();
   }, [feedPages, pause, playIndex]);
 
+  const finalizeSession = useCallback(() => {
+    const session = sessionRef.current;
+    if (!session) return;
+
+    const dwellMs = Date.now() - session.startedAt;
+    if (session.lastProgress < 0.3 && dwellMs >= 3000) {
+      onClipSkipped(session.clip, session.clipIndex, session.lastProgress, dwellMs);
+    }
+
+    sessionRef.current = null;
+  }, [onClipSkipped]);
+
+  React.useEffect(() => {
+    if (!isPlaying) return;
+
+    const clip = data[activeIndex];
+    if (!clip) return;
+
+    const clipKey = buildClipKey(clip, activeIndex);
+    if (sessionRef.current?.clipKey !== clipKey) {
+      finalizeSession();
+      sessionRef.current = {
+        clip,
+        clipIndex: activeIndex,
+        clipKey,
+        startedAt: Date.now(),
+        lastProgress: progress,
+      };
+    } else {
+      sessionRef.current.lastProgress = progress;
+    }
+
+    if (!startedRef.current.has(clipKey)) {
+      startedRef.current.add(clipKey);
+      onClipStarted(clip, activeIndex);
+    }
+  }, [activeIndex, data, finalizeSession, isPlaying, onClipStarted, progress]);
+
   React.useEffect(() => {
     if (!isPlaying) return;
     const clip = data[activeIndex];
-    if (!clip) return;
-    const key = buildClipKey(clip, activeIndex);
-    if (playedRef.current.has(key)) return;
-    playedRef.current.add(key);
-    onClipPlayed(key);
-  }, [activeIndex, data, isPlaying, onClipPlayed]);
+    if (!clip || progress < 0.8) return;
+
+    const clipKey = buildClipKey(clip, activeIndex);
+    if (completedRef.current.has(clipKey)) return;
+    completedRef.current.add(clipKey);
+    onClipCompleted(clip, activeIndex, progress);
+  }, [activeIndex, data, isPlaying, onClipCompleted, progress]);
+
+  React.useEffect(() => {
+    return () => {
+      finalizeSession();
+    };
+  }, [finalizeSession]);
 
   return (
     <ScreenSurface>
@@ -335,6 +393,18 @@ export function FeedScreen({
                       >
                         <Text style={styles.clipSource}>{getSourceLabel(clip.source)}{clip.tag ? ` · ${clip.tag}` : ''}</Text>
                       </Pressable>
+                      {clip._aiReason ? <Text style={styles.clipReason}>{clip._aiReason}</Text> : null}
+                      {clip.tag ? (
+                        <Pressable
+                          onPress={() => {
+                            triggerUiFeedback('card');
+                            onPromoteInterest(clip.tag || '');
+                          }}
+                          style={styles.topicBoostPill}
+                        >
+                          <Text style={styles.topicBoostText}>多来点这个主题</Text>
+                        </Pressable>
+                      ) : null}
                     </View>
                   </View>
                 }
@@ -410,7 +480,10 @@ export function FeedScreen({
                         showZh={showZh}
                         masked={masked}
                         onWordTap={(word: ClipLineWord, lineData: ClipLine) => {
-                          onRecordWordLookup(word.cefr);
+                          onRecordWordLookup(word.cefr, {
+                            clip,
+                            word: word.word,
+                          });
                           triggerUiFeedback('card');
                           setPopup({
                             word,
@@ -529,6 +602,27 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: typography.caption,
     textAlign: 'center',
+  },
+  clipReason: {
+    color: colors.textSecondary,
+    fontSize: typography.micro,
+    lineHeight: 18,
+    textAlign: 'center',
+    maxWidth: 260,
+  },
+  topicBoostPill: {
+    marginTop: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(139,156,247,0.28)',
+    backgroundColor: 'rgba(139,156,247,0.12)',
+  },
+  topicBoostText: {
+    color: colors.textPrimary,
+    fontSize: typography.micro,
+    fontWeight: '600',
   },
   controlsWrap: {
     width: layout.playerContentWidth,

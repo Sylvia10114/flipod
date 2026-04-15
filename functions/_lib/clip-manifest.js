@@ -1,0 +1,267 @@
+export const CLIP_MANIFEST = {
+  "version": 1,
+  "generatedAt": "2026-04-15T07:01:06.008Z",
+  "clips": [
+    {
+      "id": 37,
+      "topic": "business",
+      "source": "Planet Money",
+      "duration": 85,
+      "difficulty_score": 28
+    },
+    {
+      "id": 38,
+      "topic": "science",
+      "source": "TED Talks Daily",
+      "duration": 71.7,
+      "difficulty_score": 27
+    },
+    {
+      "id": 39,
+      "topic": "story",
+      "source": "The Moth",
+      "duration": 76.2,
+      "difficulty_score": 20
+    },
+    {
+      "id": 40,
+      "topic": "psychology",
+      "source": "Hidden Brain",
+      "duration": 89.3,
+      "difficulty_score": 27
+    },
+    {
+      "id": 41,
+      "topic": "science",
+      "source": "Planet Money",
+      "duration": 90,
+      "difficulty_score": 25
+    },
+    {
+      "id": 6,
+      "topic": "history",
+      "source": "Manual Feed",
+      "duration": 63.7,
+      "difficulty_score": 17
+    },
+    {
+      "id": 7,
+      "topic": "business",
+      "source": "Freakonomics Radio",
+      "duration": 81.4,
+      "difficulty_score": 29
+    },
+    {
+      "id": 9,
+      "topic": "story",
+      "source": "This American Life",
+      "duration": 96.1,
+      "difficulty_score": 30
+    },
+    {
+      "id": 10,
+      "topic": "business",
+      "source": "Freakonomics Radio",
+      "duration": 93.4,
+      "difficulty_score": 24
+    },
+    {
+      "id": 11,
+      "topic": "business",
+      "source": "The Business Storytelling Podcast",
+      "duration": 89,
+      "difficulty_score": 26
+    },
+    {
+      "id": 12,
+      "topic": "tech",
+      "source": "The Business Storytelling Podcast",
+      "duration": 115.5,
+      "difficulty_score": 23
+    },
+    {
+      "id": 13,
+      "topic": "business",
+      "source": "The Business Storytelling Podcast",
+      "duration": 86.6,
+      "difficulty_score": 28
+    },
+    {
+      "id": 14,
+      "topic": "story",
+      "source": "The Business Storytelling Podcast",
+      "duration": 106.3,
+      "difficulty_score": 29
+    },
+    {
+      "id": 15,
+      "topic": "tech",
+      "source": "Startup Stories - Mixergy",
+      "duration": 91.3,
+      "difficulty_score": 22
+    },
+    {
+      "id": 51,
+      "topic": "history",
+      "source": "History That Doesn't Suck",
+      "duration": 101,
+      "difficulty_score": 26
+    },
+    {
+      "id": 52,
+      "topic": "story",
+      "source": "Discovery",
+      "duration": 54,
+      "difficulty_score": 21
+    },
+    {
+      "id": 53,
+      "topic": "society",
+      "source": "Stuff They Don't Want You To Know",
+      "duration": 95.4,
+      "difficulty_score": 15
+    },
+    {
+      "id": 54,
+      "topic": "culture",
+      "source": "Stuff They Don't Want You To Know",
+      "duration": 96,
+      "difficulty_score": 20
+    },
+    {
+      "id": 55,
+      "topic": "science",
+      "source": "Stuff They Don't Want You To Know",
+      "duration": 84.9,
+      "difficulty_score": 20
+    },
+    {
+      "id": 56,
+      "topic": "tech",
+      "source": "The AI Podcast",
+      "duration": 73.5,
+      "difficulty_score": 24
+    },
+    {
+      "id": 57,
+      "topic": "tech",
+      "source": "The AI Podcast",
+      "duration": 101.7,
+      "difficulty_score": 25
+    },
+    {
+      "id": 58,
+      "topic": "tech",
+      "source": "The AI Podcast",
+      "duration": 65.1,
+      "difficulty_score": 29
+    },
+    {
+      "id": 16,
+      "topic": "history",
+      "source": "Up First (NPR)",
+      "duration": 65.7,
+      "difficulty_score": 52
+    },
+    {
+      "id": 17,
+      "topic": "business",
+      "source": "Marketplace (APM)",
+      "duration": 87.5,
+      "difficulty_score": 52
+    },
+    {
+      "id": 18,
+      "topic": "business",
+      "source": "Planet Money",
+      "duration": 128.6,
+      "difficulty_score": 52
+    },
+    {
+      "id": 19,
+      "topic": "business",
+      "source": "Big Take (Bloomberg)",
+      "duration": 55.4,
+      "difficulty_score": 52
+    },
+    {
+      "id": 20,
+      "topic": "business",
+      "source": "Big Take (Bloomberg)",
+      "duration": 64.3,
+      "difficulty_score": 65
+    },
+    {
+      "id": 21,
+      "topic": "business",
+      "source": "Hard Fork (NYT)",
+      "duration": 96.1,
+      "difficulty_score": 65
+    },
+    {
+      "id": 22,
+      "topic": "tech",
+      "source": "Tech Brew Ride Home",
+      "duration": 78.5,
+      "difficulty_score": 65
+    },
+    {
+      "id": 23,
+      "topic": "tech",
+      "source": "Tech Brew Ride Home",
+      "duration": 56.6,
+      "difficulty_score": 65
+    },
+    {
+      "id": 24,
+      "topic": "story",
+      "source": "Short Wave (NPR)",
+      "duration": 54.5,
+      "difficulty_score": 52
+    },
+    {
+      "id": 25,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 43.4,
+      "difficulty_score": 52
+    },
+    {
+      "id": 26,
+      "topic": "society",
+      "source": "Hidden Brain (NPR)",
+      "duration": 65.7,
+      "difficulty_score": 52
+    },
+    {
+      "id": 27,
+      "topic": "tech",
+      "source": "Throughline (NPR)",
+      "duration": 83.9,
+      "difficulty_score": 52
+    },
+    {
+      "id": 28,
+      "topic": "history",
+      "source": "TED Radio Hour",
+      "duration": 75.3,
+      "difficulty_score": 52
+    },
+    {
+      "id": 29,
+      "topic": "history",
+      "source": "StoryCorps",
+      "duration": 60,
+      "difficulty_score": 52
+    },
+    {
+      "id": 30,
+      "topic": "history",
+      "source": "StoryCorps",
+      "duration": 57.9,
+      "difficulty_score": 65
+    }
+  ]
+};
+
+export const CLIP_MANIFEST_CLIPS = CLIP_MANIFEST.clips;

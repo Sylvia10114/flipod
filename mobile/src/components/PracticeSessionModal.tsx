@@ -40,7 +40,7 @@ type Props = {
   knownWords: string[];
   onSaveVocab: (entry: VocabEntry) => void;
   onMarkKnown: (word: string) => void;
-  onRecordWordLookup: (cefr?: string) => void;
+  onRecordWordLookup: (cefr?: string, details?: { clip?: Clip | null; word?: string }) => void;
   onComplete: (clipKey: string, record: PracticeRecord) => void;
   onDismiss: () => void;
   onReturnFeed: () => void;
@@ -384,7 +384,10 @@ export function PracticeSessionModal({
   if (!clip) return null;
 
   const handleWordTap = (word: ClipLineWord, contextEn: string, contextZh: string) => {
-    onRecordWordLookup(word.cefr);
+    onRecordWordLookup(word.cefr, {
+      clip,
+      word: word.word,
+    });
     setWordsLooked(prev => prev + 1);
     setLookedWordsList(prev => {
       const normalized = word.word.toLowerCase();

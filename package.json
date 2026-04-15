@@ -5,6 +5,7 @@
   "scripts": {
     "dev:web": "node dev_server.js",
     "dev:pages": "wrangler pages dev .",
+    "build:manifest": "node scripts/build_clip_manifest.js",
     "db:init:local": "wrangler d1 execute flipod-db --local --file=./db/schema.sql",
     "db:init:remote": "wrangler d1 execute flipod-db --file=./db/schema.sql"
   },
