@@ -96,6 +96,8 @@ const defaultProfile: Profile = {
   onboardingDone: false,
 };
 
+const FEED_BATCH_SIZE = 10;
+
 function deriveRecoTag(events: LikeEvent[]) {
   if (events.length < 3) return null;
   const recent = events.slice(-10);
@@ -210,6 +212,7 @@ export default function App() {
   const [feedOrderIds, setFeedOrderIds] = useState<number[]>([]);
   const [feedReasons, setFeedReasons] = useState<Record<number, string>>({});
   const [skippedClipIds, setSkippedClipIds] = useState<number[]>([]);
+  const [visibleFeedCount, setVisibleFeedCount] = useState(FEED_BATCH_SIZE);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [vocabList, setVocabList] = useState<VocabEntry[]>([]);
   const [likedClipKeys, setLikedClipKeys] = useState<string[]>([]);
@@ -264,6 +267,7 @@ export default function App() {
     setFeedOrderIds([]);
     setFeedReasons({});
     setSkippedClipIds([]);
+    setVisibleFeedCount(FEED_BATCH_SIZE);
     lastFeedSignatureRef.current = null;
   }, []);
 
@@ -452,8 +456,11 @@ export default function App() {
     if (rankedClips.length > 0) {
       return rankedClips;
     }
-    return clipsData.slice(0, 10);
+    return clipsData;
   }, [clipsData, rankedFeed]);
+  const visibleFeedClips = useMemo(() => {
+    return currentClips.slice(0, visibleFeedCount);
+  }, [currentClips, visibleFeedCount]);
   const minutesListened = useMemo(() => {
     const listenedSet = new Set(listenedClipKeys);
     const totalSeconds = clipsData.reduce((sum, clip, index) => {
@@ -494,6 +501,7 @@ export default function App() {
   const applyFeedItems = useCallback((feed: RankedFeedItem[], nextState: 'normal' | 'fallback') => {
     setFeedOrderIds(feed.map(item => item.id));
     setFeedReasons(buildFeedReasonMap(feed));
+    setVisibleFeedCount(FEED_BATCH_SIZE);
     setFeedState(nextState);
   }, []);
 
@@ -507,9 +515,18 @@ export default function App() {
       skippedClipIds: context.skippedClipIds,
       likedTopics: context.likedTopics,
       wordsLookedUp: context.wordsLookedUp,
-      maxItems: 10,
+      maxItems: Math.max(FEED_BATCH_SIZE, context.manifest.length),
     };
   }, []);
+
+  const handleLoadMoreFeed = useCallback(() => {
+    setVisibleFeedCount(prev => {
+      if (prev >= currentClips.length) {
+        return prev;
+      }
+      return Math.min(prev + FEED_BATCH_SIZE, currentClips.length);
+    });
+  }, [currentClips.length]);
 
   const requestRankedFeed = useCallback(async (
     nextProfile: Profile,
@@ -750,6 +767,7 @@ export default function App() {
     setFeedOrderIds([]);
     setFeedReasons({});
     setSkippedClipIds([]);
+    setVisibleFeedCount(FEED_BATCH_SIZE);
     lastFeedSignatureRef.current = null;
     await saveProfile(defaultProfile);
     if (authToken) {
@@ -1159,6 +1177,7 @@ export default function App() {
     setFeedOrderIds([]);
     setFeedReasons({});
     setSkippedClipIds([]);
+    setVisibleFeedCount(FEED_BATCH_SIZE);
     lastFeedSignatureRef.current = null;
     setActiveScreen('feed');
     setMenuOpen(false);
@@ -1216,6 +1235,8 @@ export default function App() {
     content = (
       <FeedScreen
         clips={currentClips}
+        visibleClipCount={visibleFeedClips.length}
+        hasMoreClips={visibleFeedClips.length < currentClips.length}
         profile={profile}
         dominantHand={settings.dominantHand}
         playbackRate={settings.playbackRate}
@@ -1237,6 +1258,7 @@ export default function App() {
         onReviewAction={handleReviewAction}
         onOpenMenu={() => setMenuOpen(true)}
         onPromoteInterest={handlePromoteInterest}
+        onLoadMoreClips={handleLoadMoreFeed}
         onPlaybackRateChange={handlePlaybackRateChange}
         onClipStarted={handleClipStarted}
         onClipCompleted={handleClipCompleted}

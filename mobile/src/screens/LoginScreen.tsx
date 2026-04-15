@@ -2,11 +2,16 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import React, { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -109,159 +114,183 @@ function LoginContent({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.hero}>
-          <Text style={styles.eyebrow}>{mode === 'sign-in' ? 'AUTH' : 'ACCOUNT'}</Text>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
-        </View>
-
-        {linkedIdentities.length > 0 ? (
-          <View style={styles.identityCard}>
-            <Text style={styles.identityLabel}>当前已绑定</Text>
-            <View style={styles.identityWrap}>
-              {linkedIdentities.map(identity => (
-                <View key={`${identity.provider}:${identity.providerUserId}`} style={styles.identityChip}>
-                  <Text style={styles.identityChipText}>
-                    {identity.provider === 'phone' ? identity.displayValue : 'Apple'}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {canUsePhone ? (
-          <View style={styles.block}>
-            <Text style={styles.blockTitle}>手机号验证码</Text>
-            <View style={styles.phoneRow}>
-              <View style={styles.prefix}>
-                <Text style={styles.prefixText}>+86</Text>
-              </View>
-              <TextInput
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-                style={styles.input}
-                placeholder="请输入手机号"
-                placeholderTextColor="rgba(255,255,255,0.28)"
-                keyboardType="number-pad"
-                editable={!loading}
-                maxLength={11}
-              />
-            </View>
-            <Text style={styles.helperText}>仅支持中国大陆手机号，用短信验证码登录，不需要设置密码。</Text>
-
-            <Pressable
-              style={[styles.secondaryButton, (!phoneNumber || loading) && styles.buttonDisabled]}
-              onPress={handleRequestCode}
-              disabled={!phoneNumber || loading}
-            >
-              <Text style={styles.secondaryButtonText}>{requestedPhone ? '重新发送验证码' : '发送验证码'}</Text>
-            </Pressable>
-
-            {requestedPhone ? (
-              <View style={styles.codeWrap}>
-                <View style={styles.codeHeader}>
-                  <View>
-                    <Text style={styles.codeTitle}>输入验证码</Text>
-                    <Text style={styles.codeHint}>已发送到 +86 {maskedPhonePreview}</Text>
-                  </View>
-                  <Pressable onPress={handleRequestCode} disabled={loading} style={styles.codeInlineButton}>
-                    <Text style={styles.codeInlineButtonText}>重发</Text>
-                  </Pressable>
-                </View>
-
-                <Pressable
-                  onPress={() => codeInputRef.current?.focus()}
-                  style={styles.codeBoxes}
-                  disabled={loading}
-                >
-                  {codeDigits.map((digit, index) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.codeBox,
-                        digit ? styles.codeBoxFilled : null,
-                        !digit && index === Math.min(code.replace(/\D/g, '').length, 5) ? styles.codeBoxActive : null,
-                      ]}
-                    >
-                      <Text style={styles.codeBoxText}>{digit || ''}</Text>
-                    </View>
-                  ))}
-                </Pressable>
-
-                <TextInput
-                  ref={codeInputRef}
-                  value={code}
-                  onChangeText={value => setCode(value.replace(/\D/g, '').slice(0, 6))}
-                  style={styles.hiddenCodeInput}
-                  keyboardType="number-pad"
-                  editable={!loading}
-                  maxLength={6}
-                  textContentType="oneTimeCode"
-                  autoComplete="sms-otp"
-                  caretHidden
-                />
-
-                {debugCode ? <Text style={styles.debugCode}>开发验证码：{debugCode}</Text> : null}
-                <Pressable
-                  style={[styles.primaryButton, (code.replace(/\D/g, '').length !== 6 || loading) && styles.buttonDisabled]}
-                  onPress={handleVerify}
-                  disabled={code.replace(/\D/g, '').length !== 6 || loading}
-                >
-                  <Text style={styles.primaryButtonText}>{mode === 'sign-in' ? '完成登录' : '绑定手机号'}</Text>
-                </Pressable>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-
-        {canUseApple ? (
-          <View style={styles.block}>
-            <Text style={styles.blockTitle}>Apple 登录</Text>
-            <AppleAuthentication.AppleAuthenticationButton
-              buttonType={
-                mode === 'sign-in'
-                  ? AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
-                  : AppleAuthentication.AppleAuthenticationButtonType.CONTINUE
-              }
-              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-              cornerRadius={16}
-              style={styles.appleButton}
-              onPress={() => {
-                void handleAppleButton();
-              }}
-            />
-          </View>
-        ) : null}
-
-        {!canUsePhone && !canUseApple ? (
-          <View style={styles.block}>
-            <Text style={styles.emptyText}>当前账号已经绑定手机号和 Apple，无需重复绑定。</Text>
-          </View>
-        ) : null}
-
-        {activeError ? <Text style={styles.errorText}>{activeError}</Text> : null}
-
-        {loading ? (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator color="#8B9CF7" />
-            <Text style={styles.loadingText}>正在处理中...</Text>
-          </View>
-        ) : null}
-
-        {mode === 'link' && onCancel ? (
-          <Pressable
-            style={styles.cancelButton}
-            onPress={() => {
-              triggerUiFeedback('menu');
-              onCancel();
-            }}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoiding}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
+        >
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            showsVerticalScrollIndicator={false}
+            contentInsetAdjustmentBehavior="always"
           >
-            <Text style={styles.cancelButtonText}>稍后再说</Text>
-          </Pressable>
-        ) : null}
-      </View>
+            <View style={styles.container}>
+              <View style={styles.hero}>
+                <Text style={styles.eyebrow}>{mode === 'sign-in' ? 'AUTH' : 'ACCOUNT'}</Text>
+                <Text style={styles.title}>{title}</Text>
+                <Text style={styles.subtitle}>{subtitle}</Text>
+              </View>
+
+              {linkedIdentities.length > 0 ? (
+                <View style={styles.identityCard}>
+                  <Text style={styles.identityLabel}>当前已绑定</Text>
+                  <View style={styles.identityWrap}>
+                    {linkedIdentities.map(identity => (
+                      <View key={`${identity.provider}:${identity.providerUserId}`} style={styles.identityChip}>
+                        <Text style={styles.identityChipText}>
+                          {identity.provider === 'phone' ? identity.displayValue : 'Apple'}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+
+              {canUsePhone ? (
+                <View style={styles.block}>
+                  <Text style={styles.blockTitle}>手机号验证码</Text>
+                  <View style={styles.phoneRow}>
+                    <View style={styles.prefix}>
+                      <Text style={styles.prefixText}>+86</Text>
+                    </View>
+                    <TextInput
+                      value={phoneNumber}
+                      onChangeText={setPhoneNumber}
+                      style={styles.input}
+                      placeholder="请输入手机号"
+                      placeholderTextColor="rgba(255,255,255,0.28)"
+                      keyboardType="number-pad"
+                      editable={!loading}
+                      maxLength={11}
+                      returnKeyType="done"
+                      onSubmitEditing={Keyboard.dismiss}
+                    />
+                  </View>
+                  <Text style={styles.helperText}>仅支持中国大陆手机号，用短信验证码登录，不需要设置密码。</Text>
+
+                  <Pressable
+                    style={[styles.secondaryButton, (!phoneNumber || loading) && styles.buttonDisabled]}
+                    onPress={handleRequestCode}
+                    disabled={!phoneNumber || loading}
+                  >
+                    <Text style={styles.secondaryButtonText}>{requestedPhone ? '重新发送验证码' : '发送验证码'}</Text>
+                  </Pressable>
+
+                  {requestedPhone ? (
+                    <View style={styles.codeWrap}>
+                      <View style={styles.codeHeader}>
+                        <View style={styles.codeHeaderCopy}>
+                          <Text style={styles.codeTitle}>输入验证码</Text>
+                          <Text style={styles.codeHint}>已发送到 +86 {maskedPhonePreview}</Text>
+                        </View>
+                        <Pressable onPress={handleRequestCode} disabled={loading} style={styles.codeInlineButton}>
+                          <Text style={styles.codeInlineButtonText}>重发</Text>
+                        </Pressable>
+                      </View>
+
+                      <Pressable
+                        onPress={() => codeInputRef.current?.focus()}
+                        style={styles.codeBoxes}
+                        disabled={loading}
+                      >
+                        {codeDigits.map((digit, index) => (
+                          <View
+                            key={index}
+                            style={[
+                              styles.codeBox,
+                              digit ? styles.codeBoxFilled : null,
+                              !digit && index === Math.min(code.replace(/\D/g, '').length, 5) ? styles.codeBoxActive : null,
+                            ]}
+                          >
+                            <Text style={styles.codeBoxText}>{digit || ''}</Text>
+                          </View>
+                        ))}
+                      </Pressable>
+
+                      <TextInput
+                        ref={codeInputRef}
+                        value={code}
+                        onChangeText={value => setCode(value.replace(/\D/g, '').slice(0, 6))}
+                        style={styles.hiddenCodeInput}
+                        keyboardType="number-pad"
+                        editable={!loading}
+                        maxLength={6}
+                        textContentType="oneTimeCode"
+                        autoComplete="sms-otp"
+                        caretHidden
+                        returnKeyType="done"
+                        onSubmitEditing={Keyboard.dismiss}
+                      />
+
+                      {debugCode ? <Text style={styles.debugCode}>开发验证码：{debugCode}</Text> : null}
+                      <Pressable
+                        style={[
+                          styles.primaryButton,
+                          (code.replace(/\D/g, '').length !== 6 || loading) && styles.buttonDisabled,
+                        ]}
+                        onPress={handleVerify}
+                        disabled={code.replace(/\D/g, '').length !== 6 || loading}
+                      >
+                        <Text style={styles.primaryButtonText}>{mode === 'sign-in' ? '完成登录' : '绑定手机号'}</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {canUseApple ? (
+                <View style={styles.block}>
+                  <Text style={styles.blockTitle}>Apple 登录</Text>
+                  <AppleAuthentication.AppleAuthenticationButton
+                    buttonType={
+                      mode === 'sign-in'
+                        ? AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
+                        : AppleAuthentication.AppleAuthenticationButtonType.CONTINUE
+                    }
+                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                    cornerRadius={16}
+                    style={styles.appleButton}
+                    onPress={() => {
+                      void handleAppleButton();
+                    }}
+                  />
+                </View>
+              ) : null}
+
+              {!canUsePhone && !canUseApple ? (
+                <View style={styles.block}>
+                  <Text style={styles.emptyText}>当前账号已经绑定手机号和 Apple，无需重复绑定。</Text>
+                </View>
+              ) : null}
+
+              {activeError ? <Text style={styles.errorText}>{activeError}</Text> : null}
+
+              {loading ? (
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator color="#8B9CF7" />
+                  <Text style={styles.loadingText}>正在处理中...</Text>
+                </View>
+              ) : null}
+
+              {mode === 'link' && onCancel ? (
+                <Pressable
+                  style={styles.cancelButton}
+                  onPress={() => {
+                    triggerUiFeedback('menu');
+                    onCancel();
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>稍后再说</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
@@ -292,6 +321,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#09090B',
   },
+  keyboardAvoiding: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.55)',
@@ -299,16 +337,17 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalCard: {
-    minHeight: '85%',
+    minHeight: '70%',
+    maxHeight: '92%',
     overflow: 'hidden',
     borderRadius: 26,
     backgroundColor: '#09090B',
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 24,
-    paddingBottom: 32,
+    paddingBottom: 40,
   },
   hero: {
     marginTop: 10,
@@ -426,6 +465,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
+  codeHeaderCopy: {
+    flex: 1,
+  },
   codeTitle: {
     color: '#FFFFFF',
     fontSize: 15,
@@ -449,10 +491,11 @@ const styles = StyleSheet.create({
   },
   codeBoxes: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   codeBox: {
     flex: 1,
+    minWidth: 0,
     minHeight: 56,
     borderRadius: 16,
     borderWidth: 1,
@@ -536,7 +579,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   cancelButton: {
-    marginTop: 'auto',
+    marginTop: 20,
     alignItems: 'center',
     paddingVertical: 16,
   },
