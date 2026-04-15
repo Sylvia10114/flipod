@@ -1,0 +1,90 @@
+/* ==========================================================
+   Flipod Design Tokens
+   Generated from Pencil design file
+   ========================================================== */
+
+:root {
+  /* ── Background ── */
+  --bg-app:        #0C0C0E;
+  --bg-surface-1:  #FFFFFF06;   /* subtle card bg */
+  --bg-surface-2:  #FFFFFF08;   /* list item bg */
+  --bg-surface-3:  #FFFFFF15;   /* input / progress track */
+  --bg-overlay:    #1C1C22F2;   /* popup / modal bg */
+  --bg-dim:        #00000060;   /* dimmed overlay */
+
+  /* ── Accent ── */
+  --accent-feed:       #8B9CF7;  /* Feed player accent */
+  --accent-practice:   #A855F7;  /* Practice flow accent */
+  --accent-success:    #22C55E;
+  --accent-error:      #EF4444;
+  --accent-gold:       #C4A96E;  /* CEFR tag */
+  --accent-orange:     #F97316;  /* Onboarding */
+  --accent-blue:       #3B82F6;  /* Feed */
+
+  /* ── Text ── */
+  --text-1:  #FFFFFFDE;  /* 87% — primary text */
+  --text-2:  #FFFFFF8C;  /* 55% — secondary text */
+  --text-3:  #FFFFFF4D;  /* 30% — tertiary / caption */
+  --text-4:  #FFFFFF20;  /* 12% — faint / disabled */
+  --text-on-accent: #0C0C0E;
+
+  /* ── Stroke / Divider ── */
+  --stroke-subtle:  #FFFFFF15;
+  --stroke-border:  #FFFFFF1A;
+  --stroke-active:  #8B9CF7;
+  --stroke-popup:   #FFFFFF12;
+
+  /* ── Typography ── */
+  --font-sans:  'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono:  'Geist Mono', 'SF Mono', 'Menlo', monospace;
+
+  --fs-title-lg:   22px;
+  --fs-title:      16px;
+  --fs-body:       14px;
+  --fs-body-lg:    15px;
+  --fs-caption:    12px;
+  --fs-caption-sm: 11px;
+  --fs-stat:       28px;
+
+  --fw-bold:    700;
+  --fw-semi:    600;
+  --fw-medium:  500;
+  --fw-normal:  400;
+
+  --lh-subtitle: 1.5;
+  --lh-body:     1.4;
+
+  /* ── Spacing ── */
+  --space-4:   4px;
+  --space-8:   8px;
+  --space-10:  10px;
+  --space-12:  12px;
+  --space-14:  14px;
+  --space-16:  16px;
+  --space-20:  20px;
+  --space-24:  24px;
+  --space-28:  28px;
+  --space-36:  36px;
+  --space-40:  40px;
+
+  /* ── Radii ── */
+  --radius-sm:     6px;
+  --radius-md:     10px;
+  --radius-lg:     12px;
+  --radius-xl:     16px;
+  --radius-pill:   24px;
+  --radius-circle: 9999px;
+  --radius-phone:  40px;
+
+  /* ── Layout Zones (375×812 frame) ── */
+  --zone-header-h:   120px;
+  --zone-controls-h: 180px;
+  --body-padding-x:  20px;
+
+  /* ── Icon ── */
+  --icon-sm:  16px;
+  --icon-md:  20px;
+  --icon-lg:  22px;
+  --icon-xl:  48px;
+  --icon-play: 52px;
+}

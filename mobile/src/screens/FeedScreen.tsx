@@ -49,6 +49,8 @@ const ONE_DAY = 24 * 60 * 60 * 1000;
 
 type Props = {
   clips: Clip[];
+  visibleClipCount: number;
+  hasMoreClips: boolean;
   profile: Profile;
   dominantHand: DominantHand;
   playbackRate: number;
@@ -70,6 +72,7 @@ type Props = {
   onReviewAction: (word: string, action: 'remember' | 'forgot') => void;
   onOpenMenu: () => void;
   onPromoteInterest: (tag: string) => void;
+  onLoadMoreClips: () => void;
   onPlaybackRateChange: (rate: number) => void;
   onClipStarted: (clip: Clip, index: number) => void;
   onClipCompleted: (clip: Clip, index: number, progressRatio: number) => void;
@@ -106,6 +109,8 @@ type FeedPage = FeedClipPage | FeedReviewPage | FeedProgressPage;
 
 export function FeedScreen({
   clips,
+  visibleClipCount,
+  hasMoreClips,
   profile,
   dominantHand,
   playbackRate,
@@ -127,13 +132,14 @@ export function FeedScreen({
   onReviewAction,
   onOpenMenu,
   onPromoteInterest,
+  onLoadMoreClips,
   onPlaybackRateChange,
   onClipStarted,
   onClipCompleted,
   onClipSkipped,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const data = useMemo(() => clips.slice(0, 20), [clips]);
+  const data = useMemo(() => clips.slice(0, visibleClipCount), [clips, visibleClipCount]);
   const pageHeight = Math.max(480, SCREEN_HEIGHT - insets.top - insets.bottom);
   const [showZh, setShowZh] = useState(false);
   const [masked, setMasked] = useState(false);
@@ -142,6 +148,7 @@ export function FeedScreen({
   const [transcriptIndex, setTranscriptIndex] = useState<number | null>(null);
   const startedRef = useRef<Set<string>>(new Set());
   const completedRef = useRef<Set<string>>(new Set());
+  const loadTriggerRef = useRef(0);
   const sessionRef = useRef<{
     clip: Clip;
     clipIndex: number;
@@ -166,7 +173,7 @@ export function FeedScreen({
     seekToRatio,
     setRate,
     togglePlay,
-  } = useFeedPlayer(data, playbackRate);
+  } = useFeedPlayer(clips, playbackRate);
 
   const dismissCard = useCallback((key: string) => {
     setDismissedCards(prev => {
@@ -223,8 +230,8 @@ export function FeedScreen({
   }, [data, reviewEntries, showProgressCard]);
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 75 });
-  const transcriptClip = typeof transcriptIndex === 'number' ? data[transcriptIndex] : null;
-  const currentClip = data[activeIndex];
+  const transcriptClip = typeof transcriptIndex === 'number' ? clips[transcriptIndex] : null;
+  const currentClip = clips[activeIndex];
   const currentTime = positionMillis / 1000;
   const progress = durationMillis > 0 ? positionMillis / durationMillis : 0;
   const currentSentenceRange = currentClip ? getSentenceRange(currentClip, activeLineIndex) : null;
@@ -255,12 +262,17 @@ export function FeedScreen({
     if (!page) return;
 
     if (page.type === 'clip') {
+      const loadThreshold = Math.max(0, data.length - 3);
+      if (hasMoreClips && page.clipIndex >= loadThreshold && loadTriggerRef.current < data.length) {
+        loadTriggerRef.current = data.length;
+        onLoadMoreClips();
+      }
       void playIndex(page.clipIndex);
       return;
     }
 
     void pause();
-  }, [feedPages, pause, playIndex]);
+  }, [data.length, feedPages, hasMoreClips, onLoadMoreClips, pause, playIndex]);
 
   const finalizeSession = useCallback(() => {
     const session = sessionRef.current;
@@ -275,9 +287,15 @@ export function FeedScreen({
   }, [onClipSkipped]);
 
   React.useEffect(() => {
+    if (loadTriggerRef.current > data.length || visibleClipCount <= 10) {
+      loadTriggerRef.current = 0;
+    }
+  }, [data.length, visibleClipCount]);
+
+  React.useEffect(() => {
     if (!isPlaying) return;
 
-    const clip = data[activeIndex];
+    const clip = clips[activeIndex];
     if (!clip) return;
 
     const clipKey = buildClipKey(clip, activeIndex);
@@ -298,18 +316,18 @@ export function FeedScreen({
       startedRef.current.add(clipKey);
       onClipStarted(clip, activeIndex);
     }
-  }, [activeIndex, data, finalizeSession, isPlaying, onClipStarted, progress]);
+  }, [activeIndex, clips, finalizeSession, isPlaying, onClipStarted, progress]);
 
   React.useEffect(() => {
     if (!isPlaying) return;
-    const clip = data[activeIndex];
+    const clip = clips[activeIndex];
     if (!clip || progress < 0.8) return;
 
     const clipKey = buildClipKey(clip, activeIndex);
     if (completedRef.current.has(clipKey)) return;
     completedRef.current.add(clipKey);
     onClipCompleted(clip, activeIndex, progress);
-  }, [activeIndex, data, isPlaying, onClipCompleted, progress]);
+  }, [activeIndex, clips, isPlaying, onClipCompleted, progress]);
 
   React.useEffect(() => {
     return () => {
