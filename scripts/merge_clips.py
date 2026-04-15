@@ -21,6 +21,7 @@ Behavior:
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 from datetime import datetime
@@ -74,12 +75,24 @@ def main():
     target_clips = target_data.get("clips", [])
     original_count = len(target_clips)
 
-    # Find max existing ID
+    # Find max existing ID — check both data.json entries AND audio files on disk
     max_id = 0
     for clip in target_clips:
         cid = clip.get("id", 0)
         if isinstance(cid, int) and cid > max_id:
             max_id = cid
+        # Also parse ID from audio filename (covers old clips without 'id' field)
+        audio = clip.get("audio", "")
+        m = re.match(r"clips/clip(\d+)\.mp3", audio)
+        if m and int(m.group(1)) > max_id:
+            max_id = int(m.group(1))
+
+    # Also scan destination directory for existing files
+    if os.path.isdir(args.audio_dst):
+        for fname in os.listdir(args.audio_dst):
+            m = re.match(r"clip(\d+)\.mp3$", fname)
+            if m and int(m.group(1)) > max_id:
+                max_id = int(m.group(1))
 
     next_id = max_id + 1
 
