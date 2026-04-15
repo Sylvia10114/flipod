@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>Flipod Dry-run Review Tool</title>
+<style>
+  :root {
+    --bg: #0C0C0E;
+    --panel: #16161A;
+    --card: rgba(255,255,255,0.05);
+    --border: rgba(255,255,255,0.08);
+    --text-1: rgba(255,255,255,0.87);
+    --text-2: rgba(255,255,255,0.55);
+    --text-3: rgba(255,255,255,0.30);
+    --accent: #8B9CF7;
+    --pass: #4ade80;
+    --gray: #fbbf24;
+    --reject: #ef4444;
+    --pass-bg: rgba(74,222,128,0.12);
+    --gray-bg: rgba(251,191,36,0.12);
+    --reject-bg: rgba(239,68,68,0.12);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--text-1);font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;font-size:14px;line-height:1.5}
+  body{display:flex;flex-direction:column}
+
+  /* Top bar */
+  .topbar{padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;flex-shrink:0}
+  .topbar h1{font-size:15px;font-weight:600}
+  .topbar .meta{color:var(--text-3);font-size:12px}
+  .topbar .actions{margin-left:auto;display:flex;gap:8px}
+  .topbar button{background:var(--card);border:1px solid var(--border);color:var(--text-2);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px}
+  .topbar button:hover{color:var(--text-1);border-color:var(--accent)}
+  .topbar .file-input{display:none}
+  .topbar label.file-label{background:var(--accent);color:#0C0C0E;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600}
+
+  /* Main layout */
+  .main{flex:1;display:flex;overflow:hidden}
+
+  /* Sidebar */
+  .sidebar{width:320px;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0}
+  .sidebar-header{padding:12px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--panel);z-index:1}
+  .sidebar-header .filters{display:flex;gap:6px;margin-top:8px}
+  .sidebar-header .filter-btn{flex:1;padding:4px 8px;font-size:11px;border:1px solid var(--border);background:transparent;color:var(--text-3);border-radius:4px;cursor:pointer;text-align:center}
+  .sidebar-header .filter-btn.active{background:var(--accent);color:#0C0C0E;border-color:var(--accent)}
+  .sidebar-header .progress{font-size:11px;color:var(--text-3);margin-top:8px}
+  .sidebar-header .progress .done{color:var(--accent)}
+
+  .clip-list{padding:8px 0}
+  .clip-item{padding:10px 16px;border-left:3px solid transparent;cursor:pointer;border-bottom:1px solid var(--border)}
+  .clip-item:hover{background:rgba(255,255,255,0.03)}
+  .clip-item.active{background:rgba(139,156,247,0.08);border-left-color:var(--accent)}
+  .clip-item .tier-badge{display:inline-block;padding:1px 6px;font-size:10px;border-radius:3px;margin-right:6px;background:rgba(139,156,247,0.15);color:var(--accent);letter-spacing:0.3px}
+  .clip-item .title{font-size:12px;color:var(--text-2);margin-top:2px;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .clip-item .meta{display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-3)}
+  .clip-item .verdict-marker{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .clip-item .verdict-marker.pass{background:var(--pass)}
+  .clip-item .verdict-marker.gray{background:var(--gray)}
+  .clip-item .verdict-marker.reject{background:var(--reject)}
+  .clip-item .verdict-marker.none{background:var(--text-3);opacity:0.3}
+  .clip-item .agent-marker{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;vertical-align:middle;opacity:0.6}
+  .clip-item .agent-marker.pass{background:var(--pass)}
+  .clip-item .agent-marker.gray{background:var(--gray)}
+  .clip-item .agent-marker.reject{background:var(--reject)}
+  .clip-item .agent-conf{font-size:9px;color:var(--text-3);margin-left:4px}
+
+  /* Agent verdict block in detail */
+  .agent-block{margin:0 0 24px;padding:16px;background:rgba(139,156,247,0.06);border:1px solid rgba(139,156,247,0.25);border-radius:8px}
+  .agent-block .agent-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .agent-block .agent-label{font-size:10px;color:var(--accent);letter-spacing:0.8px;text-transform:uppercase;font-weight:600}
+  .agent-block .agent-verdict-badge{padding:2px 10px;font-size:11px;font-weight:600;border-radius:4px}
+  .agent-block .agent-verdict-badge.pass{background:var(--pass-bg);color:var(--pass)}
+  .agent-block .agent-verdict-badge.gray{background:var(--gray-bg);color:var(--gray)}
+  .agent-block .agent-verdict-badge.reject{background:var(--reject-bg);color:var(--reject)}
+  .agent-block .agent-conf{font-size:11px;color:var(--text-3)}
+  .agent-block .agent-summary{font-size:13px;color:var(--text-1);margin:6px 0 12px;font-style:italic}
+  .agent-block .dim-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+  .agent-block .dim-item{display:flex;flex-direction:column;padding:8px 10px;background:rgba(0,0,0,0.18);border-radius:6px}
+  .agent-block .dim-item .dim-name{font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.4px}
+  .agent-block .dim-item .dim-score-row{display:flex;align-items:center;gap:6px;margin-top:2px}
+  .agent-block .dim-item .dim-score{font-size:15px;font-weight:600}
+  .agent-block .dim-item .dim-score.s5{color:var(--pass)}
+  .agent-block .dim-item .dim-score.s4{color:var(--pass);opacity:0.85}
+  .agent-block .dim-item .dim-score.s3{color:var(--gray)}
+  .agent-block .dim-item .dim-score.s2{color:var(--reject);opacity:0.7}
+  .agent-block .dim-item .dim-score.s1{color:var(--reject)}
+  .agent-block .dim-item .dim-bar{flex:1;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden}
+  .agent-block .dim-item .dim-bar-fill{height:100%;border-radius:2px}
+  .agent-block .dim-item .dim-note{font-size:11px;color:var(--text-2);margin-top:4px;line-height:1.3}
+
+  /* Detail panel */
+  .detail{flex:1;overflow-y:auto;padding:24px 32px}
+  .detail-header{margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+  .detail-header .tier-and-id{display:flex;align-items:center;gap:10px;color:var(--text-3);font-size:12px;margin-bottom:6px}
+  .detail-header .tier{padding:2px 8px;background:rgba(139,156,247,0.15);color:var(--accent);border-radius:4px;font-size:11px;letter-spacing:0.5px}
+  .detail-header h2{font-size:18px;font-weight:600;margin-bottom:6px}
+  .detail-header .source{color:var(--text-3);font-size:12px}
+
+  /* Metadata grid */
+  .meta-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0 24px;padding:16px;background:var(--card);border-radius:8px;border:1px solid var(--border)}
+  .meta-item{display:flex;flex-direction:column}
+  .meta-item .label{font-size:10px;color:var(--text-3);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:2px}
+  .meta-item .value{font-size:13px;color:var(--text-1)}
+  .meta-item .value.strong{color:var(--accent);font-weight:600}
+
+  /* Opening / closing highlights */
+  .ends-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px}
+  .ends-card{padding:14px 16px;background:var(--card);border-radius:8px;border:1px solid var(--border)}
+  .ends-card .label{font-size:10px;color:var(--text-3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px;font-weight:600}
+  .ends-card .text{font-size:14px;line-height:1.5;color:var(--text-1)}
+  .ends-card.warning{border-color:var(--reject);background:var(--reject-bg)}
+
+  /* Transcript */
+  .transcript-card{margin-bottom:24px}
+  .transcript-card .label{font-size:10px;color:var(--text-3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:8px;font-weight:600}
+  .transcript{padding:16px 20px;background:var(--card);border-radius:8px;border:1px solid var(--border);font-size:14px;line-height:1.7;max-height:320px;overflow-y:auto}
+
+  /* Flags */
+  .flags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:24px}
+  .flag{padding:3px 8px;font-size:11px;border-radius:4px;background:var(--reject-bg);color:var(--reject);border:1px solid var(--reject)}
+  .flag.soft{background:var(--gray-bg);color:var(--gray);border-color:var(--gray)}
+  .flag.passed{background:var(--pass-bg);color:var(--pass);border-color:var(--pass)}
+  .flag.rejected{background:var(--reject-bg);color:var(--reject);border-color:var(--reject)}
+
+  /* Verdict action bar */
+  .action-bar{position:sticky;bottom:0;padding:16px 0 0;background:linear-gradient(0deg,var(--bg) 70%,transparent);margin-top:24px;border-top:1px solid var(--border)}
+  .verdict-buttons{display:flex;gap:8px;margin-bottom:12px}
+  .verdict-btn{flex:1;padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text-2);cursor:pointer;font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.15s}
+  .verdict-btn:hover{border-color:var(--text-2)}
+  .verdict-btn .kbd{padding:2px 6px;background:rgba(255,255,255,0.08);border-radius:3px;font-size:10px;font-family:monospace;color:var(--text-3)}
+  .verdict-btn.pass.active{background:var(--pass-bg);border-color:var(--pass);color:var(--pass)}
+  .verdict-btn.gray.active{background:var(--gray-bg);border-color:var(--gray);color:var(--gray)}
+  .verdict-btn.reject.active{background:var(--reject-bg);border-color:var(--reject);color:var(--reject)}
+
+  .reason-input{width:100%;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text-1);font-size:13px;font-family:inherit;resize:vertical;min-height:60px}
+  .reason-input:focus{outline:none;border-color:var(--accent)}
+  .reason-label{font-size:11px;color:var(--text-3);margin-bottom:6px;display:block}
+
+  /* Nav footer */
+  .nav-footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--text-3)}
+  .nav-footer .kbd{padding:2px 6px;background:var(--card);border:1px solid var(--border);border-radius:3px;font-family:monospace;font-size:10px}
+
+  /* Empty state */
+  .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text-3);padding:40px;text-align:center}
+  .empty-state h2{color:var(--text-2);font-weight:500;margin-bottom:12px}
+  .empty-state p{font-size:13px;line-height:1.6;max-width:400px}
+  .empty-state code{padding:2px 6px;background:var(--card);border-radius:3px;font-family:monospace;font-size:12px;color:var(--accent)}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>Flipod Dry-run Review</h1>
+    <span class="meta" id="meta-info">未加载数据</span>
+    <div class="actions">
+      <label class="file-label" for="file-input">加载 JSON</label>
+      <input type="file" id="file-input" class="file-input" accept=".json">
+      <button id="export-btn">导出标注</button>
+      <button id="demo-btn">示例数据</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div style="font-size:13px;font-weight:600">候选列表</div>
+        <div class="filters">
+          <button class="filter-btn active" data-filter="all">全部</button>
+          <button class="filter-btn" data-filter="none">未标</button>
+          <button class="filter-btn" data-filter="pass">好</button>
+          <button class="filter-btn" data-filter="gray">灰</button>
+          <button class="filter-btn" data-filter="reject">差</button>
+        </div>
+        <div class="filters" style="margin-top:6px">
+          <button class="filter-btn" data-filter="agent_gray" title="agent 标 gray 且 PM 未审">Agent gray</button>
+          <button class="filter-btn" data-filter="low_conf" title="agent confidence < 0.6">低 conf</button>
+          <button class="filter-btn" data-filter="disagree" title="agent verdict 与 filter_result 不一致">分歧</button>
+        </div>
+        <div class="progress">进度：<span class="done" id="done-count">0</span> / <span id="total-count">0</span></div>
+      </div>
+      <div class="clip-list" id="clip-list"></div>
+    </aside>
+
+    <main class="detail" id="detail-panel">
+      <div class="empty-state">
+        <h2>加载 dry-run 产出开始审核</h2>
+        <p>点击右上角"加载 JSON"选择 <code>output/dry_run_candidates.json</code>，或点"示例数据"看效果。</p>
+        <p style="margin-top:24px;font-size:12px">快捷键：<br>
+          <code>1</code> 好 · <code>2</code> 灰 · <code>3</code> 差<br>
+          <code>↑ ↓</code> 上/下一个 · <code>Enter</code> 保存并下一个<br>
+          <code>Cmd+S</code> / <code>Ctrl+S</code> 导出标注 JSON
+        </p>
+      </div>
+    </main>
+  </div>
+
+<script>
+let data = null;      // { run_id, config, prompt_version, episodes: [...] }
+let candidates = [];  // Flattened: each with added idx, podcast, episode, tier
+let annotations = {}; // idx -> { verdict, reason, timestamp }
+let currentIdx = 0;
+let currentFilter = 'all';
+
+const $ = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+
+// ── Load data ──
+$('#file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      loadData(parsed);
+    } catch (err) {
+      alert('JSON 解析失败：' + err.message);
+    }
+  };
+  reader.readAsText(file);
+});
+
+$('#demo-btn').addEventListener('click', () => {
+  loadData(DEMO_DATA);
+});
+
+$('#export-btn').addEventListener('click', exportAnnotations);
+
+function loadData(raw) {
+  data = raw;
+  candidates = [];
+  annotations = {};
+  let idx = 0;
+  (raw.episodes || []).forEach(ep => {
+    (ep.candidates || []).forEach(c => {
+      candidates.push({
+        ...c,
+        idx: idx++,
+        podcast: ep.podcast,
+        episode: ep.episode,
+        tier: ep.tier,
+      });
+    });
+  });
+  $('#meta-info').textContent =
+    `run_id: ${raw.run_id || 'N/A'} · ${candidates.length} 候选 · prompt ${raw.prompt_version || 'N/A'}`;
+  currentIdx = 0;
+  renderSidebar();
+  renderDetail();
+  updateProgress();
+}
+
+// ── Sidebar ──
+$$('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $$('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.filter;
+    renderSidebar();
+  });
+});
+
+function filterCandidates() {
+  if (currentFilter === 'all') return candidates;
+  if (currentFilter === 'none') return candidates.filter(c => !annotations[c.idx]);
+  // Agent-based filters
+  if (currentFilter === 'agent_gray') {
+    return candidates.filter(c => c.agent_verdict === 'gray' && !annotations[c.idx]);
+  }
+  if (currentFilter === 'low_conf') {
+    return candidates.filter(c => (c.agent_confidence ?? 1) < 0.6);
+  }
+  if (currentFilter === 'disagree') {
+    return candidates.filter(c => {
+      if (!c.agent_verdict || !c.filter_result) return false;
+      // filter_result: "passed" or "rejected_xxx"
+      const filterPassed = c.filter_result === 'passed';
+      const agentPassed = c.agent_verdict === 'pass';
+      return filterPassed !== agentPassed;
+    });
+  }
+  // PM verdict filter
+  return candidates.filter(c => annotations[c.idx]?.verdict === currentFilter);
+}
+
+function renderSidebar() {
+  const list = $('#clip-list');
+  list.innerHTML = '';
+  const filtered = filterCandidates();
+  filtered.forEach(c => {
+    const ann = annotations[c.idx];
+    const v = ann?.verdict || 'none';
+    const av = c.agent_verdict || null;
+    const aconf = c.agent_confidence;
+    const el = document.createElement('div');
+    el.className = 'clip-item' + (c.idx === currentIdx ? ' active' : '');
+    el.innerHTML = `
+      <span class="verdict-marker ${v}" title="PM 判断"></span>
+      ${av ? `<span class="agent-marker ${av}" title="Agent 初判: ${av}"></span>` : ''}
+      <span class="tier-badge">${c.tier || 'Unknown'}</span>
+      <span style="font-size:11px;color:var(--text-3)">${formatDuration(c.duration_sec || c.duration)}</span>
+      ${aconf !== undefined ? `<span class="agent-conf">conf ${aconf.toFixed(2)}</span>` : ''}
+      <div class="title">${escapeHtml(c.suggested_title || c.text?.slice(0, 80) || '(no title)')}</div>
+      <div class="meta">
+        <span>${escapeHtml(c.podcast || '')}</span>
+        <span>${c.hook_strength || ''}</span>
+      </div>
+    `;
+    el.addEventListener('click', () => {
+      currentIdx = c.idx;
+      renderSidebar();
+      renderDetail();
+    });
+    list.appendChild(el);
+  });
+  updateProgress();
+}
+
+function updateProgress() {
+  const done = Object.keys(annotations).length;
+  $('#done-count').textContent = done;
+  $('#total-count').textContent = candidates.length;
+}
+
+// ── Detail ──
+function renderDetail() {
+  const c = candidates[currentIdx];
+  if (!c) {
+    $('#detail-panel').innerHTML = '<div class="empty-state"><h2>没有候选</h2></div>';
+    return;
+  }
+  const ann = annotations[c.idx] || { verdict: null, reason: '' };
+  const opening = (c.text || '').split(/[.!?]+\s/)[0] || '';
+  const sentences = (c.text || '').split(/[.!?]+\s/);
+  const closing = sentences[sentences.length - 1] || '';
+  // 三类 flag 一起渲染：
+  //   risk_flags: LLM 标的内容风险（红）
+  //   soft_flags: filter 标的软警告（黄，不淘汰但提醒审核者注意）
+  //   filter_result: filter 通过/淘汰状态（绿/红）
+  const allFlags = [];
+  (c.risk_flags || []).forEach(f => allFlags.push({cls: '', label: f}));
+  (c.soft_flags || []).forEach(f => allFlags.push({cls: 'soft', label: '⚠ ' + f}));
+  if (c.filter_result) {
+    if (c.filter_result === 'passed') {
+      allFlags.push({cls: 'passed', label: '✓ filter passed'});
+    } else if (c.filter_result.startsWith('rejected')) {
+      allFlags.push({cls: 'rejected', label: '✗ ' + c.filter_result.replace('rejected_', '')});
+    }
+  }
+  const flagsHtml = allFlags.map(f =>
+    `<span class="flag ${f.cls}">${escapeHtml(f.label)}</span>`
+  ).join('');
+
+  // Agent block: dimensions + verdict + summary
+  let agentBlockHtml = '';
+  if (c.agent_verdict) {
+    const dims = c.agent_dimensions || {};
+    const dimNameMap = {
+      opening: '开头', ending: '结尾', info: '信息',
+      standalone: '独立', tier_fit: 'Tier', narrative_arc: '弧线'
+    };
+    const dimColors = {5: '#4ade80', 4: '#7dd87b', 3: '#fbbf24', 2: '#f87171', 1: '#ef4444'};
+    const dimItems = Object.entries(dims).map(([key, val]) => {
+      const score = val?.score ?? 0;
+      const note = val?.note ?? '';
+      const color = dimColors[score] || '#666';
+      return `
+        <div class="dim-item">
+          <div class="dim-name">${dimNameMap[key] || key}</div>
+          <div class="dim-score-row">
+            <span class="dim-score s${score}">${score}</span>
+            <span class="dim-bar"><span class="dim-bar-fill" style="width:${score*20}%;background:${color}"></span></span>
+          </div>
+          ${note ? `<div class="dim-note">${escapeHtml(note)}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+    const conf = c.agent_confidence ?? 0;
+    agentBlockHtml = `
+      <div class="agent-block">
+        <div class="agent-header">
+          <span class="agent-label">Agent 初判</span>
+          <span class="agent-verdict-badge ${c.agent_verdict}">${c.agent_verdict.toUpperCase()}</span>
+          <span class="agent-conf">confidence ${conf.toFixed(2)}</span>
+        </div>
+        ${c.agent_summary ? `<div class="agent-summary">"${escapeHtml(c.agent_summary)}"</div>` : ''}
+        <div class="dim-grid">${dimItems}</div>
+      </div>
+    `;
+  }
+
+  $('#detail-panel').innerHTML = `
+    <div class="detail-header">
+      <div class="tier-and-id">
+        <span class="tier">${escapeHtml(c.tier || 'Unknown')}</span>
+        <span>候选 ${currentIdx + 1} / ${candidates.length}</span>
+        <span>·</span>
+        <span>${c.hook_type || '-'} / ${c.hook_strength || '-'}</span>
+      </div>
+      <h2>${escapeHtml(c.suggested_title || '(无标题)')}</h2>
+      <div class="source">${escapeHtml(c.podcast || '')} · ${escapeHtml(c.episode || '')}</div>
+    </div>
+
+    <div class="meta-grid">
+      <div class="meta-item">
+        <span class="label">时长</span>
+        <span class="value strong">${formatDuration(c.duration_sec || c.duration)}</span>
+      </div>
+      <div class="meta-item">
+        <span class="label">时间范围</span>
+        <span class="value">${formatTs(c.start_time)} - ${formatTs(c.end_time)}</span>
+      </div>
+      <div class="meta-item">
+        <span class="label">Hook Type</span>
+        <span class="value">${c.hook_type || '-'}</span>
+      </div>
+      <div class="meta-item">
+        <span class="label">LLM 评</span>
+        <span class="value">${c.hook_strength || '-'} / ${c.completeness || '-'}</span>
+      </div>
+    </div>
+
+    ${flagsHtml ? `<div class="flags">${flagsHtml}</div>` : ''}
+
+    ${agentBlockHtml}
+
+    <div class="ends-grid">
+      <div class="ends-card">
+        <div class="label">开头第一句</div>
+        <div class="text">${escapeHtml(opening.trim())}</div>
+      </div>
+      <div class="ends-card">
+        <div class="label">结尾末句</div>
+        <div class="text">${escapeHtml(closing.trim())}</div>
+      </div>
+    </div>
+
+    <div class="transcript-card">
+      <div class="label">完整转录文本</div>
+      <div class="transcript">${escapeHtml(c.text || '(无文本)')}</div>
+    </div>
+
+    <div class="detail-header" style="margin-top:20px">
+      <div style="font-size:11px;color:var(--text-3);letter-spacing:0.5px;margin-bottom:8px">LLM 给出的推荐理由</div>
+      <div style="padding:12px 16px;background:var(--card);border-radius:6px;border:1px solid var(--border);color:var(--text-2);font-size:13px">
+        ${escapeHtml(c.reason || '(无)')}
+      </div>
+    </div>
+
+    <div class="action-bar">
+      <div class="verdict-buttons">
+        <button class="verdict-btn pass ${ann.verdict==='pass'?'active':''}" data-v="pass">
+          好 <span class="kbd">1</span>
+        </button>
+        <button class="verdict-btn gray ${ann.verdict==='gray'?'active':''}" data-v="gray">
+          灰 <span class="kbd">2</span>
+        </button>
+        <button class="verdict-btn reject ${ann.verdict==='reject'?'active':''}" data-v="reject">
+          差 <span class="kbd">3</span>
+        </button>
+      </div>
+      <label class="reason-label">理由（可选，但"差"建议写原因）</label>
+      <textarea class="reason-input" id="reason-input" placeholder="开头软 / 结尾截 / 信息密度低 / 内容无聊 ...">${escapeHtml(ann.reason || '')}</textarea>
+      <div class="nav-footer">
+        <span><span class="kbd">↑↓</span> 切换候选 · <span class="kbd">Enter</span> 保存并下一个</span>
+        <span id="saved-indicator" style="color:var(--pass);opacity:0;transition:opacity 0.3s">已保存 ✓</span>
+      </div>
+    </div>
+  `;
+
+  // Wire up verdict buttons
+  $$('.verdict-btn').forEach(btn => {
+    btn.addEventListener('click', () => setVerdict(btn.dataset.v));
+  });
+
+  // Wire up reason input auto-save
+  const ri = $('#reason-input');
+  ri.addEventListener('blur', saveReason);
+}
+
+function setVerdict(v) {
+  const c = candidates[currentIdx];
+  if (!c) return;
+  const reason = $('#reason-input')?.value || '';
+  annotations[c.idx] = {
+    verdict: v,
+    reason: reason.trim(),
+    timestamp: new Date().toISOString(),
+  };
+  renderSidebar();
+  renderDetail();
+  showSaved();
+}
+
+function saveReason() {
+  const c = candidates[currentIdx];
+  if (!c) return;
+  const existing = annotations[c.idx];
+  if (!existing) return; // Don't create annotation from reason alone
+  const reason = $('#reason-input')?.value || '';
+  annotations[c.idx] = { ...existing, reason: reason.trim() };
+}
+
+function showSaved() {
+  const ind = $('#saved-indicator');
+  if (!ind) return;
+  ind.style.opacity = '1';
+  setTimeout(() => { ind.style.opacity = '0'; }, 1500);
+}
+
+// ── Keyboard shortcuts ──
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
+    if (e.key === 'Enter' && !e.shiftKey && e.target.tagName === 'TEXTAREA') {
+      // allow shift-enter for newline
+    }
+    return;
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+    e.preventDefault();
+    exportAnnotations();
+    return;
+  }
+  if (!candidates.length) return;
+  const filtered = filterCandidates();
+  const currentFilteredIdx = filtered.findIndex(c => c.idx === currentIdx);
+
+  if (e.key === '1') { setVerdict('pass'); }
+  else if (e.key === '2') { setVerdict('gray'); }
+  else if (e.key === '3') { setVerdict('reject'); }
+  else if (e.key === 'ArrowDown' || e.key === 'j') {
+    if (currentFilteredIdx < filtered.length - 1) {
+      currentIdx = filtered[currentFilteredIdx + 1].idx;
+      renderSidebar();
+      renderDetail();
+    }
+  } else if (e.key === 'ArrowUp' || e.key === 'k') {
+    if (currentFilteredIdx > 0) {
+      currentIdx = filtered[currentFilteredIdx - 1].idx;
+      renderSidebar();
+      renderDetail();
+    }
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    // save reason, advance to next
+    saveReason();
+    if (currentFilteredIdx < filtered.length - 1) {
+      currentIdx = filtered[currentFilteredIdx + 1].idx;
+      renderSidebar();
+      renderDetail();
+    }
+  }
+});
+
+// ── Export ──
+function exportAnnotations() {
+  if (!data) { alert('还没加载数据'); return; }
+  const output = {
+    meta: {
+      exported_at: new Date().toISOString(),
+      run_id: data.run_id,
+      prompt_version: data.prompt_version,
+      total_candidates: candidates.length,
+      annotated: Object.keys(annotations).length,
+    },
+    summary: computeSummary(),
+    annotations: Object.entries(annotations).map(([idx, ann]) => {
+      const c = candidates[parseInt(idx)];
+      return {
+        idx: parseInt(idx),
+        tier: c.tier,
+        podcast: c.podcast,
+        episode: c.episode,
+        title: c.suggested_title,
+        start_time: c.start_time,
+        end_time: c.end_time,
+        hook_type: c.hook_type,
+        hook_strength: c.hook_strength,
+        soft_flags: c.soft_flags || [],
+        filter_result: c.filter_result || '',
+        agent_verdict: c.agent_verdict || null,
+        agent_confidence: c.agent_confidence ?? null,
+        agent_summary: c.agent_summary || '',
+        agent_dimensions: c.agent_dimensions || {},
+        verdict: ann.verdict,
+        reason: ann.reason,
+        agreed_with_agent: c.agent_verdict ? (ann.verdict === c.agent_verdict) : null,
+        timestamp: ann.timestamp,
+      };
+    }),
+  };
+  const blob = new Blob([JSON.stringify(output, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `dry_run_annotations_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function computeSummary() {
+  const verdicts = { pass: 0, gray: 0, reject: 0 };
+  const byTier = {};
+  Object.entries(annotations).forEach(([idx, ann]) => {
+    verdicts[ann.verdict]++;
+    const c = candidates[parseInt(idx)];
+    const tier = c.tier || 'Unknown';
+    if (!byTier[tier]) byTier[tier] = { pass: 0, gray: 0, reject: 0 };
+    byTier[tier][ann.verdict]++;
+  });
+  const total = Object.keys(annotations).length;
+  return {
+    verdicts,
+    pass_rate: total ? (verdicts.pass / total).toFixed(2) : 0,
+    by_tier: byTier,
+  };
+}
+
+// ── Helpers ──
+function formatDuration(s) {
+  if (!s && s !== 0) return '-';
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2,'0')}`;
+}
+function formatTs(s) {
+  if (!s && s !== 0) return '-';
+  return formatDuration(s);
+}
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[c]);
+}
+
+// ── Demo data ──
+const DEMO_DATA = {
+  run_id: "2026-04-14_demo",
+  prompt_version: "v2.0",
+  config: { tiers: ["Business", "Tech"], candidates_per_episode: 6 },
+  episodes: [
+    {
+      podcast: "Planet Money",
+      episode: "Episode 1652: The great book store reshuffle",
+      tier: "Business",
+      candidates: [
+        {
+          start_time: 180.5, end_time: 248.2, duration_sec: 67.7,
+          text: "For most of my life, whenever I walked into my local bookstore, I never gave much thought to how the books got there. But here's something I learned recently that completely changed how I see independent bookstores. Every title on the shelf is a bet. A bet that this particular combination of writers, topics, and cover designs will appeal to the particular people who walk through that particular door. Order too many, and you'll be clogging up coveted shelf space that could be holding a book people actually want.",
+          reason: "具体场景开头+反直觉商业洞察",
+          suggested_title: "独立书店如何决定哪些书能上架",
+          hook_type: "scene",
+          hook_strength: "high",
+          completeness: "high",
+          risk_flags: []
+        },
+        {
+          start_time: 420, end_time: 485, duration_sec: 65,
+          text: "Well, so today we have on the show John, who is the founder of a chain of independent bookstores. And John, welcome to the show.",
+          reason: "嘉宾介绍段",
+          suggested_title: "独立书店创始人访谈",
+          hook_type: "character",
+          hook_strength: "low",
+          completeness: "low",
+          risk_flags: ["weak_open", "guest_intro"]
+        }
+      ]
+    },
+    {
+      podcast: "Hard Fork",
+      episode: "The Future of AI Search",
+      tier: "Tech",
+      candidates: [
+        {
+          start_time: 90, end_time: 168, duration_sec: 78,
+          text: "Kevin, I want to start with something you said last week that really stuck with me. You said that the new generation of AI search tools isn't really competing with Google. It's competing with scrolling. And I think that's a totally different framing than what most people are doing right now.",
+          reason: "反直觉技术判断+具体人物对话",
+          suggested_title: "AI 搜索真正的对手不是 Google",
+          hook_type: "counterintuitive",
+          hook_strength: "high",
+          completeness: "medium",
+          risk_flags: []
+        },
+        {
+          start_time: 250, end_time: 315, duration_sec: 65,
+          text: "But so you know it's interesting what you just said. Because I was thinking about this the other day. You know, totally. Yeah, exactly. Right. And that's the thing, right?",
+          reason: "主持人闲聊",
+          suggested_title: "Kevin 和 Casey 的闲聊",
+          hook_type: "chit_chat",
+          hook_strength: "low",
+          completeness: "low",
+          risk_flags: ["host_banter"]
+        }
+      ]
+    }
+  ]
+};
+</script>
+</body>
+</html>
