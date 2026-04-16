@@ -13,6 +13,13 @@ import {
   resolveDataUrls,
   toBookmark,
 } from './src/clip-utils';
+import {
+  buildContentTranslationCacheKey,
+  buildContentTranslationRequestItem,
+  buildLocalizedClip,
+  getDevicePreferredNativeLanguage,
+  shouldRequestRemoteTranslations,
+} from './src/content-localization';
 import { AppToast } from './src/components/AppToast';
 import { CalibrationToast } from './src/components/CalibrationToast';
 import { PracticeSessionModal } from './src/components/PracticeSessionModal';
@@ -36,6 +43,7 @@ import { PracticeScreen } from './src/screens/PracticeScreen';
 import { VocabScreen } from './src/screens/VocabScreen';
 import { api } from './src/services/api';
 import { disposeUiFeedback, primeUiFeedback, triggerUiFeedback } from './src/feedback';
+import { createUiI18n, UiI18nProvider } from './src/i18n';
 import { AppThemeProvider } from './src/theme';
 import {
   DEFAULT_CALIBRATION_SIGNALS,
@@ -53,6 +61,7 @@ import {
   loadLikedClips,
   loadListenedClips,
   loadKnownWords,
+  loadContentTranslations,
   loadPracticeData,
   loadProfile,
   loadReviewState,
@@ -63,6 +72,7 @@ import {
   saveBookmarks,
   saveCalibrationSignals,
   saveCalibrationState,
+  saveContentTranslations,
   saveGuestMode,
   saveLikeEvents,
   saveLikedClips,
@@ -85,7 +95,9 @@ import type {
   Clip,
   LikeEvent,
   Level,
+  LocalizedClipContent,
   LinkedIdentity,
+  NativeLanguage,
   PracticeMap,
   Profile,
   RankMode,
@@ -96,9 +108,12 @@ import type {
   VocabEntry,
 } from './src/types';
 
+const DEVICE_NATIVE_LANGUAGE = getDevicePreferredNativeLanguage();
+
 const defaultProfile: Profile = {
   level: null,
   interests: [],
+  nativeLanguage: DEVICE_NATIVE_LANGUAGE,
   theme: 'dark',
   onboardingDone: false,
 };
@@ -135,7 +150,8 @@ function normalizeLevel(level: Profile['level'] | null): Level {
 function buildCalibrationSuggestion(
   signals: CalibrationSignals,
   calibrationState: CalibrationState,
-  level: Level
+  level: Level,
+  t: (key: string, params?: Record<string, string | number>) => string
 ): CalibrationSuggestion | null {
   const avg = signals.avgWordsPerClip || 0;
   const hardRate = signals.practiceHardRate || 0;
@@ -153,7 +169,7 @@ function buildCalibrationSuggestion(
       direction: 'up',
       fromLevel: level,
       toLevel,
-      message: `你的表现已经超过 ${level}，要升级到 ${toLevel} 吗？`,
+      message: t('calibration.suggestedUp', { fromLevel: level, toLevel }),
     };
   }
 
@@ -163,14 +179,14 @@ function buildCalibrationSuggestion(
       direction: 'down',
       fromLevel: level,
       toLevel,
-      message: `当前内容似乎有点难，要调整到 ${toLevel} 吗？`,
+      message: t('calibration.suggestedDown', { fromLevel: level, toLevel }),
     };
   }
 
   return null;
 }
 
-function readErrorMessage(error: unknown) {
+function readErrorMessage(error: unknown, fallbackMessage: string) {
   if (error instanceof Error) {
     try {
       const parsed = JSON.parse(error.message) as { error?: string };
@@ -179,7 +195,7 @@ function readErrorMessage(error: unknown) {
       return error.message;
     }
   }
-  return '请求失败，请稍后重试';
+  return fallbackMessage;
 }
 
 function getClipTopic(clip: Clip) {
@@ -203,6 +219,38 @@ function buildFeedReasonMap(feed: RankedFeedItem[]) {
   }, {});
 }
 
+function preserveFeedPrefixThroughClip(
+  currentClips: Clip[],
+  incomingFeed: RankedFeedItem[],
+  preserveThroughClipId?: number | null
+) {
+  if (!Number.isInteger(preserveThroughClipId)) {
+    return incomingFeed;
+  }
+
+  const preserveIndex = currentClips.findIndex(clip => clip.id === preserveThroughClipId);
+  if (preserveIndex < 0) {
+    return incomingFeed;
+  }
+
+  const incomingReasonMap = buildFeedReasonMap(incomingFeed);
+  const preservedPrefix = currentClips
+    .slice(0, preserveIndex + 1)
+    .map(clip => {
+      if (!Number.isInteger(clip.id)) return null;
+      return {
+        id: clip.id as number,
+        reason: incomingReasonMap[clip.id as number] || clip._aiReason || '',
+      };
+    })
+    .filter(Boolean) as RankedFeedItem[];
+
+  const preservedIds = new Set(preservedPrefix.map(item => item.id));
+  const reorderedTail = incomingFeed.filter(item => !preservedIds.has(item.id));
+
+  return [...preservedPrefix, ...reorderedTail];
+}
+
 function cycleSubtitleSize(size: SubtitleSize): SubtitleSize {
   if (size === 'sm') return 'md';
   if (size === 'md') return 'lg';
@@ -222,6 +270,7 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [practiceData, setPracticeData] = useState<PracticeMap>({});
   const [clipsData, setClipsData] = useState<Clip[]>(demoClips);
+  const [contentTranslations, setContentTranslations] = useState<Record<string, LocalizedClipContent>>({});
   const [clipsLoaded, setClipsLoaded] = useState(false);
   const [feedOrderIds, setFeedOrderIds] = useState<number[]>([]);
   const [feedReasons, setFeedReasons] = useState<Record<number, string>>({});
@@ -245,9 +294,11 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
   const currentTheme = profile.theme === 'light' ? 'light' : 'dark';
+  const ui = useMemo(() => createUiI18n(profile.nativeLanguage), [profile.nativeLanguage]);
   const playedKeysRef = useRef<Set<string>>(new Set());
   const calibrationStateRef = useRef<CalibrationState>({});
   const lastFeedSignatureRef = useRef<string | null>(null);
+  const currentClipsRef = useRef<Clip[]>(demoClips);
   const rankContextRef = useRef<{
     manifest: ReturnType<typeof buildClipManifest>;
     listenedClipIds: number[];
@@ -262,11 +313,13 @@ export default function App() {
     wordsLookedUp: 0,
   });
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inflightContentTranslationsRef = useRef<Set<string>>(new Set());
 
   const applyAuthSnapshot = useCallback((snapshot: AuthBootstrapResponse) => {
     setProfile({
       level: snapshot.profile.level || null,
       interests: Array.isArray(snapshot.profile.interests) ? snapshot.profile.interests : [],
+      nativeLanguage: snapshot.profile.nativeLanguage || DEVICE_NATIVE_LANGUAGE,
       theme: snapshot.profile.theme === 'light' ? 'light' : 'dark',
       onboardingDone: Boolean(snapshot.profile.onboardingDone),
     });
@@ -296,6 +349,72 @@ export default function App() {
       setToastVisible(false);
     }, 2600);
   }, []);
+
+  const requestContentTranslations = useCallback(async (
+    targetClips: Array<{ clip: Clip; index: number }>,
+    localeOverride?: NativeLanguage
+  ) => {
+    const locale = localeOverride || profile.nativeLanguage;
+    if (!shouldRequestRemoteTranslations(locale)) {
+      return;
+    }
+
+    const items = targetClips.reduce<Array<ReturnType<typeof buildContentTranslationRequestItem>>>((acc, entry) => {
+      const item = buildContentTranslationRequestItem(entry.clip, entry.index);
+      const cacheKey = buildContentTranslationCacheKey(item.contentKey, locale, item.contentHash);
+      if (contentTranslations[cacheKey] || inflightContentTranslationsRef.current.has(cacheKey)) {
+        return acc;
+      }
+      inflightContentTranslationsRef.current.add(cacheKey);
+      acc.push(item);
+      return acc;
+    }, []);
+
+    if (!items.length) {
+      return;
+    }
+
+    try {
+      const response = await api.getContentTranslations(locale, items);
+      setContentTranslations(prev => {
+        const next = { ...prev };
+        for (const translation of Object.values(response.translations || {})) {
+          const cacheKey = buildContentTranslationCacheKey(
+            translation.contentKey,
+            locale,
+            translation.contentHash
+          );
+          next[cacheKey] = translation;
+        }
+        void saveContentTranslations(next);
+        return next;
+      });
+    } catch {
+    } finally {
+      items.forEach(item => {
+        inflightContentTranslationsRef.current.delete(
+          buildContentTranslationCacheKey(item.contentKey, locale, item.contentHash)
+        );
+      });
+    }
+  }, [contentTranslations, profile.nativeLanguage]);
+
+  const localizedClipsData = useMemo(() => {
+    return clipsData.map((clip, index) => {
+      const identity = buildContentTranslationRequestItem(clip, index);
+      const cacheKey = buildContentTranslationCacheKey(
+        identity.contentKey,
+        profile.nativeLanguage,
+        identity.contentHash
+      );
+      return buildLocalizedClip(
+        clip,
+        profile.nativeLanguage,
+        contentTranslations[cacheKey],
+        ui.t('common.translationUnavailable')
+      );
+    });
+  }, [clipsData, contentTranslations, profile.nativeLanguage, ui]);
 
   useEffect(() => {
     return () => {
@@ -344,6 +463,7 @@ export default function App() {
           localReviewState,
           localCalibrationSignals,
           localCalibrationState,
+          localContentTranslations,
         ] = await Promise.all([
           getOrCreateDeviceId(),
           loadAuthToken(),
@@ -360,6 +480,7 @@ export default function App() {
           loadReviewState(),
           loadCalibrationSignals(),
           loadCalibrationState(),
+          loadContentTranslations(),
         ]);
 
         if (cancelled) return;
@@ -374,7 +495,10 @@ export default function App() {
         setDeviceId(nextDeviceId);
         setGuestMode(nextGuestMode);
         setSettings(localSettings);
-        setProfile(localProfile || defaultProfile);
+        setProfile(localProfile || {
+          ...defaultProfile,
+          nativeLanguage: DEVICE_NATIVE_LANGUAGE,
+        });
         setPracticeData(localPractice);
         setKnownWords(localKnownWords);
         setBookmarks(localBookmarks);
@@ -385,6 +509,7 @@ export default function App() {
         setReviewState(localReviewState);
         setCalibrationSignals(normalizedCalibrationSignals);
         setCalibrationState(localCalibrationState);
+        setContentTranslations(localContentTranslations);
         setClipsPlayed(normalizedClipCount);
         playedKeysRef.current = new Set(localListenedClips);
         calibrationStateRef.current = localCalibrationState;
@@ -583,13 +708,20 @@ export default function App() {
       reason: feedReasons[id] || '',
     }));
   }, [feedOrderIds, feedReasons]);
-  const currentClips = useMemo(() => {
+  const currentRawClips = useMemo(() => {
     const rankedClips = applyRankedFeedOrder(clipsData, rankedFeed);
     if (rankedClips.length > 0) {
       return rankedClips;
     }
     return clipsData;
   }, [clipsData, rankedFeed]);
+  const currentClips = useMemo(() => {
+    const rankedClips = applyRankedFeedOrder(localizedClipsData, rankedFeed);
+    if (rankedClips.length > 0) {
+      return rankedClips;
+    }
+    return localizedClipsData;
+  }, [localizedClipsData, rankedFeed]);
   const visibleFeedClips = useMemo(() => {
     return currentClips.slice(0, visibleFeedCount);
   }, [currentClips, visibleFeedCount]);
@@ -606,7 +738,7 @@ export default function App() {
     return bookmarks.filter(item => !practiceData[item.clipKey]?.done).length || bookmarks.length;
   }, [bookmarks, practiceData]);
   const practiceClipIndex = practiceClipKey ? findClipIndexByKey(clipsData, practiceClipKey) : -1;
-  const practiceClip = practiceClipIndex >= 0 ? clipsData[practiceClipIndex] : null;
+  const practiceClip = practiceClipIndex >= 0 ? localizedClipsData[practiceClipIndex] : null;
   const isAuthenticated = Boolean(authToken);
   const isGuest = guestMode && !authToken;
   const canAccessApp = Boolean(authToken || guestMode);
@@ -631,6 +763,25 @@ export default function App() {
       wordsLookedUp: calibrationSignals.wordsLookedUp,
     };
   }, [calibrationSignals.wordsLookedUp, clipManifest, likedTopics, listenedClipIds, skippedClipIds]);
+
+  useEffect(() => {
+    currentClipsRef.current = currentClips;
+  }, [currentClips]);
+
+  useEffect(() => {
+    if (!clipsLoaded || !currentRawClips.length) return;
+    void requestContentTranslations(
+      currentRawClips.slice(0, 2).map((clip, index) => ({ clip, index })),
+      profile.nativeLanguage
+    );
+  }, [clipsLoaded, currentRawClips, profile.nativeLanguage, requestContentTranslations]);
+
+  useEffect(() => {
+    if (practiceClipIndex < 0) return;
+    const rawClip = clipsData[practiceClipIndex];
+    if (!rawClip) return;
+    void requestContentTranslations([{ clip: rawClip, index: practiceClipIndex }], profile.nativeLanguage);
+  }, [clipsData, practiceClipIndex, profile.nativeLanguage, requestContentTranslations]);
 
   const applyFeedItems = useCallback((feed: RankedFeedItem[], nextState: 'normal' | 'fallback') => {
     setFeedOrderIds(feed.map(item => item.id));
@@ -664,7 +815,12 @@ export default function App() {
 
   const requestRankedFeed = useCallback(async (
     nextProfile: Profile,
-    options: { mode?: RankMode; pendingState?: 'loading' | 'rerank'; signature?: string | null } = {}
+    options: {
+      mode?: RankMode;
+      pendingState?: 'loading' | 'rerank';
+      signature?: string | null;
+      preserveThroughClipId?: number | null;
+    } = {}
   ) => {
     const request = buildRankRequestForProfile(nextProfile, options.mode || 'starter');
     const fallbackFeed = buildLocalStarterFeedFallback(rankContextRef.current.manifest, request);
@@ -680,7 +836,10 @@ export default function App() {
     };
 
     if (!authToken) {
-      applyFeedItems(fallbackFeed, 'fallback');
+      applyFeedItems(
+        preserveFeedPrefixThroughClip(currentClipsRef.current, fallbackFeed, options.preserveThroughClipId),
+        'fallback'
+      );
       applySignature();
       return fallbackFeed;
     }
@@ -688,11 +847,17 @@ export default function App() {
     try {
       const response = await api.rankFeed(request, authToken);
       const remoteFeed = Array.isArray(response.feed) && response.feed.length > 0 ? response.feed : fallbackFeed;
-      applyFeedItems(remoteFeed, response.feed?.length ? 'normal' : 'fallback');
+      applyFeedItems(
+        preserveFeedPrefixThroughClip(currentClipsRef.current, remoteFeed, options.preserveThroughClipId),
+        response.feed?.length ? 'normal' : 'fallback'
+      );
       applySignature();
       return remoteFeed;
     } catch {
-      applyFeedItems(fallbackFeed, 'fallback');
+      applyFeedItems(
+        preserveFeedPrefixThroughClip(currentClipsRef.current, fallbackFeed, options.preserveThroughClipId),
+        'fallback'
+      );
       applySignature();
       return fallbackFeed;
     }
@@ -727,11 +892,16 @@ export default function App() {
 
   const maybeShowCalibration = useCallback((signals: CalibrationSignals) => {
     if (practiceClipKey || calibrationSuggestion) return;
-    const suggestion = buildCalibrationSuggestion(signals, calibrationStateRef.current, normalizeLevel(profile.level));
+    const suggestion = buildCalibrationSuggestion(
+      signals,
+      calibrationStateRef.current,
+      normalizeLevel(profile.level),
+      ui.t
+    );
     if (suggestion) {
       setCalibrationSuggestion(suggestion);
     }
-  }, [calibrationSuggestion, practiceClipKey, profile.level]);
+  }, [calibrationSuggestion, practiceClipKey, profile.level, ui]);
 
   const finishAuthFlow = useCallback(async (payload: AuthInitResponse) => {
     const snapshot = await api.migrateLocal(payload.session.token, localMigrationPayload);
@@ -763,7 +933,7 @@ export default function App() {
         const response = await api.linkPhone(authToken, phoneNumber, code, deviceId);
         setLinkedIdentities(response.linkedIdentities);
         setShowAuthSheet(false);
-        showToast('手机号已绑定');
+        showToast(ui.t('app.toastPhoneLinked'));
         triggerUiFeedback('success');
         return;
       }
@@ -771,13 +941,13 @@ export default function App() {
       const response = await api.verifySmsCode(phoneNumber, code, deviceId);
       await finishAuthFlow(response);
     } catch (error) {
-      const message = readErrorMessage(error);
+      const message = readErrorMessage(error, ui.t('app.requestFailed'));
       setAuthError(message);
       throw new Error(message);
     } finally {
       setAuthBusy(false);
     }
-  }, [authToken, deviceId, finishAuthFlow, showAuthSheet, showToast]);
+  }, [authToken, deviceId, finishAuthFlow, showAuthSheet, showToast, ui]);
 
   const handleApplePress = useCallback(async () => {
     setAuthBusy(true);
@@ -792,7 +962,7 @@ export default function App() {
       });
 
       if (!credential.identityToken || !credential.authorizationCode) {
-        throw new Error('Apple 登录未返回必要凭证');
+        throw new Error(ui.t('login.appleFailed'));
       }
 
       const fullName = [credential.fullName?.givenName, credential.fullName?.familyName]
@@ -810,7 +980,7 @@ export default function App() {
         );
         setLinkedIdentities(response.linkedIdentities);
         setShowAuthSheet(false);
-        showToast('Apple 已绑定');
+        showToast(ui.t('app.toastAppleLinked'));
         triggerUiFeedback('success');
         return;
       }
@@ -827,13 +997,13 @@ export default function App() {
         return;
       }
 
-      const message = readErrorMessage(error);
+      const message = readErrorMessage(error, ui.t('app.requestFailed'));
       setAuthError(message);
       throw new Error(message);
     } finally {
       setAuthBusy(false);
     }
-  }, [authToken, deviceId, finishAuthFlow, showAuthSheet, showToast]);
+  }, [authToken, deviceId, finishAuthFlow, showAuthSheet, showToast, ui]);
 
   const handleProfileSubmit = async (nextProfile: Profile) => {
     setProfile(nextProfile);
@@ -861,7 +1031,7 @@ export default function App() {
     setActiveScreen('feed');
   };
 
-  const boostInterestFromLike = async (tag: string) => {
+  const boostInterestFromLike = async (tag: string, preserveThroughClipId?: number | null) => {
     const normalized = normalizeTopic(tag);
     if (!normalized) return;
 
@@ -892,6 +1062,7 @@ export default function App() {
       mode: 'rerank',
       pendingState: 'rerank',
       signature,
+      preserveThroughClipId,
     });
   };
 
@@ -938,7 +1109,7 @@ export default function App() {
     if (!settings.bookmarkPracticeHintSeen) {
       const nextSettings = { ...settings, bookmarkPracticeHintSeen: true };
       void persistSettings(nextSettings);
-      showToast('已收藏 · 可以在侧边菜单「听力练习」里精听这段');
+      showToast(ui.t('app.toastSavedForPractice'));
     }
 
     if (authToken) {
@@ -1064,8 +1235,8 @@ export default function App() {
       saveLikedClips(nextLikedClips),
       saveLikeEvents(nextLikeEvents),
     ]);
-    showToast('已收藏，我们会多推一些这样的内容');
-    void boostInterestFromLike(topic);
+    showToast(ui.t('app.toastLiked'));
+    void boostInterestFromLike(topic, clip.id);
 
     if (authToken) {
       try {
@@ -1180,8 +1351,50 @@ export default function App() {
       }
     }
 
-    showToast(nextProfile.theme === 'light' ? '已切换到浅色模式' : '已切换到深色模式');
-  }, [authToken, profile, showToast]);
+    showToast(nextProfile.theme === 'light' ? ui.t('app.toastThemeLight') : ui.t('app.toastThemeDark'));
+  }, [authToken, profile, showToast, ui]);
+
+  const handleNativeLanguageChange = useCallback(async (nativeLanguage: NativeLanguage) => {
+    if (profile.nativeLanguage === nativeLanguage) return;
+
+    const nextProfile: Profile = {
+      ...profile,
+      nativeLanguage,
+    };
+
+    setProfile(nextProfile);
+    await saveProfile(nextProfile);
+
+    if (authToken) {
+      try {
+        await api.saveProfile(authToken, nextProfile);
+      } catch {
+      }
+    }
+
+    void requestContentTranslations(
+      currentRawClips.slice(0, 2).map((clip, index) => ({ clip, index })),
+      nativeLanguage
+    );
+
+    if (practiceClipIndex >= 0 && clipsData[practiceClipIndex]) {
+      void requestContentTranslations(
+        [{ clip: clipsData[practiceClipIndex], index: practiceClipIndex }],
+        nativeLanguage
+      );
+    }
+
+    showToast(ui.t('app.toastLanguageUpdated'));
+  }, [
+    authToken,
+    clipsData,
+    currentRawClips,
+    practiceClipIndex,
+    profile,
+    requestContentTranslations,
+    showToast,
+    ui,
+  ]);
 
   const handleDismissPracticeIntro = () => {
     if (settings.practiceIntroSeen) return;
@@ -1258,7 +1471,7 @@ export default function App() {
     ]);
     setProfile(nextProfile);
     setCalibrationSuggestion(null);
-    showToast(`已调整为 ${calibrationSuggestion.toLevel}`);
+    showToast(ui.t('app.toastLevelAdjusted', { level: calibrationSuggestion.toLevel }));
     const signature = buildFeedSignature(nextProfile, rankContextRef.current.manifest.length);
 
     if (authToken) {
@@ -1273,7 +1486,7 @@ export default function App() {
       pendingState: 'rerank',
       signature,
     });
-  }, [authToken, calibrationSuggestion, profile, requestRankedFeed, showToast]);
+  }, [authToken, calibrationSuggestion, profile, requestRankedFeed, showToast, ui]);
 
   const handleDismissCalibration = useCallback(async () => {
     if (!calibrationSuggestion) return;
@@ -1376,7 +1589,7 @@ export default function App() {
         await api.deleteAccount(authToken);
       }
     } catch (error) {
-      showToast(readErrorMessage(error));
+      showToast(readErrorMessage(error, ui.t('app.requestFailed')));
       return;
     }
 
@@ -1414,8 +1627,8 @@ export default function App() {
     setShowAuthSheet(false);
     setPracticeClipKey(null);
     setAuthError('');
-    showToast('账号已注销');
-  }, [authToken, showToast]);
+    showToast(ui.t('app.toastAccountDeleted'));
+  }, [authToken, showToast, ui]);
 
   let content: React.ReactNode;
 
@@ -1423,7 +1636,7 @@ export default function App() {
     content = (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#8B9CF7" />
-        <Text style={styles.loadingText}>正在初始化 Flipod RN...</Text>
+        <Text style={styles.loadingText}>{ui.t('app.initializing')}</Text>
       </View>
     );
   } else if (!canAccessApp) {
@@ -1469,6 +1682,9 @@ export default function App() {
         onEndGuestMode={() => {
           void handleEndGuestMode();
         }}
+        onChangeNativeLanguage={language => {
+          void handleNativeLanguageChange(language);
+        }}
       />
     );
   } else if (activeScreen === 'practice') {
@@ -1486,7 +1702,13 @@ export default function App() {
       />
     );
   } else if (activeScreen === 'vocab') {
-    content = <VocabScreen vocabList={vocabList} onBack={() => setActiveScreen('feed')} />;
+    content = (
+      <VocabScreen
+        vocabList={vocabList}
+        clips={localizedClipsData}
+        onBack={() => setActiveScreen('feed')}
+      />
+    );
   } else {
     content = (
       <FeedScreen
@@ -1520,6 +1742,13 @@ export default function App() {
         onClipStarted={handleClipStarted}
         onClipCompleted={handleClipCompleted}
         onClipSkipped={handleClipSkipped}
+        onVisibleClipChange={(clip, index) => {
+          const nextTargets = [{ clip: currentRawClips[index] || clip, index }];
+          if (currentRawClips[index + 1]) {
+            nextTargets.push({ clip: currentRawClips[index + 1], index: index + 1 });
+          }
+          void requestContentTranslations(nextTargets, profile.nativeLanguage);
+        }}
       />
     );
   }
@@ -1527,88 +1756,90 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AppThemeProvider theme={currentTheme}>
-        <View style={[styles.root, currentTheme === 'light' && styles.rootLight]}>
-          {content}
+        <UiI18nProvider nativeLanguage={profile.nativeLanguage}>
+          <View style={[styles.root, currentTheme === 'light' && styles.rootLight]}>
+            {content}
 
-          {canAccessApp && !booting ? (
-            <>
-              <SlideMenu
-                visible={menuOpen}
-                profile={profile}
-                isGuest={isGuest}
-                dominantHand={settings.dominantHand}
-                activeScreen={activeScreen}
-                linkedIdentities={linkedIdentities}
-                bookmarksCount={bookmarks.length}
-                practiceCount={practiceCount}
-                vocabCount={vocabList.length}
-                clipsPlayed={clipsPlayed}
-                onClose={() => setMenuOpen(false)}
-                onNavigate={screen => {
-                  setActiveScreen(screen);
-                  setMenuOpen(false);
-                }}
-                onToggleHand={handleToggleHand}
-                onToggleTheme={() => {
-                  setMenuOpen(false);
-                  void handleToggleTheme();
-                }}
-                onResetOnboarding={() => {
-                  setMenuOpen(false);
-                  void handleResetProfile();
-                }}
-              />
+            {canAccessApp && !booting ? (
+              <>
+                <SlideMenu
+                  visible={menuOpen}
+                  profile={profile}
+                  isGuest={isGuest}
+                  dominantHand={settings.dominantHand}
+                  activeScreen={activeScreen}
+                  linkedIdentities={linkedIdentities}
+                  bookmarksCount={bookmarks.length}
+                  practiceCount={practiceCount}
+                  vocabCount={vocabList.length}
+                  clipsPlayed={clipsPlayed}
+                  onClose={() => setMenuOpen(false)}
+                  onNavigate={screen => {
+                    setActiveScreen(screen);
+                    setMenuOpen(false);
+                  }}
+                  onToggleHand={handleToggleHand}
+                  onToggleTheme={() => {
+                    setMenuOpen(false);
+                    void handleToggleTheme();
+                  }}
+                  onResetOnboarding={() => {
+                    setMenuOpen(false);
+                    void handleResetProfile();
+                  }}
+                />
 
-              <LoginScreen
-                visible={showAuthSheet}
-                mode={isAuthenticated ? 'link' : 'sign-in'}
-                presentation="modal"
-                linkedIdentities={linkedIdentities}
-                loading={authBusy}
-                errorMessage={authError}
-                onRequestSms={handleRequestSms}
-                onVerifyPhone={handleVerifyPhone}
-                onApplePress={handleApplePress}
-                onCancel={() => {
-                  setShowAuthSheet(false);
-                  setAuthError('');
-                }}
-              />
+                <LoginScreen
+                  visible={showAuthSheet}
+                  mode={isAuthenticated ? 'link' : 'sign-in'}
+                  presentation="modal"
+                  linkedIdentities={linkedIdentities}
+                  loading={authBusy}
+                  errorMessage={authError}
+                  onRequestSms={handleRequestSms}
+                  onVerifyPhone={handleVerifyPhone}
+                  onApplePress={handleApplePress}
+                  onCancel={() => {
+                    setShowAuthSheet(false);
+                    setAuthError('');
+                  }}
+                />
 
-              <PracticeSessionModal
-                visible={Boolean(practiceClipKey && practiceClip)}
-                clip={practiceClip}
-                clipIndex={practiceClipIndex}
-                vocabWords={vocabWords}
-                knownWords={knownWords}
-                onSaveVocab={handleSaveVocab}
-                onMarkKnown={handleMarkKnown}
-                onRecordWordLookup={handleRecordWordLookup}
-                onComplete={handlePracticeComplete}
-                onDismiss={handleClosePractice}
-                onReturnFeed={handleReturnFeed}
-                onPracticeAgain={handlePracticeAgain}
-              />
+                <PracticeSessionModal
+                  visible={Boolean(practiceClipKey && practiceClip)}
+                  clip={practiceClip}
+                  clipIndex={practiceClipIndex}
+                  vocabWords={vocabWords}
+                  knownWords={knownWords}
+                  onSaveVocab={handleSaveVocab}
+                  onMarkKnown={handleMarkKnown}
+                  onRecordWordLookup={handleRecordWordLookup}
+                  onComplete={handlePracticeComplete}
+                  onDismiss={handleClosePractice}
+                  onReturnFeed={handleReturnFeed}
+                  onPracticeAgain={handlePracticeAgain}
+                />
 
-              <CalibrationToast
-                visible={Boolean(calibrationSuggestion)}
-                message={calibrationSuggestion?.message || ''}
-                acceptLabel={calibrationSuggestion?.direction === 'up' ? '升级' : '调整'}
-                dismissLabel={calibrationSuggestion?.direction === 'up' ? '暂不' : '保持'}
-                onAccept={() => {
-                  triggerUiFeedback('success');
-                  void handleAcceptCalibration();
-                }}
-                onDismiss={() => {
-                  triggerUiFeedback('menu');
-                  void handleDismissCalibration();
-                }}
-              />
+                <CalibrationToast
+                  visible={Boolean(calibrationSuggestion)}
+                  message={calibrationSuggestion?.message || ''}
+                  acceptLabel={ui.t('common.continue')}
+                  dismissLabel={ui.t('common.cancelLater')}
+                  onAccept={() => {
+                    triggerUiFeedback('success');
+                    void handleAcceptCalibration();
+                  }}
+                  onDismiss={() => {
+                    triggerUiFeedback('menu');
+                    void handleDismissCalibration();
+                  }}
+                />
 
-              <AppToast message={toastMessage} visible={toastVisible} />
-            </>
-          ) : null}
-        </View>
+                <AppToast message={toastMessage} visible={toastVisible} />
+              </>
+            ) : null}
+          </View>
+        </UiI18nProvider>
       </AppThemeProvider>
     </SafeAreaProvider>
   );

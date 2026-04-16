@@ -2,11 +2,13 @@ import { Audio, type AVPlaybackStatus } from 'expo-av';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ActionButton, GlassCard, ScreenSurface, StepDots } from '../components/AppChrome';
+import { getDevicePreferredNativeLanguage } from '../content-localization';
 import { radii, spacing, typography } from '../design';
 import { INTERESTS, LEVELS } from '../constants';
 import { triggerUiFeedback } from '../feedback';
+import { createUiI18n, getNativeLanguageOptions } from '../i18n';
 import { useAppTheme } from '../theme';
-import type { Level, Profile } from '../types';
+import type { Level, NativeLanguage, Profile } from '../types';
 
 type Props = {
   initialProfile?: Profile | null;
@@ -16,57 +18,39 @@ type Props = {
 type StaircaseStep = {
   audio: number;
   text: string;
-  label: string;
+  labelKey: string;
   resultIfNo: Level;
-  title: string;
-};
-
-const LEVEL_COPY: Record<Level, string> = {
-  'A1-A2': '能抓到少量单词，需要更多帮助',
-  B1: '大意大概能跟上，细节经常漏掉',
-  B2: '大部分能听懂，偶尔卡在复杂句',
-  'C1-C2': '基本无障碍，想听更难一点的',
-};
-
-const INTEREST_LABELS: Record<(typeof INTERESTS)[number], string> = {
-  science: 'science',
-  business: 'business',
-  psychology: 'psychology',
-  story: 'story',
-  history: 'history',
-  culture: 'culture',
-  tech: 'technology',
-  society: 'society',
+  titleKey: string;
 };
 
 const STAIRCASE: StaircaseStep[] = [
   {
     audio: require('../../assets/onboarding_tts/staircase_1.mp3'),
     text: 'I like to go to the park with my dog. We play there every day.',
-    label: '第 1 段',
+    labelKey: 'onboarding.stageLabel1',
     resultIfNo: 'A1-A2',
-    title: '日常生活',
+    titleKey: 'onboarding.stageTitle1',
   },
   {
     audio: require('../../assets/onboarding_tts/staircase_2.mp3'),
     text: 'Last summer I traveled to a small town near the sea. The local food was delicious and the people were friendly.',
-    label: '第 2 段',
+    labelKey: 'onboarding.stageLabel2',
     resultIfNo: 'B1',
-    title: '旅行经历',
+    titleKey: 'onboarding.stageTitle2',
   },
   {
     audio: require('../../assets/onboarding_tts/staircase_3.mp3'),
     text: 'The government has introduced new regulations to tackle pollution in major cities. Many residents remain skeptical about whether these measures will be sufficient.',
-    label: '第 3 段',
+    labelKey: 'onboarding.stageLabel3',
     resultIfNo: 'B2',
-    title: '社会话题',
+    titleKey: 'onboarding.stageTitle3',
   },
   {
     audio: require('../../assets/onboarding_tts/staircase_4.mp3'),
     text: 'The rapid advancement of surveillance technology raises profound ethical dilemmas. Critics argue that insufficient transparency could undermine fundamental civil liberties.',
-    label: '第 4 段',
+    labelKey: 'onboarding.stageLabel4',
     resultIfNo: 'C1-C2',
-    title: '科技与伦理',
+    titleKey: 'onboarding.stageTitle4',
   },
 ];
 
@@ -79,6 +63,9 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedLevel, setSelectedLevel] = useState<Level | null>(initialProfile?.level || null);
   const [selectedTags, setSelectedTags] = useState<string[]>(initialProfile?.interests || []);
+  const [selectedNativeLanguage, setSelectedNativeLanguage] = useState<NativeLanguage>(
+    initialProfile?.nativeLanguage || getDevicePreferredNativeLanguage()
+  );
   const [staircaseIndex, setStaircaseIndex] = useState(0);
   const [manualLevelFallback, setManualLevelFallback] = useState(false);
   const [isAudioLoading, setIsAudioLoading] = useState(false);
@@ -91,7 +78,25 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
   const soundRef = useRef<Audio.Sound | null>(null);
   const playbackRequestRef = useRef(0);
 
+  const ui = useMemo(() => createUiI18n(selectedNativeLanguage), [selectedNativeLanguage]);
+  const languageOptions = useMemo(() => getNativeLanguageOptions(), []);
   const currentStaircase = STAIRCASE[staircaseIndex];
+  const levelCopy = useMemo<Record<Level, string>>(() => ({
+    'A1-A2': ui.t('onboarding.levelA1A2'),
+    B1: ui.t('onboarding.levelB1'),
+    B2: ui.t('onboarding.levelB2'),
+    'C1-C2': ui.t('onboarding.levelC1C2'),
+  }), [ui]);
+  const interestLabels = useMemo<Record<(typeof INTERESTS)[number], string>>(() => ({
+    science: ui.t('topics.science'),
+    business: ui.t('topics.business'),
+    psychology: ui.t('topics.psychology'),
+    story: ui.t('topics.story'),
+    history: ui.t('topics.history'),
+    culture: ui.t('topics.culture'),
+    tech: ui.t('topics.tech'),
+    society: ui.t('topics.society'),
+  }), [ui]);
   const canContinue = useMemo(() => Boolean(selectedLevel), [selectedLevel]);
   const canStart = useMemo(() => selectedTags.length === 3, [selectedTags]);
 
@@ -101,13 +106,14 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
       onSubmit({
         level: selectedLevel,
         interests: selectedTags,
+        nativeLanguage: selectedNativeLanguage,
         theme: initialProfile?.theme || 'dark',
         onboardingDone: true,
       });
     }, 1200);
 
     return () => clearTimeout(timeout);
-  }, [initialProfile?.theme, onSubmit, selectedLevel, selectedTags, step]);
+  }, [initialProfile?.theme, onSubmit, selectedLevel, selectedNativeLanguage, selectedTags, step]);
 
   useEffect(() => {
     return () => {
@@ -189,7 +195,7 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
         setIsAudioLoading(false);
         setIsSpeaking(false);
         setPlaybackProgress(0);
-        setPlaybackError('语音加载失败，你也可以改为手动选择等级。');
+        setPlaybackError(ui.t('app.requestFailed'));
       }
       return;
     }
@@ -272,7 +278,7 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
         setIsAudioLoading(false);
         setIsSpeaking(false);
         setPlaybackProgress(0);
-        setPlaybackError('语音加载失败，你也可以改为手动选择等级。');
+        setPlaybackError(ui.t('app.requestFailed'));
       }
     }
   };
@@ -296,12 +302,36 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
     setStep(2);
   };
 
+  const renderLanguagePicker = () => (
+    <View style={styles.languageSection}>
+      <Text style={styles.languageTitle}>{ui.t('onboarding.nativeLanguageTitle')}</Text>
+      <View style={styles.languageWrap}>
+        {languageOptions.map(option => {
+          const active = option.code === selectedNativeLanguage;
+          return (
+            <Pressable
+              key={option.code}
+              onPress={() => {
+                triggerUiFeedback('card');
+                setSelectedNativeLanguage(option.code);
+              }}
+              style={[styles.languageChip, active && styles.languageChipActive]}
+            >
+              <Text style={[styles.languageChipText, active && styles.languageChipTextActive]}>{option.selfLabel}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+
   const renderManualLevelFallback = () => (
     <>
       <View style={styles.topBlock}>
+        {renderLanguagePicker()}
         <StepDots count={2} active={1} accent={colors.accentFeed} />
-        <Text style={styles.title}>你现在听英语播客时的感觉？</Text>
-        <Text style={styles.subtitle}>如果系统朗读不可用，也可以手动选一个最接近的等级。</Text>
+        <Text style={styles.title}>{ui.t('onboarding.manualTitle')}</Text>
+        <Text style={styles.subtitle}>{ui.t('onboarding.manualSubtitle')}</Text>
       </View>
 
       <View style={styles.levelList}>
@@ -317,7 +347,7 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
             >
               <GlassCard style={[styles.levelCard, selected && styles.levelCardActive]}>
                 <View style={styles.levelCardTop}>
-                  <Text style={styles.levelCopy}>{LEVEL_COPY[level]}</Text>
+                  <Text style={styles.levelCopy}>{levelCopy[level]}</Text>
                   <View style={[styles.levelBadge, selected && styles.levelBadgeActive]}>
                     <Text style={[styles.levelBadgeText, selected && styles.levelBadgeTextActive]}>{level}</Text>
                   </View>
@@ -328,9 +358,9 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
         })}
       </View>
 
-      <Text style={styles.hint}>不确定也没关系，先选最接近的一档。</Text>
+      <Text style={styles.hint}>{ui.t('onboarding.manualHint')}</Text>
       <ActionButton
-        label="继续"
+        label={ui.t('common.continue')}
         disabled={!canContinue}
         onPress={() => {
           if (!selectedLevel) return;
@@ -345,9 +375,10 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
   const renderStaircase = () => (
     <>
       <View style={styles.topBlock}>
+        {renderLanguagePicker()}
         <StepDots count={2} active={1} accent={colors.accentFeed} />
-        <Text style={styles.title}>听一段试试？</Text>
-        <Text style={styles.subtitle}>播放后告诉我你能不能听懂大意，系统会自动估一个起步难度。</Text>
+        <Text style={styles.title}>{ui.t('onboarding.staircaseTitle')}</Text>
+        <Text style={styles.subtitle}>{ui.t('onboarding.staircaseSubtitle')}</Text>
       </View>
 
       <View style={styles.staircaseWrap}>
@@ -357,7 +388,7 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
             const isDone = index < staircaseIndex;
             return (
               <View
-                key={item.label}
+                key={item.labelKey}
                 style={[
                   styles.stairBar,
                   isDone && styles.stairBarDone,
@@ -369,12 +400,12 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
         </View>
 
         <View style={styles.stageBadge}>
-          <Text style={styles.stageBadgeText}>{currentStaircase.label}</Text>
+          <Text style={styles.stageBadgeText}>{ui.t(currentStaircase.labelKey)}</Text>
         </View>
 
         <GlassCard style={styles.audioCard}>
-          <Text style={styles.audioCardEyebrow}>原创英语句子 · ElevenLabs 配音</Text>
-          <Text style={styles.audioCardTitle}>{currentStaircase.title}</Text>
+          <Text style={styles.audioCardEyebrow}>{ui.t('onboarding.audioEyebrow')}</Text>
+          <Text style={styles.audioCardTitle}>{ui.t(currentStaircase.titleKey)}</Text>
 
           <Pressable
             onPress={() => {
@@ -408,7 +439,7 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
                   isSpeaking && styles.playButtonTextActive,
                 ]}
               >
-                {isAudioLoading ? '加载中' : isSpeaking ? '停止' : '播放'}
+                {isAudioLoading ? ui.t('onboarding.loadingAudio') : isSpeaking ? ui.t('onboarding.stopAudio') : ui.t('onboarding.playAudio')}
               </Text>
             </View>
           </Pressable>
@@ -419,10 +450,10 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
 
           <Text style={styles.progressHint}>
             {isAudioLoading
-              ? '正在准备语音，请稍等一下。'
+              ? ui.t('onboarding.preparingAudio')
               : showQuestion
-                ? '不用逐词听懂，只判断能不能抓住大意。'
-                : '播放完成后再回答。'}
+                ? ui.t('onboarding.gistQuestionHint')
+                : ui.t('onboarding.answerAfterPlayback')}
           </Text>
         </GlassCard>
 
@@ -437,13 +468,13 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
             }}
             style={styles.fallbackLink}
           >
-            <Text style={styles.fallbackLinkText}>改为手动选择等级</Text>
+            <Text style={styles.fallbackLinkText}>{ui.t('onboarding.fallbackManual')}</Text>
           </Pressable>
         ) : null}
 
         {showQuestion ? (
           <View style={styles.askRow}>
-            <Text style={styles.askLabel}>这段你能听懂大意吗？</Text>
+            <Text style={styles.askLabel}>{ui.t('onboarding.askLabel')}</Text>
             <View style={styles.askButtons}>
               <Pressable
                 onPress={() => {
@@ -456,7 +487,7 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
                 }}
                 style={[styles.askButton, styles.askButtonPrimary]}
               >
-                <Text style={[styles.askButtonText, styles.askButtonTextPrimary]}>能听懂</Text>
+                <Text style={[styles.askButtonText, styles.askButtonTextPrimary]}>{ui.t('onboarding.understood')}</Text>
               </Pressable>
               <Pressable
                 onPress={() => {
@@ -465,12 +496,12 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
                 }}
                 style={styles.askButton}
               >
-                <Text style={styles.askButtonText}>听不懂</Text>
+                <Text style={styles.askButtonText}>{ui.t('onboarding.didntUnderstand')}</Text>
               </Pressable>
             </View>
           </View>
         ) : (
-          <Text style={styles.hint}>从简单到复杂一共 4 段，越往后越接近真实播客话题。</Text>
+          <Text style={styles.hint}>{ui.t('onboarding.staircaseHint')}</Text>
         )}
       </View>
     </>
@@ -484,12 +515,13 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
         {step === 2 ? (
           <>
             <View style={styles.topBlock}>
+              {renderLanguagePicker()}
               <StepDots count={2} active={2} accent={colors.accentFeed} />
-              <Text style={styles.title}>你对哪些主题更有兴趣？</Text>
-              <Text style={styles.subtitle}>选 3 个，Feed 会先从这些方向开始推。</Text>
+              <Text style={styles.title}>{ui.t('onboarding.interestsTitle')}</Text>
+              <Text style={styles.subtitle}>{ui.t('onboarding.interestsSubtitle')}</Text>
               {selectedLevel ? (
                 <View style={styles.detectedLevelBadge}>
-                  <Text style={styles.detectedLevelBadgeText}>当前估计：{selectedLevel}</Text>
+                  <Text style={styles.detectedLevelBadgeText}>{ui.t('onboarding.currentEstimate', { level: selectedLevel })}</Text>
                 </View>
               ) : null}
             </View>
@@ -506,16 +538,16 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
                     }}
                     style={[styles.tag, active && styles.tagActive]}
                   >
-                    <Text style={[styles.tagText, active && styles.tagTextActive]}>{INTEREST_LABELS[tag]}</Text>
+                    <Text style={[styles.tagText, active && styles.tagTextActive]}>{interestLabels[tag]}</Text>
                   </Pressable>
                 );
               })}
             </View>
 
-            <Text style={styles.hint}>已选 {selectedTags.length}/3，随便选也行，后面会继续学习你的偏好。</Text>
+            <Text style={styles.hint}>{ui.t('onboarding.interestsHint', { count: selectedTags.length })}</Text>
 
             <ActionButton
-              label="开始探索"
+              label={ui.t('common.startExploring')}
               disabled={!canStart}
               onPress={() => {
                 if (!selectedLevel || selectedTags.length !== 3) return;
@@ -529,7 +561,7 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
 
         {step === 3 ? (
           <View style={styles.loadingBlock}>
-            <Text style={styles.loadingCopy}>正在为你准备第一批内容...</Text>
+            <Text style={styles.loadingCopy}>{ui.t('onboarding.preparingFeed')}</Text>
             <View style={styles.loadingDots}>
               {[0, 1, 2].map(item => (
                 <View key={`loading-${item}`} style={[styles.loadingDot, item === 1 && styles.loadingDotActive]} />
@@ -554,6 +586,43 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       alignItems: 'center',
       gap: spacing.md,
       marginBottom: 28,
+    },
+    languageSection: {
+      width: '100%',
+      gap: spacing.sm,
+      alignItems: 'center',
+    },
+    languageTitle: {
+      color: colors.textSecondary,
+      fontSize: typography.caption,
+      fontWeight: '600',
+    },
+    languageWrap: {
+      width: '100%',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      gap: spacing.sm,
+    },
+    languageChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: radii.pill,
+      borderWidth: 1,
+      borderColor: colors.strokeStrong,
+      backgroundColor: colors.bgSurface1,
+    },
+    languageChipActive: {
+      backgroundColor: `${colors.accentFeed}1f`,
+      borderColor: colors.accentFeed,
+    },
+    languageChipText: {
+      color: colors.textSecondary,
+      fontSize: typography.caption,
+      fontWeight: '600',
+    },
+    languageChipTextActive: {
+      color: colors.accentFeed,
     },
     title: {
       color: colors.textPrimary,

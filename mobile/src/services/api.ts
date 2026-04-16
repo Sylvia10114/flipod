@@ -3,6 +3,8 @@ import type {
   AuthInitResponse,
   Bookmark,
   LikeEvent,
+  LocalizedClipContent,
+  NativeLanguage,
   PracticeRecord,
   Profile,
   RankRequest,
@@ -25,6 +27,22 @@ export const CONTENT_BASE_URL = normalizeBaseUrl(runtimeEnv?.EXPO_PUBLIC_CONTENT
 type RequestOptions = {
   deviceId?: string;
   token?: string;
+};
+
+type ContentTranslationRequestItem = {
+  contentKey: string;
+  contentHash: string;
+  title: string;
+  lines: Array<{
+    en: string;
+    zh?: string;
+  }>;
+  questions: Array<{
+    question: string;
+    options: string[];
+    answer: string;
+    explanation_zh?: string;
+  }>;
 };
 
 type LocalMigrationPayload = {
@@ -142,6 +160,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(profile),
     }, { token });
+  },
+  getContentTranslations(locale: NativeLanguage, items: ContentTranslationRequestItem[]) {
+    return request<{ translations: Record<string, LocalizedClipContent> }>('/api/content/translations', {
+      method: 'POST',
+      body: JSON.stringify({ locale, items }),
+    });
   },
   rankFeed(payload: RankRequest, token?: string) {
     return request<RankResponse>('/api/rank', {

@@ -23,10 +23,29 @@ function parseJsonArray(raw) {
   }
 }
 
+const SUPPORTED_NATIVE_LANGUAGES = new Set([
+  'english',
+  'simplified_chinese',
+  'traditional_chinese',
+  'japanese',
+  'korean',
+  'spanish',
+  'french',
+  'brazilian_portuguese',
+  'italian',
+  'german',
+]);
+
+function normalizeNativeLanguage(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return SUPPORTED_NATIVE_LANGUAGES.has(normalized) ? normalized : 'english';
+}
+
 export function defaultProfile() {
   return {
     level: null,
     interests: [],
+    nativeLanguage: 'english',
     theme: 'dark',
     onboardingDone: false,
     updatedAt: null,
@@ -38,6 +57,7 @@ export function normalizeProfile(profile) {
   return {
     level: profile.level || null,
     interests: Array.isArray(profile.interests) ? profile.interests.filter(Boolean) : [],
+    nativeLanguage: normalizeNativeLanguage(profile.nativeLanguage),
     theme: profile.theme === 'light' ? 'light' : 'dark',
     onboardingDone: Boolean(profile.onboardingDone),
     updatedAt: profile.updatedAt || null,
@@ -56,12 +76,13 @@ export function maskPhoneNumber(phoneNumber) {
 
 export async function getProfileByUserId(env, userId) {
   const profile = await env.DB.prepare(
-    'SELECT level, interests, theme, onboarding_done AS onboardingDone, updated_at AS updatedAt FROM profiles WHERE user_id = ?'
+    'SELECT level, interests, native_language AS nativeLanguage, theme, onboarding_done AS onboardingDone, updated_at AS updatedAt FROM profiles WHERE user_id = ?'
   ).bind(userId).first();
 
   return normalizeProfile({
     level: profile?.level || null,
     interests: profile?.interests ? parseJsonArray(profile.interests) : [],
+    nativeLanguage: profile?.nativeLanguage || 'english',
     theme: profile?.theme || 'dark',
     onboardingDone: Boolean(profile?.onboardingDone),
     updatedAt: profile?.updatedAt || null,
@@ -85,7 +106,8 @@ export async function getBookmarksByUserId(env, userId) {
 
 export async function getVocabByUserId(env, userId) {
   const result = await env.DB.prepare(
-    `SELECT id, word, cefr, phonetic, context, context_zh AS contextZh, known,
+    `SELECT id, word, cefr, phonetic, context, context_zh AS contextZh, content_key AS contentKey,
+            line_index AS lineIndex, known,
             created_at AS createdAt, updated_at AS updatedAt
      FROM vocab_entries
      WHERE user_id = ?
@@ -99,6 +121,8 @@ export async function getVocabByUserId(env, userId) {
     phonetic: item.phonetic || '',
     context: item.context || '',
     contextZh: item.contextZh || '',
+    contentKey: item.contentKey || '',
+    lineIndex: Number.isInteger(item.lineIndex) ? item.lineIndex : null,
     known: Boolean(item.known),
     createdAt: item.createdAt || null,
     updatedAt: item.updatedAt || null,
@@ -223,6 +247,9 @@ export function mergeProfiles(accountProfile, incomingProfile) {
   if (account.onboardingDone) {
     return {
       ...account,
+      nativeLanguage: account.nativeLanguage !== 'english'
+        ? account.nativeLanguage
+        : (incoming.nativeLanguage || account.nativeLanguage),
       updatedAt: account.updatedAt || incoming.updatedAt || null,
     };
   }
@@ -287,6 +314,8 @@ export function mergeVocab(primary, secondary) {
       phonetic: latest.phonetic || older.phonetic || '',
       context: latest.context || older.context || '',
       contextZh: latest.contextZh || older.contextZh || '',
+      contentKey: latest.contentKey || older.contentKey || '',
+      lineIndex: Number.isInteger(latest.lineIndex) ? latest.lineIndex : older.lineIndex ?? null,
       updatedAt: latest.updatedAt || older.updatedAt || null,
       createdAt: older.createdAt || latest.createdAt || null,
     });
@@ -344,11 +373,12 @@ export function mergeLikeEvents(primary = [], secondary = []) {
 export async function saveProfileByUserId(env, userId, profile) {
   const normalized = normalizeProfile(profile);
   await env.DB.prepare(
-    `INSERT INTO profiles (user_id, level, interests, theme, onboarding_done, updated_at)
-     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `INSERT INTO profiles (user_id, level, interests, native_language, theme, onboarding_done, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
      ON CONFLICT(user_id)
      DO UPDATE SET level = excluded.level,
                    interests = excluded.interests,
+                   native_language = excluded.native_language,
                    theme = excluded.theme,
                    onboarding_done = excluded.onboarding_done,
                    updated_at = CURRENT_TIMESTAMP`
@@ -356,6 +386,7 @@ export async function saveProfileByUserId(env, userId, profile) {
     userId,
     normalized.level,
     JSON.stringify(normalized.interests),
+    normalized.nativeLanguage,
     normalized.theme,
     normalized.onboardingDone ? 1 : 0
   ).run();
@@ -389,13 +420,17 @@ export async function upsertVocabEntries(env, userId, vocab) {
     const word = String(item?.word || '').trim().toLowerCase();
     if (!word) continue;
     await env.DB.prepare(
-      `INSERT INTO vocab_entries (id, user_id, word, cefr, phonetic, context, context_zh, known, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), COALESCE(?, CURRENT_TIMESTAMP))
+      `INSERT INTO vocab_entries (
+         id, user_id, word, cefr, phonetic, context, context_zh, content_key, line_index, known, created_at, updated_at
+       )
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), COALESCE(?, CURRENT_TIMESTAMP))
        ON CONFLICT(user_id, word)
        DO UPDATE SET cefr = excluded.cefr,
                      phonetic = excluded.phonetic,
                      context = excluded.context,
                      context_zh = excluded.context_zh,
+                     content_key = COALESCE(excluded.content_key, vocab_entries.content_key),
+                     line_index = COALESCE(excluded.line_index, vocab_entries.line_index),
                      known = MAX(vocab_entries.known, excluded.known),
                      updated_at = excluded.updated_at`
     ).bind(
@@ -406,6 +441,8 @@ export async function upsertVocabEntries(env, userId, vocab) {
       item.phonetic || '',
       item.context || '',
       item.contextZh || '',
+      item.contentKey || '',
+      Number.isInteger(item.lineIndex) ? item.lineIndex : null,
       item.known ? 1 : 0,
       toIsoDate(item.createdAt),
       toIsoDate(item.updatedAt || item.createdAt)

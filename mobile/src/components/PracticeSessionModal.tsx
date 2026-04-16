@@ -16,6 +16,7 @@ import {
 } from '../clip-utils';
 import { CircularProgressPlayButton } from './CircularProgressPlayButton';
 import { triggerMediumHaptic, triggerUiFeedback } from '../feedback';
+import { useUiI18n } from '../i18n';
 import { useAppTheme } from '../theme';
 import type { Clip, ClipLineWord, PracticeRecord, VocabEntry } from '../types';
 import { ProgressBar } from './ProgressBar';
@@ -28,6 +29,7 @@ type PopupState = {
   word: ClipLineWord;
   contextEn: string;
   contextZh: string;
+  lineIndex: number | null;
 } | null;
 
 type LookedWord = {
@@ -82,6 +84,7 @@ export function PracticeSessionModal({
   onPracticeAgain,
 }: Props) {
   const { colors } = useAppTheme();
+  const { t } = useUiI18n();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView | null>(null);
@@ -435,7 +438,7 @@ export function PracticeSessionModal({
 
   if (!clip) return null;
 
-  const handleWordTap = (word: ClipLineWord, contextEn: string, contextZh: string) => {
+  const handleWordTap = (word: ClipLineWord, contextEn: string, contextZh: string, lineIndex: number | null) => {
     onRecordWordLookup(word.cefr, {
       clip,
       word: word.word,
@@ -446,7 +449,7 @@ export function PracticeSessionModal({
       if (prev.some(item => item.word === normalized)) return prev;
       return [...prev, { word: normalized, cefr: word.cefr }];
     });
-    setPopup({ word, contextEn, contextZh });
+    setPopup({ word, contextEn, contextZh, lineIndex });
   };
 
   const moveToNextSentence = () => {
@@ -682,7 +685,7 @@ export function PracticeSessionModal({
                   isActive
                   showZh={showSentenceZh}
                   compact
-                  onWordTap={(word, line) => handleWordTap(word, line.en, line.zh || '')}
+                  onWordTap={(word, line) => handleWordTap(word, line.en, line.zh || '', sentenceIndex)}
                 />
               </View>
 
@@ -690,7 +693,9 @@ export function PracticeSessionModal({
                 triggerMediumHaptic();
                 setShowSentenceZh(prev => !prev);
               }} style={styles.translationToggle}>
-                <Text style={styles.translationToggleText}>{showSentenceZh ? '隐藏中文' : '显示中文'}</Text>
+                <Text style={styles.translationToggleText}>
+                  {showSentenceZh ? t('common.hideTranslation') : t('common.showTranslation')}
+                </Text>
               </Pressable>
 
               <View style={styles.controlsRow}>
@@ -838,7 +843,7 @@ export function PracticeSessionModal({
                     showZh
                     compact
                     practiced={hardSentences.includes(currentLineIndex)}
-                    onWordTap={(word, line) => handleWordTap(word, line.en, line.zh || '')}
+                    onWordTap={(word, line) => handleWordTap(word, line.en, line.zh || '', currentLineIndex)}
                   />
                 ) : (
                   <Text style={styles.hintText}>准备开始复听…</Text>
@@ -933,6 +938,8 @@ export function PracticeSessionModal({
                 cefr: popup.word.cefr,
                 context: popup.contextEn,
                 contextZh: popup.contextZh,
+                contentKey: clip.contentKey,
+                lineIndex: popup.lineIndex ?? undefined,
                 clipKey,
                 clipTitle: clip.title,
                 sourceType: 'practice',

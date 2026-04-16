@@ -7,11 +7,14 @@ import type {
   CalibrationSignals,
   CalibrationState,
   LikeEvent,
+  LocalizedClipContent,
   PracticeMap,
   Profile,
   ReviewState,
   VocabEntry,
 } from './types';
+import { DEFAULT_NATIVE_LANGUAGE } from './types';
+import { getDevicePreferredNativeLanguage } from './content-localization';
 
 const DEVICE_ID_KEY = 'flipodDeviceId';
 const AUTH_TOKEN_KEY = 'flipodAuthToken';
@@ -28,6 +31,7 @@ const LISTENED_CLIPS_KEY = 'flipodListenedClips';
 const REVIEW_STATE_KEY = 'flipodReview';
 const LEVEL_SIGNALS_KEY = 'flipodLevelSignals';
 const LEVEL_CALIBRATION_KEY = 'flipodLevelCalibration';
+const CONTENT_TRANSLATIONS_KEY = 'flipodContentTranslations';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   dominantHand: 'right',
@@ -92,14 +96,24 @@ export async function loadProfile(): Promise<Profile | null> {
   if (!raw) return null;
 
   try {
-    return JSON.parse(raw) as Profile;
+    const parsed = JSON.parse(raw) as Partial<Profile>;
+    return {
+      level: parsed.level ?? null,
+      interests: Array.isArray(parsed.interests) ? parsed.interests : [],
+      nativeLanguage: parsed.nativeLanguage ?? getDevicePreferredNativeLanguage(),
+      theme: parsed.theme === 'light' ? 'light' : 'dark',
+      onboardingDone: Boolean(parsed.onboardingDone),
+    };
   } catch {
     return null;
   }
 }
 
 export async function saveProfile(profile: Profile) {
-  await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify({
+    ...profile,
+    nativeLanguage: profile.nativeLanguage || DEFAULT_NATIVE_LANGUAGE,
+  }));
 }
 
 export async function loadSettings(): Promise<AppSettings> {
@@ -181,6 +195,22 @@ export async function loadVocab(): Promise<VocabEntry[]> {
 
 export async function saveVocab(vocab: VocabEntry[]) {
   await AsyncStorage.setItem(VOCAB_KEY, JSON.stringify(vocab));
+}
+
+export async function loadContentTranslations(): Promise<Record<string, LocalizedClipContent>> {
+  const raw = await AsyncStorage.getItem(CONTENT_TRANSLATIONS_KEY);
+  if (!raw) return {};
+
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, LocalizedClipContent>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export async function saveContentTranslations(payload: Record<string, LocalizedClipContent>) {
+  await AsyncStorage.setItem(CONTENT_TRANSLATIONS_KEY, JSON.stringify(payload));
 }
 
 export async function loadLikedClips(): Promise<string[]> {

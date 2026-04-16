@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   user_id TEXT PRIMARY KEY,
   level TEXT,
   interests TEXT NOT NULL DEFAULT '[]',
+  native_language TEXT NOT NULL DEFAULT 'english',
   theme TEXT NOT NULL DEFAULT 'dark',
   onboarding_done INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -35,6 +36,8 @@ CREATE TABLE IF NOT EXISTS vocab_entries (
   phonetic TEXT,
   context TEXT,
   context_zh TEXT,
+  content_key TEXT,
+  line_index INTEGER,
   known INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -134,6 +137,16 @@ CREATE TABLE IF NOT EXISTS liked_clips (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS content_translations (
+  content_key TEXT NOT NULL,
+  locale TEXT NOT NULL,
+  content_hash TEXT NOT NULL,
+  payload TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (content_key, locale, content_hash)
+);
+
 CREATE INDEX IF NOT EXISTS idx_bookmarks_user_id ON bookmarks(user_id);
 CREATE INDEX IF NOT EXISTS idx_vocab_entries_user_id ON vocab_entries(user_id);
 CREATE INDEX IF NOT EXISTS idx_review_items_user_id ON review_items(user_id);
@@ -148,3 +161,4 @@ CREATE INDEX IF NOT EXISTS idx_sms_challenges_phone_created_at ON sms_challenges
 CREATE INDEX IF NOT EXISTS idx_practice_records_user_id ON practice_records(user_id);
 CREATE INDEX IF NOT EXISTS idx_known_words_user_id ON known_words(user_id);
 CREATE INDEX IF NOT EXISTS idx_liked_clips_user_id ON liked_clips(user_id);
+CREATE INDEX IF NOT EXISTS idx_content_translations_locale_updated_at ON content_translations(locale, updated_at);

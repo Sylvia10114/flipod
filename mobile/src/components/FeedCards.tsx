@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ActionButton, GlassCard } from './AppChrome';
 import { spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
+import { useUiI18n } from '../i18n';
 import { useAppTheme } from '../theme';
 import type { VocabEntry } from '../types';
 
@@ -14,10 +15,11 @@ type ReviewCardProps = {
 
 export function ReviewCard({ entry, onRemember, onForgot }: ReviewCardProps) {
   const { colors } = useAppTheme();
+  const { t } = useUiI18n();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   return (
     <GlassCard tone="feed" style={styles.card}>
-      <Text style={styles.kicker}>QUICK REVIEW</Text>
+      <Text style={styles.kicker}>{t('cards.quickReview')}</Text>
       <Text style={styles.word}>{entry.word}</Text>
       {entry.cefr ? <Text style={styles.level}>{entry.cefr}</Text> : null}
       {entry.context ? <Text style={styles.contextEn}>{entry.context}</Text> : null}
@@ -30,9 +32,9 @@ export function ReviewCard({ entry, onRemember, onForgot }: ReviewCardProps) {
           }}
           style={[styles.reviewButton, styles.reviewButtonGhost]}
         >
-          <Text style={styles.reviewButtonGhostText}>忘了</Text>
+          <Text style={styles.reviewButtonGhostText}>{t('cards.forgot')}</Text>
         </Pressable>
-        <ActionButton label="再看一眼" onPress={onRemember} style={styles.reviewPrimaryButton} />
+        <ActionButton label={t('cards.takeAnotherLook')} onPress={onRemember} style={styles.reviewPrimaryButton} />
       </View>
     </GlassCard>
   );
@@ -54,19 +56,20 @@ export function ProgressCard({
   onDismiss,
 }: ProgressCardProps) {
   const { colors } = useAppTheme();
+  const { t } = useUiI18n();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const total = cefrSegments.reduce((sum, item) => sum + item.value, 0);
   return (
     <View style={styles.progressWrap}>
-      <Text style={styles.kicker}>TODAY'S PROGRESS</Text>
+      <Text style={styles.kicker}>{t('cards.todayProgress')}</Text>
       <View style={styles.primaryStatRow}>
         <Text style={styles.primaryValue}>{clipsPlayed}</Text>
-        <Text style={styles.primaryLabel}>个片段</Text>
+        <Text style={styles.primaryLabel}>{t('cards.clips')}</Text>
       </View>
-      <Text style={styles.subtleLabel}>已收听</Text>
+      <Text style={styles.subtleLabel}>{t('cards.listened')}</Text>
       <View style={styles.secondaryStatRow}>
-        <Text style={styles.minutesText}>{minutesListened} 分钟</Text>
-        <Text style={styles.wordsText}>{newWordsCount} 新词</Text>
+        <Text style={styles.minutesText}>{t('cards.minutes', { count: minutesListened })}</Text>
+        <Text style={styles.wordsText}>{`${newWordsCount} ${t('cards.newWords')}`}</Text>
       </View>
       <View style={styles.segmentBar}>
         {cefrSegments.map(segment => (
@@ -89,7 +92,7 @@ export function ProgressCard({
           </Text>
         ))}
       </View>
-      <ActionButton label="继续刷 →" onPress={onDismiss} style={styles.progressButton} />
+      <ActionButton label={t('cards.continueSwipe')} onPress={onDismiss} style={styles.progressButton} />
     </View>
   );
 }

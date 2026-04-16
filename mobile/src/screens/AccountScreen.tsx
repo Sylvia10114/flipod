@@ -3,8 +3,9 @@ import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ActionButton, GlassCard, PillButton, ScreenHeader, ScreenSurface } from '../components/AppChrome';
 import { spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
+import { getNativeLanguageOptions, useUiI18n } from '../i18n';
 import { useAppTheme } from '../theme';
-import type { LinkedIdentity, Profile } from '../types';
+import type { LinkedIdentity, NativeLanguage, Profile } from '../types';
 
 type Props = {
   profile: Profile;
@@ -16,6 +17,7 @@ type Props = {
   onLogout: () => void;
   onDeleteAccount: () => Promise<void> | void;
   onEndGuestMode: () => void;
+  onChangeNativeLanguage: (nativeLanguage: NativeLanguage) => void;
 };
 
 function getIdentityLabel(identity: LinkedIdentity) {
@@ -32,11 +34,14 @@ export function AccountScreen({
   onLogout,
   onDeleteAccount,
   onEndGuestMode,
+  onChangeNativeLanguage,
 }: Props) {
   const { colors } = useAppTheme();
+  const { t } = useUiI18n();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const hasPhone = linkedIdentities.some(item => item.provider === 'phone');
   const hasApple = linkedIdentities.some(item => item.provider === 'apple');
+  const languageOptions = React.useMemo(() => getNativeLanguageOptions(), []);
 
   const confirmLogout = React.useCallback(() => {
     Alert.alert('退出登录', '会退出当前账号，但不会删除云端资料。', [
@@ -99,6 +104,27 @@ export function AccountScreen({
               ? `当前等级 ${profile.level || 'B1'} · 收藏、词汇和练习会先保存在本机`
               : `当前等级 ${profile.level || 'B1'} · 已绑定 ${linkedIdentities.length} 种登录方式`}
           </Text>
+        </GlassCard>
+
+        <GlassCard style={styles.sectionCard}>
+          <Text style={styles.sectionLabel}>{t('account.languageSectionTitle')}</Text>
+          <Text style={styles.sectionBody}>{t('account.languageSectionBody')}</Text>
+          <View style={styles.languageWrap}>
+            {languageOptions.map(option => {
+              const selected = profile.nativeLanguage === option.code;
+              return (
+                <PillButton
+                  key={option.code}
+                  label={option.selfLabel}
+                  subtle={!selected}
+                  onPress={() => {
+                    triggerUiFeedback('menu');
+                    onChangeNativeLanguage(option.code);
+                  }}
+                />
+              );
+            })}
+          </View>
         </GlassCard>
 
         <GlassCard style={styles.sectionCard}>
@@ -249,6 +275,11 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       fontWeight: '700',
     },
     actionGroup: {
+      gap: spacing.sm,
+    },
+    languageWrap: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
       gap: spacing.sm,
     },
     allBoundText: {

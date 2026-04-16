@@ -4,16 +4,25 @@ import { EmptyState, GlassCard, PillButton, ScreenHeader, ScreenSurface } from '
 import { spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
 import { useAppTheme } from '../theme';
-import type { VocabEntry } from '../types';
+import type { Clip, VocabEntry } from '../types';
 
 type Props = {
   vocabList: VocabEntry[];
+  clips: Clip[];
   onBack: () => void;
 };
 
-export function VocabScreen({ vocabList, onBack }: Props) {
+export function VocabScreen({ vocabList, clips, onBack }: Props) {
   const { colors } = useAppTheme();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
+  const clipByContentKey = React.useMemo(() => {
+    const map = new Map<string, Clip>();
+    clips.forEach(clip => {
+      if (!clip.contentKey) return;
+      map.set(clip.contentKey, clip);
+    });
+    return map;
+  }, [clips]);
   return (
     <ScreenSurface>
       <ScreenHeader
@@ -41,25 +50,32 @@ export function VocabScreen({ vocabList, onBack }: Props) {
         ListEmptyComponent={
           <EmptyState title="还没有保存任何词" body="在字幕里点词后，词义、例句和来源都会自动出现在这里。" />
         }
-        renderItem={({ item }) => (
-          <GlassCard style={styles.card}>
-            <View style={styles.cardTop}>
-              <Text style={styles.word}>{item.word}</Text>
-              {item.cefr ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{item.cefr}</Text>
-                </View>
-              ) : null}
-            </View>
-            {item.context ? <Text style={styles.contextEn}>{item.context}</Text> : null}
-            {item.contextZh ? <Text style={styles.contextZh}>{item.contextZh}</Text> : null}
-            <Text style={styles.meta}>
-              {item.sourceType === 'practice' ? '听力练习' : 'Feed 浏览'}
-              {item.practiced ? ' · 精听过' : ''}
-              {item.known ? ' · 已认识' : ''}
-            </Text>
-          </GlassCard>
-        )}
+        renderItem={({ item }) => {
+          const lineTranslation = item.contentKey && Number.isInteger(item.lineIndex)
+            ? clipByContentKey.get(item.contentKey)?.lines?.[item.lineIndex as number]?.zh || ''
+            : '';
+          const localizedContext = lineTranslation || item.contextZh || '';
+
+          return (
+            <GlassCard style={styles.card}>
+              <View style={styles.cardTop}>
+                <Text style={styles.word}>{item.word}</Text>
+                {item.cefr ? (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{item.cefr}</Text>
+                  </View>
+                ) : null}
+              </View>
+              {item.context ? <Text style={styles.contextEn}>{item.context}</Text> : null}
+              {localizedContext ? <Text style={styles.contextZh}>{localizedContext}</Text> : null}
+              <Text style={styles.meta}>
+                {item.sourceType === 'practice' ? '听力练习' : 'Feed 浏览'}
+                {item.practiced ? ' · 精听过' : ''}
+                {item.known ? ' · 已认识' : ''}
+              </Text>
+            </GlassCard>
+          );
+        }}
       />
     </ScreenSurface>
   );

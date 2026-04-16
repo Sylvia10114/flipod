@@ -1,4 +1,17 @@
 export type Level = 'A1-A2' | 'B1' | 'B2' | 'C1-C2';
+export type NativeLanguage =
+  | 'english'
+  | 'simplified_chinese'
+  | 'traditional_chinese'
+  | 'japanese'
+  | 'korean'
+  | 'spanish'
+  | 'french'
+  | 'brazilian_portuguese'
+  | 'italian'
+  | 'german';
+
+export const DEFAULT_NATIVE_LANGUAGE: NativeLanguage = 'english';
 export type Topic =
   | 'science'
   | 'business'
@@ -32,10 +45,30 @@ export type ClipQuestion = {
   explanation_zh?: string;
 };
 
+export type LocalizedClipLine = {
+  translation: string;
+};
+
+export type LocalizedClipQuestion = {
+  explanation: string;
+};
+
+export type LocalizedClipContent = {
+  locale: NativeLanguage;
+  contentKey: string;
+  contentHash: string;
+  lines: LocalizedClipLine[];
+  questions: LocalizedClipQuestion[];
+  generatedAt?: string | null;
+  unavailable?: boolean;
+};
+
 export type Clip = {
   id?: number;
   topic?: Topic | string;
   title: string;
+  contentKey?: string;
+  contentHash?: string;
   source: {
     podcast?: string;
     episode?: string;
@@ -66,6 +99,7 @@ export type Clip = {
 export type Profile = {
   level: Level | null;
   interests: string[];
+  nativeLanguage: NativeLanguage;
   theme: 'dark' | 'light';
   onboardingDone: boolean;
 };
@@ -180,6 +214,8 @@ export type VocabEntry = {
   phonetic?: string;
   context?: string;
   contextZh?: string;
+  contentKey?: string;
+  lineIndex?: number;
   clipKey?: string;
   clipTitle?: string;
   sourceType?: 'feed' | 'practice';

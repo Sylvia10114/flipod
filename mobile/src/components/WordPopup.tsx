@@ -3,8 +3,9 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { ActionButton, GlassCard, PillButton } from './AppChrome';
 import { radii, spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
+import { useUiI18n } from '../i18n';
 import { useAppTheme } from '../theme';
-import type { ClipLineWord } from '../types';
+import type { ClipLineWord, NativeLanguage } from '../types';
 
 type Props = {
   word: ClipLineWord;
@@ -34,13 +35,31 @@ const CEFR_LABEL: Record<string, string> = {
 
 const wordInfoCache = new Map<string, WordInfo>();
 
-async function fetchWordInfo(word: string, fallbackDefinition: string): Promise<WordInfo> {
+const GOOGLE_TRANSLATE_CODES: Record<NativeLanguage, string> = {
+  english: 'en',
+  simplified_chinese: 'zh-CN',
+  traditional_chinese: 'zh-TW',
+  japanese: 'ja',
+  korean: 'ko',
+  spanish: 'es',
+  french: 'fr',
+  brazilian_portuguese: 'pt-BR',
+  italian: 'it',
+  german: 'de',
+};
+
+async function fetchWordInfo(
+  word: string,
+  fallbackDefinition: string,
+  nativeLanguage: NativeLanguage
+): Promise<WordInfo> {
   const normalized = word.trim().toLowerCase();
   if (!normalized) {
     return { phonetic: '', pos: '', definition: '' };
   }
-  if (wordInfoCache.has(normalized)) {
-    return wordInfoCache.get(normalized)!;
+  const cacheKey = `${nativeLanguage}:${normalized}`;
+  if (wordInfoCache.has(cacheKey)) {
+    return wordInfoCache.get(cacheKey)!;
   }
 
   let phonetic = '';
@@ -49,7 +68,7 @@ async function fetchWordInfo(word: string, fallbackDefinition: string): Promise<
 
   try {
     const translateRes = await fetch(
-      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=bd&dt=t&dt=rm&q=${encodeURIComponent(normalized)}`
+      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=${encodeURIComponent(GOOGLE_TRANSLATE_CODES[nativeLanguage])}&dt=bd&dt=t&dt=rm&q=${encodeURIComponent(normalized)}`
     );
     if (translateRes.ok) {
       const data = await translateRes.json();
@@ -86,12 +105,13 @@ async function fetchWordInfo(word: string, fallbackDefinition: string): Promise<
     pos,
     definition: definition || fallbackDefinition || '',
   };
-  wordInfoCache.set(normalized, result);
+  wordInfoCache.set(cacheKey, result);
   return result;
 }
 
 export function WordPopup({ word, contextEn, contextZh, isSaved, isKnown, onSave, onMarkKnown, onDismiss }: Props) {
   const { colors } = useAppTheme();
+  const { nativeLanguage, t } = useUiI18n();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const normalizedWord = useMemo(() => word.word.trim().toLowerCase(), [word.word]);
   const [info, setInfo] = useState<WordInfo | null>(null);
@@ -102,7 +122,7 @@ export function WordPopup({ word, contextEn, contextZh, isSaved, isKnown, onSave
     setLoading(true);
     setInfo(null);
 
-    void fetchWordInfo(normalizedWord, contextZh).then(result => {
+    void fetchWordInfo(normalizedWord, contextZh, nativeLanguage).then(result => {
       if (cancelled) return;
       setInfo(result);
       setLoading(false);
@@ -111,7 +131,7 @@ export function WordPopup({ word, contextEn, contextZh, isSaved, isKnown, onSave
     return () => {
       cancelled = true;
     };
-  }, [normalizedWord, contextZh]);
+  }, [contextZh, nativeLanguage, normalizedWord]);
 
   return (
     <Pressable style={styles.overlay} onPress={onDismiss}>
@@ -139,7 +159,7 @@ export function WordPopup({ word, contextEn, contextZh, isSaved, isKnown, onSave
           {loading ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator size="small" color={colors.accentFeed} />
-              <Text style={styles.loadingText}>正在查询词义...</Text>
+              <Text style={styles.loadingText}>{t('wordPopup.loading')}</Text>
             </View>
           ) : (
             <View style={styles.definitionBlock}>
@@ -155,7 +175,7 @@ export function WordPopup({ word, contextEn, contextZh, isSaved, isKnown, onSave
 
           <View style={styles.actionRow}>
             <ActionButton
-              label={isSaved ? '已收藏' : '收藏'}
+              label={isSaved ? t('wordPopup.saved') : t('wordPopup.save')}
               variant={isSaved ? 'secondary' : 'primary'}
               onPress={() => {
                 triggerUiFeedback('bookmark');
@@ -164,7 +184,7 @@ export function WordPopup({ word, contextEn, contextZh, isSaved, isKnown, onSave
               style={styles.action}
             />
             <ActionButton
-              label={isKnown ? '已认识' : '我认识'}
+              label={isKnown ? t('wordPopup.known') : t('wordPopup.markKnown')}
               variant={isKnown ? 'secondary' : 'success'}
               onPress={() => {
                 triggerUiFeedback('correct');

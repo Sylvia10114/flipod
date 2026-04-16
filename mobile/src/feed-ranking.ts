@@ -7,6 +7,7 @@ import type {
   RankedFeedItem,
   Topic,
 } from './types';
+import { ensureClipContentIdentity } from './content-localization';
 
 const VALID_TOPICS: Topic[] = [
   'science',
@@ -175,15 +176,16 @@ export function getSourceLabel(source: Clip['source']) {
 }
 
 export function normalizeClip(clip: Clip, index: number): Clip {
+  const contentNormalized = ensureClipContentIdentity(clip, index);
   const topic = normalizeTopic((clip.topic as string | undefined) ?? clip.tag);
-  const duration = getDurationSeconds(clip);
-  const difficultyScore = typeof clip.difficulty_score === 'number' && Number.isFinite(clip.difficulty_score)
-    ? clamp(Math.round(clip.difficulty_score), 0, 100)
-    : difficultyFromLegacy(clip.difficulty) ?? deriveDifficultyScore(clip, duration);
+  const duration = getDurationSeconds(contentNormalized);
+  const difficultyScore = typeof contentNormalized.difficulty_score === 'number' && Number.isFinite(contentNormalized.difficulty_score)
+    ? clamp(Math.round(contentNormalized.difficulty_score), 0, 100)
+    : difficultyFromLegacy(contentNormalized.difficulty) ?? deriveDifficultyScore(contentNormalized, duration);
 
   return {
-    ...clip,
-    id: Number.isInteger(clip.id) ? clip.id : undefined,
+    ...contentNormalized,
+    id: Number.isInteger(contentNormalized.id) ? contentNormalized.id : undefined,
     topic,
     tag: topic,
     duration,

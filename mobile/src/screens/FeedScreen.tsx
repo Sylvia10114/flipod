@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Dimensions,
   FlatList,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -17,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   buildClipKey,
+  getClipSourceExternalUrl,
   getSentenceRange,
   getSourceLabel,
   getWordTimestamp,
@@ -35,6 +37,7 @@ import { WordPopup } from '../components/WordPopup';
 import { layout, radii, spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
 import { useFeedPlayer } from '../hooks/useFeedPlayer';
+import { useUiI18n } from '../i18n';
 import { useAppTheme } from '../theme';
 import type {
   Clip,
@@ -82,6 +85,7 @@ type Props = {
   onClipStarted: (clip: Clip, index: number) => void;
   onClipCompleted: (clip: Clip, index: number, progressRatio: number) => void;
   onClipSkipped: (clip: Clip, index: number, progressRatio: number, dwellMs: number) => void;
+  onVisibleClipChange?: (clip: Clip, index: number) => void;
 };
 
 type PopupState = {
@@ -90,6 +94,8 @@ type PopupState = {
   contextZh: string;
   clipKey: string;
   clipTitle: string;
+  contentKey?: string;
+  lineIndex?: number;
 } | null;
 
 type FeedClipPage = {
@@ -143,8 +149,10 @@ export function FeedScreen({
   onClipStarted,
   onClipCompleted,
   onClipSkipped,
+  onVisibleClipChange,
 }: Props) {
   const { colors } = useAppTheme();
+  const { t } = useUiI18n();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const data = useMemo(() => clips.slice(0, visibleClipCount), [clips, visibleClipCount]);
@@ -215,6 +223,16 @@ export function FeedScreen({
   const createRequestId = useCallback(() => {
     requestCounterRef.current += 1;
     return requestCounterRef.current;
+  }, []);
+
+  const handleOpenSource = useCallback(async (clip: Clip) => {
+    const url = getClipSourceExternalUrl(clip);
+    if (!url) return;
+    triggerUiFeedback('menu');
+    try {
+      await Linking.openURL(url);
+    } catch {
+    }
   }, []);
 
   const reviewEntries = useMemo(() => {
@@ -309,6 +327,7 @@ export function FeedScreen({
 
     if (page.type === 'clip') {
       setVisibleClipIndex(page.clipIndex);
+      onVisibleClipChange?.(page.clip, page.clipIndex);
       const loadThreshold = Math.max(0, data.length - 3);
       if (hasMoreClips && page.clipIndex >= loadThreshold && loadTriggerRef.current < data.length) {
         loadTriggerRef.current = data.length;
@@ -361,6 +380,7 @@ export function FeedScreen({
     finalizeSession,
     hasMoreClips,
     onLoadMoreClips,
+    onVisibleClipChange,
     pendingAutoplayIndex,
     playbackPhase,
     requestAutoplay,
@@ -491,6 +511,7 @@ export function FeedScreen({
           const clipKey = item.key;
           const liked = likedKeys.includes(clipKey);
           const saved = bookmarkedKeys.includes(clipKey);
+          const sourceUrl = getClipSourceExternalUrl(clip);
 
           return (
             <View style={[styles.page, { minHeight: pageHeight, paddingBottom: 18 + insets.bottom }]}>
@@ -504,7 +525,18 @@ export function FeedScreen({
                       }} style={styles.iconButton}>
                         <Feather name="menu" size={18} color={colors.textSecondary} />
                       </Pressable>
-                      <View style={styles.iconButtonPlaceholder} />
+                      {sourceUrl ? (
+                        <Pressable
+                          onPress={() => {
+                            void handleOpenSource(clip);
+                          }}
+                          style={styles.iconButton}
+                        >
+                          <Feather name="external-link" size={18} color={colors.textSecondary} />
+                        </Pressable>
+                      ) : (
+                        <View style={styles.iconButtonPlaceholder} />
+                      )}
                     </View>
                     <View style={styles.headerCopy}>
                       <Text style={styles.clipTitle}>{clip.title}</Text>
@@ -586,7 +618,7 @@ export function FeedScreen({
                     <View style={styles.loadingOverlay}>
                       <View style={styles.loadingOverlayCard}>
                         <ActivityIndicator size="small" color={colors.textPrimary} />
-                        <Text style={styles.loadingOverlayText}>正在准备播放...</Text>
+                        <Text style={styles.loadingOverlayText}>{t('feed.preparingPlayback')}</Text>
                       </View>
                     </View>
                   ) : null}
@@ -631,6 +663,8 @@ export function FeedScreen({
                             contextZh: lineData.zh || '',
                             clipKey,
                             clipTitle: clip.title,
+                            contentKey: clip.contentKey,
+                            lineIndex: isActive ? activeLineIndex : 0,
                           });
                         }}
                       />
@@ -658,6 +692,8 @@ export function FeedScreen({
               cefr: popup.word.cefr,
               context: popup.contextEn,
               contextZh: popup.contextZh,
+              contentKey: popup.contentKey,
+              lineIndex: popup.lineIndex,
               clipKey: popup.clipKey,
               clipTitle: popup.clipTitle,
               sourceType: 'feed',

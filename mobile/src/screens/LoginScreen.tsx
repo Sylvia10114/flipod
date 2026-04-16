@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { triggerUiFeedback } from '../feedback';
+import { useUiI18n } from '../i18n';
 import type { LinkedIdentity } from '../types';
 
 const LOGIN_BG = require('../../assets/login.png');
@@ -43,11 +44,12 @@ type Props = {
 };
 
 function IdentitySummary({ linkedIdentities }: { linkedIdentities: LinkedIdentity[] }) {
+  const { t } = useUiI18n();
   if (linkedIdentities.length === 0) return null;
 
   return (
     <View style={styles.identityCard}>
-      <Text style={styles.identityLabel}>当前已绑定</Text>
+      <Text style={styles.identityLabel}>{t('login.linkedNow')}</Text>
       <View style={styles.identityWrap}>
         {linkedIdentities.map(identity => (
           <View key={`${identity.provider}:${identity.providerUserId}`} style={styles.identityChip}>
@@ -73,6 +75,7 @@ function LoginContent({
   onTryGuest,
   onCancel,
 }: Omit<Props, 'visible'>) {
+  const { t } = useUiI18n();
   const [stage, setStage] = useState<LoginStage>('landing');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [code, setCode] = useState('');
@@ -99,10 +102,10 @@ function LoginContent({
     return `${local.slice(0, 3)} ${local.slice(3, 7)} ${local.slice(7)}`;
   }, [phoneNumber, requestedPhone]);
 
-  const title = mode === 'sign-in' ? 'Flipod' : '绑定登录方式';
+  const title = mode === 'sign-in' ? t('login.titleSignIn') : t('login.titleLink');
   const subtitle = mode === 'sign-in'
-    ? '听懂真实世界，从一条播客开始。'
-    : '给当前账号补绑另一种登录方式，方便以后恢复进度。';
+    ? t('login.subtitleSignIn')
+    : t('login.subtitleLink');
   const showGuestEntry = mode === 'sign-in' && presentation === 'screen' && typeof onTryGuest === 'function';
 
   const resetPhoneFlow = () => {
@@ -122,7 +125,7 @@ function LoginContent({
       setDebugCode(result?.debugCode || '');
       setCode('');
     } catch (error) {
-      setLocalMessage(error instanceof Error ? error.message : '验证码发送失败');
+      setLocalMessage(error instanceof Error ? error.message : t('login.smsFailed'));
     }
   };
 
@@ -133,7 +136,7 @@ function LoginContent({
       await onVerifyPhone(requestedPhone || phoneNumber, code);
       resetPhoneFlow();
     } catch (error) {
-      setLocalMessage(error instanceof Error ? error.message : '登录失败');
+      setLocalMessage(error instanceof Error ? error.message : t('login.verifyFailed'));
     }
   };
 
@@ -143,7 +146,7 @@ function LoginContent({
       setLocalMessage('');
       await onApplePress();
     } catch (error) {
-      setLocalMessage(error instanceof Error ? error.message : 'Apple 登录失败');
+      setLocalMessage(error instanceof Error ? error.message : t('login.appleFailed'));
     }
   };
 
@@ -175,13 +178,13 @@ function LoginContent({
               onTryGuest?.();
             }}
           >
-            <Text style={styles.guestButtonText}>Try as guest</Text>
+            <Text style={styles.guestButtonText}>{t('login.tryGuest')}</Text>
           </Pressable>
         </View>
       ) : null}
       <View style={styles.landingSpacer} />
       <View style={styles.heroBlock}>
-        <Text style={styles.heroEyebrow}>{mode === 'sign-in' ? 'LISTEN BETTER' : 'ACCOUNT'}</Text>
+        <Text style={styles.heroEyebrow}>{mode === 'sign-in' ? t('login.heroEyebrowSignIn') : t('login.heroEyebrowLink')}</Text>
         <Text style={styles.heroTitle}>{title}</Text>
         <Text style={styles.heroSubtitle}>{subtitle}</Text>
       </View>
@@ -199,7 +202,7 @@ function LoginContent({
               setLocalMessage('');
             }}
           >
-            <Text style={styles.phoneEntryButtonText}>Phone Login</Text>
+            <Text style={styles.phoneEntryButtonText}>{t('login.phoneLogin')}</Text>
           </Pressable>
         ) : null}
 
@@ -221,7 +224,7 @@ function LoginContent({
 
         {!canUsePhone && !canUseApple ? (
           <View style={styles.boundState}>
-            <Text style={styles.boundStateText}>当前账号已经绑定手机号和 Apple，无需重复绑定。</Text>
+            <Text style={styles.boundStateText}>{t('login.allLinked')}</Text>
           </View>
         ) : null}
 
@@ -230,13 +233,13 @@ function LoginContent({
         {loading ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator color="#8B9CF7" />
-            <Text style={styles.loadingText}>正在处理中...</Text>
+            <Text style={styles.loadingText}>{t('common.processing')}</Text>
           </View>
         ) : null}
 
         {mode === 'link' && onCancel ? (
           <Pressable style={styles.linkCancelButton} onPress={handleBack}>
-            <Text style={styles.linkCancelButtonText}>稍后再说</Text>
+            <Text style={styles.linkCancelButtonText}>{t('common.cancelLater')}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -260,23 +263,23 @@ function LoginContent({
           <View style={styles.phonePage}>
             <View style={styles.phoneHeader}>
               <Pressable style={styles.backButton} onPress={handleBack}>
-                <Text style={styles.backButtonText}>返回</Text>
+                <Text style={styles.backButtonText}>{t('common.back')}</Text>
               </Pressable>
             </View>
 
             <View style={styles.phoneCard}>
-              <Text style={styles.phoneTitle}>{requestedPhone ? '输入验证码' : 'Phone Login'}</Text>
+              <Text style={styles.phoneTitle}>{requestedPhone ? t('login.enterCodeTitle') : t('login.phoneLogin')}</Text>
               <Text style={styles.phoneSubtitle}>
                 {requestedPhone
-                  ? `验证码已发送到 ${maskedPhonePreview}`
-                  : '输入手机号获取短信验证码。默认按中国大陆手机号处理。'}
+                  ? t('login.codeSentTo', { phone: maskedPhonePreview })
+                  : t('login.phoneHint')}
               </Text>
 
               <TextInput
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
                 style={styles.input}
-                placeholder="请输入手机号"
+                placeholder={t('login.phonePlaceholder')}
                 placeholderTextColor="rgba(255,255,255,0.32)"
                 keyboardType="number-pad"
                 editable={!loading}
@@ -291,7 +294,7 @@ function LoginContent({
                   onPress={handleRequestCode}
                   disabled={!phoneNumber || loading}
                 >
-                  <Text style={styles.primaryButtonText}>发送验证码</Text>
+                  <Text style={styles.primaryButtonText}>{t('login.sendCode')}</Text>
                 </Pressable>
               ) : (
                 <View style={styles.codeSection}>
@@ -335,11 +338,11 @@ function LoginContent({
                       onPress={handleRequestCode}
                       disabled={loading}
                     >
-                      <Text style={styles.inlineButtonText}>重发验证码</Text>
+                      <Text style={styles.inlineButtonText}>{t('login.resendCode')}</Text>
                     </Pressable>
                   </View>
 
-                  {debugCode ? <Text style={styles.debugCode}>开发验证码：{debugCode}</Text> : null}
+                  {debugCode ? <Text style={styles.debugCode}>{t('login.devCode', { code: debugCode })}</Text> : null}
 
                   <Pressable
                     style={[
@@ -349,7 +352,7 @@ function LoginContent({
                     onPress={handleVerify}
                     disabled={code.replace(/\D/g, '').length !== 6 || loading}
                   >
-                    <Text style={styles.primaryButtonText}>{mode === 'sign-in' ? '进入 Flipod' : '绑定手机号'}</Text>
+                    <Text style={styles.primaryButtonText}>{mode === 'sign-in' ? t('login.enterFlipod') : t('login.linkPhone')}</Text>
                   </Pressable>
                 </View>
               )}
@@ -512,7 +515,7 @@ const styles = StyleSheet.create({
   },
   phoneEntryButtonText: {
     color: '#09090B',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
   },
   appleButton: {

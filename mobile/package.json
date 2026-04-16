@@ -7,7 +7,9 @@
     "start": "expo start",
     "ios": "expo run:ios",
     "android": "expo run:android",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "i18n:check": "node scripts/check-ui-i18n.mjs",
+    "i18n:llm": "python3 scripts/validate_ui_i18n_llm.py"
   },
   "dependencies": {
     "@expo/metro-runtime": "~3.2.3",

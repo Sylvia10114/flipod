@@ -37,6 +37,15 @@ export function bearerTokenFromRequest(request) {
   return match ? match[1].trim() : '';
 }
 
+async function ensureTableColumn(env, tableName, columnName, ddl) {
+  const pragma = await env.DB.prepare(`PRAGMA table_info(${tableName})`).all();
+  const columns = (pragma.results || []).map(item => String(item.name || '').toLowerCase());
+  if (columns.includes(columnName.toLowerCase())) {
+    return;
+  }
+  await env.DB.prepare(ddl).run();
+}
+
 export async function ensureAuthSchema(env) {
   await env.DB.batch([
     env.DB.prepare(
@@ -128,6 +137,25 @@ export async function ensureAuthSchema(env) {
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_known_words_user_id ON known_words(user_id)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_liked_clips_user_id ON liked_clips(user_id)'),
   ]);
+
+  await ensureTableColumn(
+    env,
+    'profiles',
+    'native_language',
+    `ALTER TABLE profiles ADD COLUMN native_language TEXT NOT NULL DEFAULT 'english'`
+  );
+  await ensureTableColumn(
+    env,
+    'vocab_entries',
+    'content_key',
+    'ALTER TABLE vocab_entries ADD COLUMN content_key TEXT'
+  );
+  await ensureTableColumn(
+    env,
+    'vocab_entries',
+    'line_index',
+    'ALTER TABLE vocab_entries ADD COLUMN line_index INTEGER'
+  );
 
   await env.DB.prepare(
     `INSERT OR IGNORE INTO user_devices (device_id, user_id)

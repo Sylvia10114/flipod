@@ -69,6 +69,20 @@ export function getSourceMeta(source: Clip['source']) {
   };
 }
 
+export function getClipSourceExternalUrl(clip: Clip) {
+  const source = getSourceObject(clip);
+  const episodeUrl = typeof source?.episode_url === 'string' ? source.episode_url.trim() : '';
+  if (/^https?:\/\//i.test(episodeUrl)) {
+    return episodeUrl.replace(/^http:\/\//i, 'https://');
+  }
+
+  const feedUrl = typeof source?.feed_url === 'string' ? source.feed_url.trim() : '';
+  if (/^https?:\/\//i.test(feedUrl) && !/\.rss($|\?)/i.test(feedUrl)) {
+    return feedUrl.replace(/^http:\/\//i, 'https://');
+  }
+  return '';
+}
+
 export function getClipWindow(clip: Clip): ClipWindow {
   const explicitStart = Number(clip.clip_start_sec);
   const explicitEnd = Number(clip.clip_end_sec);
