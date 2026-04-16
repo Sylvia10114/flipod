@@ -16,9 +16,14 @@ import math
 import os
 import re
 import subprocess
+import tempfile
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
+
+from agent import config as agent_config
+from agent.download import materialize_audio_window
+from agent.utils import call_gpt, normalize_audio_url
 
 
 STANDARD_TAGS = {
@@ -51,12 +56,6 @@ REVIEW = "review"
 PASS = "pass"
 REJECT = "reject"
 
-# Azure Whisper config (same as podcast_agent.py)
-AZURE_ENDPOINT = os.environ.get("AZURE_ENDPOINT", "https://us-east-02-gpt-01.openai.azure.com")
-AZURE_API_KEY = os.environ["AZURE_API_KEY"]
-WHISPER_DEPLOYMENT = "whisper0614"
-WHISPER_API_VERSION = "2024-06-01"
-
 
 def normalize_tag(tag):
     clean = (tag or "").strip().lower()
@@ -74,10 +73,36 @@ def load_clips(input_path: Path):
 
 
 def audio_path_for_clip(clip, input_path: Path, audio_dir: Path | None):
+    """Legacy path resolution for batches that still include persisted clip audio."""
     audio_rel = clip.get("audio", "")
+    if not audio_rel:
+        return None
     if audio_dir:
         return audio_dir / Path(audio_rel).name
     return input_path.parent / audio_rel
+
+
+def materialize_audio_for_clip(clip, input_path: Path, audio_dir: Path | None, temp_dir: Path):
+    """Resolve or temporarily materialize audio for a clip.
+
+    Returns (Path|None, should_cleanup: bool).
+    """
+    legacy_path = audio_path_for_clip(clip, input_path, audio_dir)
+    if legacy_path is not None:
+        return legacy_path, False
+
+    source = clip.get("source", {}) or {}
+    audio_url = source.get("audio_url", "")
+    clip_start = clip.get("clip_start_sec")
+    clip_end = clip.get("clip_end_sec")
+    if not audio_url or clip_start is None or clip_end is None:
+        return None, False
+
+    output_path = temp_dir / f"clip_{clip.get('id', 'unknown')}.mp3"
+    ok = materialize_audio_window(audio_url, clip_start, clip_end, str(output_path), timeout=180)
+    if not ok:
+        return output_path, False
+    return output_path, True
 
 
 def ffprobe_duration(audio_path: Path):
@@ -155,15 +180,41 @@ def detect_tail_silence(audio_path: Path, min_silence_duration=8.0, max_silence_
     return None
 
 
-def structure_checks(clip, audio_path: Path):
+def structure_checks(clip, audio_path: Path | None):
     issues = []
     lines = clip.get("lines", [])
     clip_id = clip.get("id", "?")
+    source = clip.get("source", {}) or {}
+    audio_url = source.get("audio_url", "")
+    clip_start = clip.get("clip_start_sec")
+    clip_end = clip.get("clip_end_sec")
 
-    if not audio_path.exists():
-        issues.append(("critical", f"clip {clip_id}: audio_missing"))
-    elif audio_path.stat().st_size < 5000:
-        issues.append(("critical", f"clip {clip_id}: audio_too_small"))
+    if clip.get("audio"):
+        if audio_path is None or not audio_path.exists():
+            issues.append(("critical", f"clip {clip_id}: audio_missing"))
+        elif audio_path.stat().st_size < 5000:
+            issues.append(("critical", f"clip {clip_id}: audio_too_small"))
+    else:
+        if not isinstance(audio_url, str) or not audio_url.startswith(("http://", "https://")):
+            issues.append(("critical", f"clip {clip_id}: source_audio_missing"))
+        if clip_start is None or clip_end is None:
+            issues.append(("critical", f"clip {clip_id}: clip_window_missing"))
+        else:
+            try:
+                clip_start = float(clip_start)
+                clip_end = float(clip_end)
+                if clip_end <= clip_start:
+                    issues.append(("critical", f"clip {clip_id}: clip_window_invalid"))
+                declared_duration = clip.get("duration")
+                if declared_duration is not None and abs(float(declared_duration) - (clip_end - clip_start)) > 1.5:
+                    issues.append(("warn", f"clip {clip_id}: clip_duration_mismatch"))
+            except (TypeError, ValueError):
+                issues.append(("critical", f"clip {clip_id}: clip_window_invalid"))
+
+        if audio_path is None or not audio_path.exists():
+            issues.append(("critical", f"clip {clip_id}: audio_missing"))
+        elif audio_path.stat().st_size < 5000:
+            issues.append(("critical", f"clip {clip_id}: audio_too_small"))
 
     if len(lines) < 3:
         issues.append(("critical", f"clip {clip_id}: too_few_lines"))
@@ -187,6 +238,8 @@ def structure_checks(clip, audio_path: Path):
             issues.append(("critical", f"clip {clip_id} line {idx}: invalid_line_timing"))
         elif end == start:
             issues.append(("warn", f"clip {clip_id} line {idx}: zero_duration_line"))
+        if clip.get("duration") and (start < -0.05 or end > float(clip.get("duration")) + 0.2):
+            issues.append(("warn", f"clip {clip_id} line {idx}: line_out_of_window"))
         if prev_line_end >= 0 and start is not None:
             if start < prev_line_end - 0.1:
                 overlap = prev_line_end - start
@@ -211,6 +264,9 @@ def structure_checks(clip, audio_path: Path):
                 issues.append(("critical", f"clip {clip_id} line {idx} word {word_idx}: invalid_word_timing"))
             if prev_word_start >= 0 and w_start is not None and w_start < prev_word_start - 0.05:
                 issues.append(("critical", f"clip {clip_id} line {idx} word {word_idx}: word_order_error"))
+            if clip.get("duration") and w_start is not None and w_end is not None:
+                if w_start < -0.05 or w_end > float(clip.get("duration")) + 0.2:
+                    issues.append(("warn", f"clip {clip_id} line {idx} word {word_idx}: word_out_of_window"))
             prev_word_start = w_start if w_start is not None else prev_word_start
 
             clean_word = re.sub(r"[^a-zA-Z']", "", w)
@@ -311,12 +367,12 @@ def whisper_verify_clip(audio_path: Path):
     """Re-transcribe clip audio via Whisper to get ground-truth text. Returns plain text or None."""
     if not audio_path.exists():
         return None
-    url = (f"{AZURE_ENDPOINT}/openai/deployments/{WHISPER_DEPLOYMENT}"
-           f"/audio/transcriptions?api-version={WHISPER_API_VERSION}")
+    url = (f"{agent_config.WHISPER_ENDPOINT}/openai/deployments/{agent_config.WHISPER_DEPLOYMENT}"
+           f"/audio/transcriptions?api-version={agent_config.WHISPER_API_VERSION}")
     try:
         result = subprocess.run([
             "curl", "-s", "-X", "POST", url,
-            "-H", f"api-key: {AZURE_API_KEY}",
+            "-H", f"api-key: {agent_config.WHISPER_API_KEY}",
             "-F", f"file=@{audio_path};type=audio/mpeg",
             "-F", "response_format=json",
             "-F", "language=en",
@@ -425,11 +481,6 @@ def score_audio_rule_based(clip, audio_path: Path):
 
 
 def maybe_llm_scores(clip):
-    try:
-        from podcast_agent import call_gpt
-    except Exception as exc:
-        return None, f"导入 LLM 调用失败: {exc}"
-
     prompt = {
         "role": "user",
         "content": (
@@ -481,55 +532,68 @@ def verdict_for(scores, flags, has_critical_issue=False):
 
 def evaluate_clip(clip, input_path: Path, audio_dir: Path | None, use_llm: bool, whisper_verify: bool = True):
     clip_id = clip.get("id")
-    audio_path = audio_path_for_clip(clip, input_path, audio_dir)
-    issues = structure_checks(clip, audio_path)
-    flags = []
-    has_critical_issue = any(severity == "critical" for severity, _ in issues)
+    with tempfile.TemporaryDirectory(prefix="flipod_eval_") as tmp:
+        temp_dir = Path(tmp)
+        audio_path, should_cleanup = materialize_audio_for_clip(clip, input_path, audio_dir, temp_dir)
+        try:
+            issues = structure_checks(clip, audio_path)
+            flags = []
+            has_critical_issue = any(severity == "critical" for severity, _ in issues)
 
-    for severity, issue in issues:
-        normalized = issue.split(": ", 1)[-1]
-        flags.append(normalized)
+            for severity, issue in issues:
+                normalized = issue.split(": ", 1)[-1]
+                flags.append(normalized)
 
-    narrative_score, narrative_reason, narrative_flags = score_narrative_rule_based(clip)
-    translation_score, translation_reason, translation_flags = score_translation_rule_based(clip)
-    audio_score, audio_reason, audio_flags = score_audio_rule_based(clip, audio_path)
-    flags.extend(narrative_flags + translation_flags + audio_flags)
+            narrative_score, narrative_reason, narrative_flags = score_narrative_rule_based(clip)
+            translation_score, translation_reason, translation_flags = score_translation_rule_based(clip)
+            if audio_path is None or not audio_path.exists():
+                audio_score, audio_reason, audio_flags = 1, "无法获取 clip 音频窗口", ["audio_missing"]
+            else:
+                audio_score, audio_reason, audio_flags = score_audio_rule_based(clip, audio_path)
+            flags.extend(narrative_flags + translation_flags + audio_flags)
 
-    # Audio-text sync verification via Whisper re-transcription
-    sync_reason = ""
-    if whisper_verify:
-        print(f"  clip {clip_id}: Whisper 音话同步验证中...")
-        sync_delta, sync_reason, sync_flags = score_audio_text_sync(clip, audio_path)
-        audio_score = max(1, min(10, audio_score + sync_delta))
-        flags.extend(sync_flags)
-        if sync_reason:
-            audio_reason = f"{audio_reason}；{sync_reason}"
+            # Audio-text sync verification via Whisper re-transcription
+            sync_reason = ""
+            if whisper_verify and audio_path is not None and audio_path.exists():
+                print(f"  clip {clip_id}: Whisper 音话同步验证中...")
+                sync_delta, sync_reason, sync_flags = score_audio_text_sync(clip, audio_path)
+                audio_score = max(1, min(10, audio_score + sync_delta))
+                flags.extend(sync_flags)
+                if sync_reason:
+                    audio_reason = f"{audio_reason}；{sync_reason}"
 
-    if use_llm:
-        llm_scores, llm_error = maybe_llm_scores(clip)
-        if llm_scores:
-            narrative_score = round((narrative_score + int(llm_scores["narrative"]["score"])) / 2)
-            translation_score = round((translation_score + int(llm_scores["translation"]["score"])) / 2)
-            narrative_reason = f"{narrative_reason}；LLM: {llm_scores['narrative']['reason']}"
-            translation_reason = f"{translation_reason}；LLM: {llm_scores['translation']['reason']}"
-        elif llm_error:
-            flags.append("llm_eval_failed")
+            if use_llm:
+                llm_scores, llm_error = maybe_llm_scores(clip)
+                if llm_scores:
+                    narrative_score = round((narrative_score + int(llm_scores["narrative"]["score"])) / 2)
+                    translation_score = round((translation_score + int(llm_scores["translation"]["score"])) / 2)
+                    narrative_reason = f"{narrative_reason}；LLM: {llm_scores['narrative']['reason']}"
+                    translation_reason = f"{translation_reason}；LLM: {llm_scores['translation']['reason']}"
+                elif llm_error:
+                    flags.append("llm_eval_failed")
 
-    scores = {
-        "narrative_completeness": {"score": narrative_score, "reason": narrative_reason},
-        "translation_accuracy": {"score": translation_score, "reason": translation_reason},
-        "audio_quality": {"score": audio_score, "reason": audio_reason},
-    }
-    verdict, overall = verdict_for(scores, flags, has_critical_issue=has_critical_issue)
+            scores = {
+                "narrative_completeness": {"score": narrative_score, "reason": narrative_reason},
+                "translation_accuracy": {"score": translation_score, "reason": translation_reason},
+                "audio_quality": {"score": audio_score, "reason": audio_reason},
+            }
+            verdict, overall = verdict_for(scores, flags, has_critical_issue=has_critical_issue)
 
-    return {
-        "clip_id": clip_id,
-        "verdict": verdict,
-        "scores": scores,
-        "overall_score": overall,
-        "flags": sorted(set(flags)),
-        "audio_path": str(audio_path),
-    }
+            return {
+                "clip_id": clip_id,
+                "verdict": verdict,
+                "scores": scores,
+                "overall_score": overall,
+                "flags": sorted(set(flags)),
+                "audio_path": str(audio_path) if audio_path is not None else "",
+                "audio_source": normalize_audio_url((clip.get("source", {}) or {}).get("audio_url", "")),
+            }
+        finally:
+            if should_cleanup and audio_path is not None:
+                try:
+                    audio_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
 
 def main():
@@ -549,6 +613,8 @@ def main():
         Path(args.approved_output).resolve() if args.approved_output else input_path.parent / "approved_clips.json"
     )
     whisper_verify = not args.skip_whisper_verify
+    if whisper_verify or args.use_llm:
+        agent_config.ensure_env()
 
     clips = load_clips(input_path)
     results = [evaluate_clip(clip, input_path, audio_dir, args.use_llm, whisper_verify=whisper_verify) for clip in clips]

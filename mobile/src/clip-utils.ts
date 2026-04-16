@@ -1,7 +1,50 @@
 import type { AVPlaybackSource } from 'expo-av';
-import { getBundledClipAudioAsset } from './audio-assets';
 import { CONTENT_BASE_URL } from './services/api';
 import type { Bookmark, Clip, ClipDifficulty, Level } from './types';
+
+type ClipSourceObject = Exclude<Clip['source'], string>;
+
+type ClipWindow = {
+  startSec: number;
+  endSec: number;
+  durationSec: number;
+};
+
+function getSourceObject(clip: Clip): ClipSourceObject | null {
+  return typeof clip.source === 'object' && clip.source ? clip.source : null;
+}
+
+function normalizeContentPath(raw: string) {
+  return raw.replace(/^\//, '');
+}
+
+function normalizeKeyUrl(value: string) {
+  if (!value) return '';
+  try {
+    const url = new URL(value);
+    url.hash = '';
+    url.search = '';
+    return `${url.protocol.toLowerCase()}//${url.host.toLowerCase()}${url.pathname.replace(/\/+$/, '')}`;
+  } catch {
+    return value.split('?')[0].replace(/\/+$/, '').toLowerCase();
+  }
+}
+
+function roundKeyNumber(value: number) {
+  return String(Math.round(value * 100) / 100);
+}
+
+function uniqueStrings(values: Array<string | null | undefined>) {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  values.forEach(value => {
+    if (!value) return;
+    if (seen.has(value)) return;
+    seen.add(value);
+    result.push(value);
+  });
+  return result;
+}
 
 export function getSourceLabel(source: Clip['source']) {
   if (typeof source === 'string') return source;
@@ -26,32 +69,135 @@ export function getSourceMeta(source: Clip['source']) {
   };
 }
 
-export function resolveClipAudioUrl(clip: Clip) {
-  const raw = clip.cdnAudio || clip.audio || '';
+export function getClipWindow(clip: Clip): ClipWindow {
+  const explicitStart = Number(clip.clip_start_sec);
+  const explicitEnd = Number(clip.clip_end_sec);
+  if (Number.isFinite(explicitStart) && Number.isFinite(explicitEnd) && explicitEnd > explicitStart) {
+    return {
+      startSec: explicitStart,
+      endSec: explicitEnd,
+      durationSec: Number((explicitEnd - explicitStart).toFixed(2)),
+    };
+  }
+
+  const durationFromField = typeof clip.duration === 'number' && Number.isFinite(clip.duration)
+    ? clip.duration
+    : undefined;
+  const durationFromLines = clip.lines?.length
+    ? clip.lines[clip.lines.length - 1].end
+    : 0;
+  const durationSec = Number(((durationFromField ?? durationFromLines) || 0).toFixed(2));
+  return {
+    startSec: 0,
+    endSec: durationSec,
+    durationSec,
+  };
+}
+
+export function getClipAudioStartSeconds(clip: Clip) {
+  return getClipWindow(clip).startSec;
+}
+
+export function getClipAudioEndSeconds(clip: Clip) {
+  return getClipWindow(clip).endSec;
+}
+
+export function clipRelativeToSourceSeconds(clip: Clip, relativeSeconds: number) {
+  return getClipAudioStartSeconds(clip) + Math.max(0, relativeSeconds);
+}
+
+export function sourceToClipRelativeSeconds(clip: Clip, sourceSeconds: number) {
+  return Math.max(0, sourceSeconds - getClipAudioStartSeconds(clip));
+}
+
+export function getClipAudioUrl(clip: Clip) {
+  const source = getSourceObject(clip);
+  const direct = source?.audio_url || clip.cdnAudio || '';
+  if (direct) {
+    if (/^https?:\/\//i.test(direct)) return direct;
+    return `${CONTENT_BASE_URL}/${normalizeContentPath(direct)}`;
+  }
+
+  const raw = clip.audio || '';
   if (!raw) return '';
   if (/^https?:\/\//i.test(raw)) return raw;
   return `${CONTENT_BASE_URL}/${normalizeContentPath(raw)}`;
 }
 
-export function resolveClipAudioSource(clip: Clip): AVPlaybackSource | null {
-  const raw = clip.audio || '';
-  if (raw) {
-    const bundled = getBundledClipAudioAsset(raw);
-    if (bundled) return bundled;
-  }
+export function resolveClipAudioUrl(clip: Clip) {
+  return getClipAudioUrl(clip);
+}
 
-  const url = resolveClipAudioUrl(clip);
+export function resolveClipAudioSource(clip: Clip): AVPlaybackSource | null {
+  const url = getClipAudioUrl(clip);
   if (!url) return null;
   return { uri: url };
 }
 
-export function resolveDataUrl() {
-  return `${CONTENT_BASE_URL}/data.json`;
+export function resolveDataUrls() {
+  return [
+    `${CONTENT_BASE_URL}/new_clips.json`,
+    `${CONTENT_BASE_URL}/data.json`,
+  ];
 }
 
-function normalizeContentPath(raw: string) {
-  return raw
-    .replace(/^\//, '');
+export function resolveDataUrl() {
+  return resolveDataUrls()[0];
+}
+
+function buildEpisodeWindowKey(clip: Clip) {
+  const source = getSourceObject(clip);
+  if (!source?.episode_url || !source.timestamp_start || !source.timestamp_end) return '';
+  return [
+    'episode',
+    normalizeKeyUrl(source.episode_url),
+    source.timestamp_start.trim(),
+    source.timestamp_end.trim(),
+    clip.title.trim().toLowerCase(),
+  ].join('|');
+}
+
+function buildAudioWindowKey(clip: Clip) {
+  const source = getSourceObject(clip);
+  const audioUrl = source?.audio_url;
+  if (!audioUrl) return '';
+  const window = getClipWindow(clip);
+  return [
+    'audio',
+    normalizeKeyUrl(audioUrl),
+    roundKeyNumber(window.startSec),
+    roundKeyNumber(window.endSec),
+  ].join('|');
+}
+
+function buildFallbackKey(clip: Clip, index?: number) {
+  return `${index ?? 0}:${clip.title}:${getSourceLabel(clip.source)}`;
+}
+
+export function getClipKeyAliases(clip: Clip, index?: number) {
+  return uniqueStrings([
+    buildAudioWindowKey(clip),
+    buildEpisodeWindowKey(clip),
+    clip.cdnAudio || '',
+    clip.audio || '',
+    buildFallbackKey(clip, index),
+  ]);
+}
+
+export function buildClipKey(clip: Clip, index?: number) {
+  const aliases = getClipKeyAliases(clip, index);
+  return aliases[0] || buildFallbackKey(clip, index);
+}
+
+export function clipMatchesKey(clip: Clip, clipKey: string, index?: number) {
+  return getClipKeyAliases(clip, index).includes(clipKey);
+}
+
+export function canonicalizeClipKey(clips: Clip[], clipKey: string) {
+  if (!clipKey) return clipKey;
+  const matchIndex = clips.findIndex((clip, index) => clipMatchesKey(clip, clipKey, index));
+  if (matchIndex < 0) return clipKey;
+  return buildClipKey(clips[matchIndex], matchIndex);
 }
 
 export function findLineAtTime(clip: Clip, time: number) {
@@ -75,19 +221,7 @@ export function formatTime(ms: number) {
 }
 
 export function getClipDurationSeconds(clip: Clip) {
-  if (typeof clip.duration === 'number' && Number.isFinite(clip.duration)) {
-    return clip.duration;
-  }
-  if (!clip.lines?.length) return 0;
-  return clip.lines[clip.lines.length - 1].end;
-}
-
-export function buildClipKey(clip: Clip, index?: number) {
-  if (clip.cdnAudio || clip.audio) {
-    return clip.cdnAudio || clip.audio || '';
-  }
-
-  return `${index ?? 0}:${clip.title}:${getSourceLabel(clip.source)}`;
+  return getClipWindow(clip).durationSec;
 }
 
 export function findPrevSentenceStart(clip: Clip, time: number) {
@@ -140,9 +274,7 @@ export function getSentenceRange(clip: Clip, lineIndex: number) {
 }
 
 export function findClipIndexByKey(clips: Clip[], clipKey: string) {
-  return clips.findIndex((clip, index) => {
-    return buildClipKey(clip, index) === clipKey;
-  });
+  return clips.findIndex((clip, index) => clipMatchesKey(clip, clipKey, index));
 }
 
 export function toBookmark(clip: Clip, index: number): Bookmark {

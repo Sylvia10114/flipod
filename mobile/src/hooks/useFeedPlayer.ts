@@ -1,12 +1,31 @@
 import { Audio, type AVPlaybackStatus } from 'expo-av';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { findLineAtTime, findNextSentenceStart, findPrevSentenceStart, resolveClipAudioSource } from '../clip-utils';
-import type { Clip } from '../types';
+import {
+  clipRelativeToSourceSeconds,
+  findLineAtTime,
+  findNextSentenceStart,
+  findPrevSentenceStart,
+  getClipAudioEndSeconds,
+  getClipAudioStartSeconds,
+  getClipDurationSeconds,
+  resolveClipAudioSource,
+  sourceToClipRelativeSeconds,
+} from '../clip-utils';
+import type { Clip, PlaybackPhase } from '../types';
+
+type PendingPlaybackStart = {
+  transportRequestId: number;
+  publicRequestId: number;
+  clipIndex: number;
+  sourcePositionMillis: number;
+  requestedAtMs: number;
+};
 
 type PlayerState = {
   activeIndex: number;
-  isPlaying: boolean;
-  isLoading: boolean;
+  playbackPhase: PlaybackPhase;
+  currentRequestId: number | null;
+  pendingClipIndex: number | null;
   positionMillis: number;
   durationMillis: number;
   activeLineIndex: number;
@@ -14,10 +33,15 @@ type PlayerState = {
   errorMessage: string | null;
 };
 
+const MIN_LOADING_FEEDBACK_MS = 240;
+const PLAYBACK_STARTED_THRESHOLD_MS = 120;
+const PLAYBACK_START_MAX_WAIT_MS = 1200;
+
 const initialState: PlayerState = {
   activeIndex: 0,
-  isPlaying: false,
-  isLoading: false,
+  playbackPhase: 'idle',
+  currentRequestId: null,
+  pendingClipIndex: null,
   positionMillis: 0,
   durationMillis: 0,
   activeLineIndex: 0,
@@ -30,7 +54,9 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
   const clipsRef = useRef<Clip[]>(clips);
   const activeIndexRef = useRef(0);
   const playbackRateRef = useRef(initialPlaybackRate);
-  const loadRequestRef = useRef(0);
+  const transportRequestRef = useRef(0);
+  const manualRequestRef = useRef(0);
+  const pendingPlaybackStartRef = useRef<PendingPlaybackStart | null>(null);
   const [state, setState] = useState<PlayerState>({
     ...initialState,
     playbackRate: initialPlaybackRate,
@@ -52,6 +78,35 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
     playbackRateRef.current = state.playbackRate;
   }, [state.playbackRate]);
 
+  useEffect(() => {
+    activeIndexRef.current = state.activeIndex;
+  }, [state.activeIndex]);
+
+  const waitForMinimumLoadingFeedback = useCallback(async (startedAt: number) => {
+    const elapsed = Date.now() - startedAt;
+    const remaining = MIN_LOADING_FEEDBACK_MS - elapsed;
+    if (remaining <= 0) return;
+    await new Promise(resolve => setTimeout(resolve, remaining));
+  }, []);
+
+  const createManualRequestId = useCallback(() => {
+    manualRequestRef.current += 1;
+    return manualRequestRef.current;
+  }, []);
+
+  const clearPendingPlaybackStart = useCallback((transportRequestId?: number, clipIndex?: number) => {
+    const pending = pendingPlaybackStartRef.current;
+    if (!pending) return;
+    if (
+      typeof transportRequestId === 'number'
+      && typeof clipIndex === 'number'
+      && (pending.transportRequestId !== transportRequestId || pending.clipIndex !== clipIndex)
+    ) {
+      return;
+    }
+    pendingPlaybackStartRef.current = null;
+  }, []);
+
   const unloadCurrent = useCallback(async () => {
     if (!soundRef.current) return;
     try {
@@ -62,60 +117,167 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
     soundRef.current = null;
   }, []);
 
-  const handleStatus = useCallback((clipIndex: number, requestId: number, status: AVPlaybackStatus) => {
-    if (requestId !== loadRequestRef.current) return;
+  const handleStatus = useCallback((clipIndex: number, transportRequestId: number, status: AVPlaybackStatus) => {
+    if (transportRequestId !== transportRequestRef.current) return;
 
     if (!status.isLoaded) {
+      clearPendingPlaybackStart(transportRequestId, clipIndex);
       setState(prev => ({
         ...prev,
-        isLoading: false,
-        isPlaying: false,
+        playbackPhase: status.error ? 'error' : prev.playbackPhase,
+        pendingClipIndex: null,
         errorMessage: status.error ? '音频暂时不可用' : prev.errorMessage,
       }));
       return;
     }
 
     const clip = clipsRef.current[clipIndex];
-    const activeLineIndex = clip ? Math.max(0, findLineAtTime(clip, status.positionMillis / 1000)) : 0;
+    const windowStartSec = clip ? getClipAudioStartSeconds(clip) : 0;
+    const windowEndSec = clip ? getClipAudioEndSeconds(clip) : 0;
+    const clipDurationMillis = clip ? Math.max(0, Math.floor(getClipDurationSeconds(clip) * 1000)) : 0;
+    const relativePositionMillis = clip
+      ? Math.max(0, Math.floor(sourceToClipRelativeSeconds(clip, status.positionMillis / 1000) * 1000))
+      : status.positionMillis;
+    const activeLineIndex = clip ? Math.max(0, findLineAtTime(clip, relativePositionMillis / 1000)) : 0;
 
-    setState(prev => ({
-      ...prev,
-      activeIndex: clipIndex,
-      isLoading: false,
-      isPlaying: status.isPlaying,
-      positionMillis: status.positionMillis,
-      durationMillis: status.durationMillis || prev.durationMillis,
-      activeLineIndex,
-      errorMessage: null,
-    }));
-  }, []);
+    const reachedClipEnd = clip
+      && windowEndSec > windowStartSec
+      && status.positionMillis >= Math.floor(windowEndSec * 1000) - 160;
 
-  useEffect(() => {
-    activeIndexRef.current = state.activeIndex;
-  }, [state.activeIndex]);
+    if (reachedClipEnd && soundRef.current) {
+      clearPendingPlaybackStart(transportRequestId, clipIndex);
+      void soundRef.current.pauseAsync().catch(() => {});
+      if (clipDurationMillis > 0) {
+        void soundRef.current.setPositionAsync(Math.floor(windowEndSec * 1000)).catch(() => {});
+      }
+    }
 
-  const loadClip = useCallback(async (clipIndex: number, shouldPlay: boolean) => {
-    const requestId = ++loadRequestRef.current;
+    const pending = pendingPlaybackStartRef.current;
+    const awaitingPlaybackStart = pending?.transportRequestId === transportRequestId
+      && pending.clipIndex === clipIndex;
+    const playbackProgressSinceRequest = awaitingPlaybackStart
+      ? Math.max(0, status.positionMillis - pending.sourcePositionMillis)
+      : 0;
+    const elapsedSincePlaybackRequest = awaitingPlaybackStart
+      ? Date.now() - pending.requestedAtMs
+      : 0;
+    const playbackConfirmed = awaitingPlaybackStart
+      && status.isPlaying
+      && !status.isBuffering
+      && (
+        playbackProgressSinceRequest >= PLAYBACK_STARTED_THRESHOLD_MS
+        || elapsedSincePlaybackRequest >= PLAYBACK_START_MAX_WAIT_MS
+      );
+
+    if (playbackConfirmed) {
+      clearPendingPlaybackStart(transportRequestId, clipIndex);
+    }
+
+    setState(prev => {
+      let playbackPhase: PlaybackPhase = prev.playbackPhase;
+
+      if (reachedClipEnd) {
+        playbackPhase = 'paused';
+      } else if (awaitingPlaybackStart) {
+        playbackPhase = playbackConfirmed ? 'playing' : 'loading';
+      } else if (status.isPlaying) {
+        playbackPhase = 'playing';
+      } else if (prev.playbackPhase === 'idle' && !status.shouldPlay) {
+        playbackPhase = 'idle';
+      } else if (prev.playbackPhase === 'error') {
+        playbackPhase = 'error';
+      } else {
+        playbackPhase = 'paused';
+      }
+
+      return {
+        ...prev,
+        activeIndex: clipIndex,
+        playbackPhase,
+        currentRequestId: pending?.publicRequestId ?? prev.currentRequestId,
+        pendingClipIndex: playbackPhase === 'loading' ? clipIndex : null,
+        positionMillis: clipDurationMillis > 0
+          ? Math.min(relativePositionMillis, clipDurationMillis)
+          : relativePositionMillis,
+        durationMillis: clipDurationMillis || prev.durationMillis,
+        activeLineIndex,
+        errorMessage: playbackPhase === 'error' ? prev.errorMessage : null,
+      };
+    });
+  }, [clearPendingPlaybackStart]);
+
+  const startPlayback = useCallback(async (clipIndex: number, publicRequestId?: number) => {
     const clip = clipsRef.current[clipIndex];
     if (!clip) return;
 
+    const requestId = publicRequestId ?? createManualRequestId();
+    const transportRequestId = ++transportRequestRef.current;
+    const loadingStartedAt = Date.now();
+    const clipDurationMillis = Math.max(0, Math.floor(getClipDurationSeconds(clip) * 1000));
+    const clipStartPositionMillis = Math.floor(getClipAudioStartSeconds(clip) * 1000);
+    const clipEndPositionMillis = Math.floor(getClipAudioEndSeconds(clip) * 1000);
+    let targetSourcePositionMillis = clipStartPositionMillis;
+
     if (soundRef.current && activeIndexRef.current === clipIndex) {
-      if (shouldPlay) {
-        try {
-          await soundRef.current.playAsync();
-        } catch {
+      try {
+        const currentStatus = await soundRef.current.getStatusAsync();
+        if (currentStatus.isLoaded) {
+          if (currentStatus.positionMillis >= clipEndPositionMillis - 300) {
+            targetSourcePositionMillis = clipStartPositionMillis;
+            await soundRef.current.setPositionAsync(targetSourcePositionMillis);
+          } else {
+            targetSourcePositionMillis = currentStatus.positionMillis;
+          }
         }
+
+        pendingPlaybackStartRef.current = {
+          transportRequestId,
+          publicRequestId: requestId,
+          clipIndex,
+          sourcePositionMillis: targetSourcePositionMillis,
+          requestedAtMs: Date.now(),
+        };
+        soundRef.current.setOnPlaybackStatusUpdate(status => handleStatus(clipIndex, transportRequestId, status));
+
+        setState(prev => ({
+          ...prev,
+          activeIndex: clipIndex,
+          playbackPhase: 'loading',
+          currentRequestId: requestId,
+          pendingClipIndex: clipIndex,
+          positionMillis: Math.max(0, Math.floor(sourceToClipRelativeSeconds(clip, targetSourcePositionMillis / 1000) * 1000)),
+          durationMillis: clipDurationMillis || prev.durationMillis,
+          activeLineIndex: Math.max(0, findLineAtTime(clip, Math.max(0, sourceToClipRelativeSeconds(clip, targetSourcePositionMillis / 1000)))),
+          errorMessage: null,
+        }));
+
+        await waitForMinimumLoadingFeedback(loadingStartedAt);
+        if (transportRequestId !== transportRequestRef.current) return;
+        await soundRef.current.playAsync();
+        return;
+      } catch {
+        clearPendingPlaybackStart(transportRequestId, clipIndex);
+        setState(prev => ({
+          ...prev,
+          activeIndex: clipIndex,
+          playbackPhase: 'error',
+          currentRequestId: requestId,
+          pendingClipIndex: null,
+          errorMessage: '音频加载失败，请稍后重试',
+        }));
+        return;
       }
-      return;
     }
 
     const audioSource = resolveClipAudioSource(clip);
     if (!audioSource) {
+      clearPendingPlaybackStart(transportRequestId, clipIndex);
       setState(prev => ({
         ...prev,
         activeIndex: clipIndex,
-        isPlaying: false,
-        isLoading: false,
+        playbackPhase: 'error',
+        currentRequestId: requestId,
+        pendingClipIndex: null,
         positionMillis: 0,
         durationMillis: 0,
         activeLineIndex: 0,
@@ -124,10 +286,20 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
       return;
     }
 
+    pendingPlaybackStartRef.current = {
+      transportRequestId,
+      publicRequestId: requestId,
+      clipIndex,
+      sourcePositionMillis: clipStartPositionMillis,
+      requestedAtMs: Date.now(),
+    };
+
     setState(prev => ({
       ...prev,
       activeIndex: clipIndex,
-      isLoading: true,
+      playbackPhase: 'loading',
+      currentRequestId: requestId,
+      pendingClipIndex: clipIndex,
       positionMillis: 0,
       durationMillis: 0,
       activeLineIndex: 0,
@@ -135,26 +307,26 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
     }));
 
     await unloadCurrent();
-    if (requestId !== loadRequestRef.current) return;
+    if (transportRequestId !== transportRequestRef.current) return;
 
     const sound = new Audio.Sound();
     soundRef.current = sound;
     activeIndexRef.current = clipIndex;
-    sound.setOnPlaybackStatusUpdate(status => handleStatus(clipIndex, requestId, status));
+    sound.setOnPlaybackStatusUpdate(status => handleStatus(clipIndex, transportRequestId, status));
 
     try {
       await sound.loadAsync(
         audioSource,
         {
-          shouldPlay,
+          shouldPlay: false,
           rate: playbackRateRef.current,
           shouldCorrectPitch: true,
           progressUpdateIntervalMillis: 250,
-          positionMillis: 0,
+          positionMillis: clipStartPositionMillis,
         }
       );
 
-      if (requestId !== loadRequestRef.current) {
+      if (transportRequestId !== transportRequestRef.current) {
         sound.setOnPlaybackStatusUpdate(null);
         if (soundRef.current === sound) {
           soundRef.current = null;
@@ -165,11 +337,28 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
         }
         return;
       }
+
+      await waitForMinimumLoadingFeedback(loadingStartedAt);
+      if (transportRequestId !== transportRequestRef.current) {
+        sound.setOnPlaybackStatusUpdate(null);
+        if (soundRef.current === sound) {
+          soundRef.current = null;
+        }
+        clearPendingPlaybackStart(transportRequestId, clipIndex);
+        try {
+          await sound.unloadAsync();
+        } catch {
+        }
+        return;
+      }
+
+      await sound.playAsync();
     } catch {
       if (soundRef.current === sound) {
         sound.setOnPlaybackStatusUpdate(null);
         soundRef.current = null;
       }
+      clearPendingPlaybackStart(transportRequestId, clipIndex);
       try {
         await sound.unloadAsync();
       } catch {
@@ -177,63 +366,97 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
       setState(prev => ({
         ...prev,
         activeIndex: clipIndex,
-        isPlaying: false,
-        isLoading: false,
+        playbackPhase: 'error',
+        currentRequestId: requestId,
+        pendingClipIndex: null,
         positionMillis: 0,
         durationMillis: 0,
         activeLineIndex: 0,
         errorMessage: '音频加载失败，请稍后重试',
       }));
     }
-  }, [handleStatus, unloadCurrent]);
+  }, [
+    clearPendingPlaybackStart,
+    createManualRequestId,
+    handleStatus,
+    unloadCurrent,
+    waitForMinimumLoadingFeedback,
+  ]);
 
-  const playIndex = useCallback(async (clipIndex: number) => {
-    await loadClip(clipIndex, true);
-  }, [loadClip]);
+  const requestAutoplay = useCallback(async (clipIndex: number, requestId: number) => {
+    await startPlayback(clipIndex, requestId);
+  }, [startPlayback]);
+
+  const playIndex = useCallback(async (clipIndex: number, requestId?: number) => {
+    await startPlayback(clipIndex, requestId);
+  }, [startPlayback]);
 
   const pause = useCallback(async () => {
-    if (!soundRef.current) return;
+    clearPendingPlaybackStart();
+    if (!soundRef.current) {
+      setState(prev => ({ ...prev, playbackPhase: 'paused', pendingClipIndex: null }));
+      return;
+    }
     try {
       await soundRef.current.pauseAsync();
     } catch {
     }
-  }, []);
+    setState(prev => ({
+      ...prev,
+      playbackPhase: 'paused',
+      pendingClipIndex: null,
+    }));
+  }, [clearPendingPlaybackStart]);
 
-  const togglePlay = useCallback(async (clipIndex: number) => {
-    if (!soundRef.current || state.activeIndex !== clipIndex) {
-      await playIndex(clipIndex);
-      return;
-    }
+  const stop = useCallback(async () => {
+    transportRequestRef.current += 1;
+    clearPendingPlaybackStart();
+    setState(prev => ({
+      ...prev,
+      playbackPhase: 'idle',
+      currentRequestId: null,
+      pendingClipIndex: null,
+      errorMessage: null,
+    }));
+    await unloadCurrent();
+  }, [clearPendingPlaybackStart, unloadCurrent]);
 
-    if (state.isPlaying) {
+  const togglePlay = useCallback(async (clipIndex: number, requestId?: number) => {
+    if (state.activeIndex === clipIndex && state.playbackPhase === 'playing') {
       await pause();
       return;
     }
-
-    try {
-      await soundRef.current.playAsync();
-    } catch {
-      await playIndex(clipIndex);
-    }
-  }, [pause, playIndex, state.activeIndex, state.isPlaying]);
+    await playIndex(clipIndex, requestId);
+  }, [pause, playIndex, state.activeIndex, state.playbackPhase]);
 
   const seekToRatio = useCallback(async (ratio: number) => {
     if (!soundRef.current || !state.durationMillis) return;
+    const clip = clipsRef.current[state.activeIndex];
+    if (!clip) return;
     const bounded = Math.max(0, Math.min(1, ratio));
     try {
-      await soundRef.current.setPositionAsync(Math.floor(state.durationMillis * bounded));
+      const nextRelativeMillis = Math.floor(state.durationMillis * bounded);
+      const nextSourceMillis = Math.floor(
+        clipRelativeToSourceSeconds(clip, nextRelativeMillis / 1000) * 1000
+      );
+      await soundRef.current.setPositionAsync(nextSourceMillis);
     } catch {
     }
-  }, [state.durationMillis]);
+  }, [state.activeIndex, state.durationMillis]);
 
   const seekBy = useCallback(async (deltaMillis: number) => {
     if (!soundRef.current) return;
-    const next = Math.max(0, state.positionMillis + deltaMillis);
+    const clip = clipsRef.current[state.activeIndex];
+    if (!clip) return;
+    const clipDurationMillis = Math.floor(getClipDurationSeconds(clip) * 1000);
+    const nextRelativeMillis = Math.max(0, Math.min(clipDurationMillis, state.positionMillis + deltaMillis));
     try {
-      await soundRef.current.setPositionAsync(next);
+      await soundRef.current.setPositionAsync(
+        Math.floor(clipRelativeToSourceSeconds(clip, nextRelativeMillis / 1000) * 1000)
+      );
     } catch {
     }
-  }, [state.positionMillis]);
+  }, [state.activeIndex, state.positionMillis]);
 
   const setRate = useCallback(async (rate: number) => {
     setState(prev => ({ ...prev, playbackRate: rate }));
@@ -250,7 +473,9 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
     if (!clip || !line || !soundRef.current) return;
 
     try {
-      await soundRef.current.setPositionAsync(Math.max(0, Math.floor(line.start * 1000)));
+      await soundRef.current.setPositionAsync(
+        Math.max(0, Math.floor(clipRelativeToSourceSeconds(clip, line.start) * 1000))
+      );
     } catch {
     }
   }, [state.activeIndex]);
@@ -261,7 +486,9 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
 
     const target = findPrevSentenceStart(clip, state.positionMillis / 1000);
     try {
-      await soundRef.current.setPositionAsync(Math.max(0, Math.floor(target * 1000)));
+      await soundRef.current.setPositionAsync(
+        Math.max(0, Math.floor(clipRelativeToSourceSeconds(clip, target) * 1000))
+      );
     } catch {
     }
   }, [state.activeIndex, state.positionMillis]);
@@ -272,27 +499,29 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
 
     const target = findNextSentenceStart(clip, state.positionMillis / 1000);
     try {
-      await soundRef.current.setPositionAsync(Math.max(0, Math.floor(target * 1000)));
+      await soundRef.current.setPositionAsync(
+        Math.max(0, Math.floor(clipRelativeToSourceSeconds(clip, target) * 1000))
+      );
     } catch {
     }
   }, [state.activeIndex, state.positionMillis]);
 
   useEffect(() => {
-    if (!clips.length) return;
-    void loadClip(0, false);
-  }, [clips, loadClip]);
-
-  useEffect(() => {
     return () => {
-      loadRequestRef.current += 1;
+      transportRequestRef.current += 1;
+      clearPendingPlaybackStart();
       void unloadCurrent();
     };
-  }, [unloadCurrent]);
+  }, [clearPendingPlaybackStart, unloadCurrent]);
 
   return {
     ...state,
+    isLoading: state.playbackPhase === 'loading',
+    isPlaying: state.playbackPhase === 'playing',
+    requestAutoplay,
     playIndex,
     pause,
+    stop,
     togglePlay,
     seekToRatio,
     seekBy,

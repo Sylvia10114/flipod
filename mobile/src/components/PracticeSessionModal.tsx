@@ -4,8 +4,11 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   buildClipKey,
+  clipRelativeToSourceSeconds,
   findLineAtTime,
   getClipDurationSeconds,
+  getClipAudioEndSeconds,
+  getClipAudioStartSeconds,
   getSentenceMarkers,
   getSentenceRange,
   getSourceLabel,
@@ -95,6 +98,7 @@ export function PracticeSessionModal({
     isLoading: false,
     positionMillis: 0,
     durationMillis: 0,
+    errorMessage: null as string | null,
   });
   const [blindFinished, setBlindFinished] = useState(false);
   const [sentenceIndex, setSentenceIndex] = useState(0);
@@ -166,16 +170,29 @@ export function PracticeSessionModal({
         ...prev,
         isLoading: false,
         isPlaying: false,
+        errorMessage: nextStatus.error ? '音频加载失败，请稍后重试' : prev.errorMessage,
       }));
       return;
     }
 
+    const clipWindowEndMillis = clip ? Math.floor(getClipAudioEndSeconds(clip) * 1000) : 0;
+    const clipWindowStartMillis = clip ? Math.floor(getClipAudioStartSeconds(clip) * 1000) : 0;
+    const clipDurationMillis = clip ? Math.floor(getClipDurationSeconds(clip) * 1000) : 0;
+    const relativePositionMillis = clip
+      ? Math.max(0, nextStatus.positionMillis - clipWindowStartMillis)
+      : nextStatus.positionMillis;
+    const reachedClipEnd = clip && clipWindowEndMillis > clipWindowStartMillis
+      && nextStatus.positionMillis >= clipWindowEndMillis - 160;
+
     setStatus(prev => ({
       ...prev,
-      isPlaying: nextStatus.isPlaying,
+      isPlaying: reachedClipEnd ? false : nextStatus.isPlaying,
       isLoading: false,
-      positionMillis: nextStatus.positionMillis,
-      durationMillis: nextStatus.durationMillis || prev.durationMillis,
+      positionMillis: clipDurationMillis > 0
+        ? Math.min(relativePositionMillis, clipDurationMillis)
+        : relativePositionMillis,
+      durationMillis: clipDurationMillis || prev.durationMillis,
+      errorMessage: null,
     }));
 
     if (
@@ -188,6 +205,19 @@ export function PracticeSessionModal({
       if (sound) {
         void sound.pauseAsync();
       }
+    }
+
+    if (reachedClipEnd && soundRef.current) {
+      const sound = soundRef.current;
+      segmentEndRef.current = null;
+      void sound.pauseAsync().catch(() => {});
+      void sound.setPositionAsync(clipWindowEndMillis).catch(() => {});
+      if (stepRef.current === 1) {
+        setBlindFinished(true);
+      } else if (stepRef.current === 4) {
+        finishPractice();
+      }
+      return;
     }
 
     if (!nextStatus.didJustFinish) return;
@@ -209,6 +239,7 @@ export function PracticeSessionModal({
         isLoading: false,
         positionMillis: 0,
         durationMillis: Math.floor(getClipDurationSeconds(clip) * 1000),
+        errorMessage: '当前片段没有可播放音频',
       });
       setBlindFinished(true);
       return;
@@ -221,41 +252,60 @@ export function PracticeSessionModal({
     soundRef.current = sound;
     sound.setOnPlaybackStatusUpdate(handleStatus);
 
-    await sound.loadAsync(
-      audioSource,
-      {
-        shouldPlay: false,
-        progressUpdateIntervalMillis: 120,
-        positionMillis: 0,
-      }
-    );
-
     try {
+      await sound.loadAsync(
+        audioSource,
+        {
+          shouldPlay: false,
+          progressUpdateIntervalMillis: 120,
+          positionMillis: Math.floor(getClipAudioStartSeconds(clip) * 1000),
+        }
+      );
       await sound.setProgressUpdateIntervalAsync(120);
       const initialStatus = await sound.getStatusAsync();
       handleStatus(initialStatus);
     } catch {
+      if (soundRef.current === sound) {
+        sound.setOnPlaybackStatusUpdate(null);
+        soundRef.current = null;
+      }
+      try {
+        await sound.unloadAsync();
+      } catch {
+      }
+      setStatus(prev => ({
+        ...prev,
+        isPlaying: false,
+        isLoading: false,
+        positionMillis: 0,
+        durationMillis: Math.floor(getClipDurationSeconds(clip) * 1000),
+        errorMessage: '音频加载失败，请稍后重试',
+      }));
     }
   }, [clip, handleStatus, unloadSound, visible]);
 
   const playWholeClip = useCallback(async (fromMillis = 0) => {
-    if (!soundRef.current) return;
+    if (!soundRef.current || !clip) return;
     segmentEndRef.current = null;
     try {
-      await soundRef.current.setPositionAsync(Math.max(0, fromMillis));
+      await soundRef.current.setPositionAsync(
+        Math.max(0, Math.floor(clipRelativeToSourceSeconds(clip, fromMillis / 1000) * 1000))
+      );
       await soundRef.current.playAsync();
     } catch {
     }
-  }, []);
+  }, [clip]);
 
   const playSentence = useCallback(async (lineIndex: number) => {
     if (!clip || !soundRef.current) return;
     const line = clip.lines?.[lineIndex];
     if (!line) return;
 
-    segmentEndRef.current = Math.floor(line.end * 1000);
+    segmentEndRef.current = Math.floor(clipRelativeToSourceSeconds(clip, line.end) * 1000);
     try {
-      await soundRef.current.setPositionAsync(Math.max(0, Math.floor(line.start * 1000)));
+      await soundRef.current.setPositionAsync(
+        Math.max(0, Math.floor(clipRelativeToSourceSeconds(clip, line.start) * 1000))
+      );
       await soundRef.current.playAsync();
     } catch {
     }
@@ -473,6 +523,7 @@ export function PracticeSessionModal({
                     : '听完了，判断一下自己掌握得怎么样'
                   : '先完整听一遍，不用急着逐句分析'}
               </Text>
+              {status.errorMessage ? <Text style={styles.practiceErrorText}>{status.errorMessage}</Text> : null}
 
               {!blindFinished ? (
                 <>
@@ -793,6 +844,7 @@ export function PracticeSessionModal({
                   <Text style={styles.hintText}>准备开始复听…</Text>
                 )}
               </View>
+              {status.errorMessage ? <Text style={styles.practiceErrorText}>{status.errorMessage}</Text> : null}
 
               <View style={styles.progressWrap}>
                 <ProgressBar
@@ -802,7 +854,10 @@ export function PracticeSessionModal({
                   highlightRanges={hardRanges}
                   onSeek={ratio => {
                     if (!soundRef.current || !status.durationMillis) return;
-                    void soundRef.current.setPositionAsync(Math.floor(status.durationMillis * ratio));
+                    const nextRelativeMillis = Math.floor(status.durationMillis * ratio);
+                    void soundRef.current.setPositionAsync(
+                      Math.floor(clipRelativeToSourceSeconds(clip, nextRelativeMillis / 1000) * 1000)
+                    );
                   }}
                 />
               </View>
@@ -979,6 +1034,13 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
     color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 22,
+    textAlign: 'center',
+  },
+  practiceErrorText: {
+    marginTop: 10,
+    color: colors.accentError,
+    fontSize: 13,
+    lineHeight: 18,
     textAlign: 'center',
   },
   waveRow: {

@@ -22,7 +22,7 @@ except ImportError:
 from agent.config import (
     ensure_env, CONTENT_TIERS, CURATED_FEEDS, TIER2_KEYWORDS,
 )
-from agent.utils import log, LOG
+from agent.utils import log, LOG, normalize_audio_url
 from agent.discovery import discover_podcasts
 from agent.rss import parse_rss
 from agent.cefr import init_cefr_map, save_cefr_cache
@@ -58,7 +58,8 @@ def main():
     output_dir = os.path.abspath(args.output_dir)
     tmp_dir = os.path.join(output_dir, "tmp")
     logs_dir = os.path.join(output_dir, "logs")
-    for d in [tmp_dir, os.path.join(output_dir, "clips"), logs_dir]:
+    cache_dir = os.path.join(output_dir, "cache", "transcripts")
+    for d in [tmp_dir, logs_dir, cache_dir]:
         os.makedirs(d, exist_ok=True)
 
     main_start = time.time()
@@ -119,7 +120,7 @@ def main():
         for ep in episodes:
             if not args.dry_run and len(all_results) >= args.target_clips:
                 break
-            ep_key = ep["audio_url"].split("?")[0].rstrip("/").lower()
+            ep_key = normalize_audio_url(ep.get("audio_url", ""))
             if ep_key in processed_episodes or ep_key in newly_processed:
                 continue
             newly_processed.add(ep_key)

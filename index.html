@@ -2805,9 +2805,22 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
   const startScreen = document.getElementById('start-screen');
   let clips;
   try {
-    const resp = await fetch('data.json');
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    ({clips} = await resp.json());
+    let payload = null;
+    let lastError = null;
+    for (const path of ['new_clips.json', 'data.json']) {
+      try {
+        const resp = await fetch(path);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        payload = await resp.json();
+        if (Array.isArray(payload?.clips) && payload.clips.length > 0) break;
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    if (!payload || !Array.isArray(payload?.clips)) {
+      throw lastError || new Error('未找到可用内容');
+    }
+    ({clips} = payload);
     // Trim truncated last lines (no sentence-ending punctuation)
     clips.forEach(c => {
       if (c.lines && c.lines.length > 1) {
@@ -2822,7 +2835,7 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
   }
 
   // ── REFACTOR 3: Validate clips & audio mapping ──
-  console.log('Loaded clips:', clips.map((c, i) => i + ': ' + c.audio + ' - ' + c.title));
+  console.log('Loaded clips:', clips.map((c, i) => i + ': ' + c.title));
 
   let total = clips.length;
   const audios = [];
@@ -2959,13 +2972,154 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
       .replace(/'/g, '&#39;');
   }
 
-  function getClipKeyByClip(clip) {
-    return clip.cdnAudio || clip.audio || '';
+  function getClipSourceObject(clip) {
+    return clip && typeof clip.source === 'object' ? clip.source : null;
+  }
+
+  function normalizeKeyUrl(value) {
+    if (!value) return '';
+    try {
+      const url = new URL(value, window.location.href);
+      url.hash = '';
+      url.search = '';
+      return `${url.protocol.toLowerCase()}//${url.host.toLowerCase()}${url.pathname.replace(/\/+$/, '')}`;
+    } catch {
+      return String(value).split('?')[0].replace(/\/+$/, '').toLowerCase();
+    }
+  }
+
+  function getClipWindowStartByClip(clip) {
+    const start = Number(clip?.clip_start_sec);
+    return Number.isFinite(start) && start >= 0 ? start : 0;
+  }
+
+  function getClipWindowEndByClip(clip) {
+    const start = getClipWindowStartByClip(clip);
+    const explicitEnd = Number(clip?.clip_end_sec);
+    if (Number.isFinite(explicitEnd) && explicitEnd > start) return explicitEnd;
+    if (typeof clip?.duration === 'number' && isFinite(clip.duration)) return start + clip.duration;
+    if (clip?.lines?.length) return start + clip.lines[clip.lines.length - 1].end;
+    return start;
+  }
+
+  function getClipDurationByClip(clip) {
+    return Math.max(0, getClipWindowEndByClip(clip) - getClipWindowStartByClip(clip));
+  }
+
+  function clipRelativeToSourceTime(clip, relativeTime) {
+    return getClipWindowStartByClip(clip) + Math.max(0, relativeTime || 0);
+  }
+
+  function sourceToClipRelativeTime(clip, sourceTime) {
+    return Math.max(0, (sourceTime || 0) - getClipWindowStartByClip(clip));
+  }
+
+  function buildEpisodeClipKey(clip) {
+    const src = getClipSourceObject(clip);
+    if (!src?.episode_url || !src?.timestamp_start || !src?.timestamp_end) return '';
+    return [
+      'episode',
+      normalizeKeyUrl(src.episode_url),
+      src.timestamp_start.trim(),
+      src.timestamp_end.trim(),
+      (clip.title || '').trim().toLowerCase(),
+    ].join('|');
+  }
+
+  function buildAudioWindowClipKey(clip) {
+    const src = getClipSourceObject(clip);
+    if (!src?.audio_url) return '';
+    return [
+      'audio',
+      normalizeKeyUrl(src.audio_url),
+      String(Math.round(getClipWindowStartByClip(clip) * 100) / 100),
+      String(Math.round(getClipWindowEndByClip(clip) * 100) / 100),
+    ].join('|');
+  }
+
+  function getClipKeyAliasesByClip(clip, idx) {
+    return Array.from(new Set([
+      buildEpisodeClipKey(clip),
+      buildAudioWindowClipKey(clip),
+      clip.cdnAudio || '',
+      clip.audio || '',
+      `${idx ?? 0}:${clip.title || ''}:${typeof clip.source === 'object' ? (clip.source?.podcast || clip.source?.episode || '') : (clip.source || '')}`,
+    ].filter(Boolean)));
+  }
+
+  function getClipKeyByClip(clip, idx) {
+    const aliases = getClipKeyAliasesByClip(clip, idx);
+    return aliases[0] || '';
+  }
+
+  function clipMatchesKey(clip, key, idx) {
+    return getClipKeyAliasesByClip(clip, idx).includes(key);
+  }
+
+  function canonicalizeStoredClipKey(key) {
+    if (!key) return key;
+    const idx = clips.findIndex((clip, clipIndex) => clipMatchesKey(clip, key, clipIndex));
+    return idx >= 0 ? getClipKeyByClip(clips[idx], idx) : key;
+  }
+
+  function migrateStoredClipState() {
+    const dedupe = values => {
+      const seen = new Set();
+      return values
+        .map(value => canonicalizeStoredClipKey(value))
+        .filter(value => {
+          if (!value || seen.has(value)) return false;
+          seen.add(value);
+          return true;
+        });
+    };
+
+    try {
+      const rawBookmarks = JSON.parse(localStorage.getItem('flipodBookmarks') || '[]');
+      const seen = new Set();
+      const nextBookmarks = (Array.isArray(rawBookmarks) ? rawBookmarks : []).reduce((acc, item) => {
+        const rawKey = item?.clipKey || item?.audio || '';
+        const clipKey = canonicalizeStoredClipKey(rawKey);
+        if (!clipKey || seen.has(clipKey)) return acc;
+        seen.add(clipKey);
+        acc.push({ ...item, audio: clipKey, clipKey });
+        return acc;
+      }, []);
+      localStorage.setItem('flipodBookmarks', JSON.stringify(nextBookmarks));
+    } catch {}
+
+    try {
+      const liked = JSON.parse(localStorage.getItem('flipodLikedClips') || '[]');
+      localStorage.setItem('flipodLikedClips', JSON.stringify(dedupe(Array.isArray(liked) ? liked : [])));
+    } catch {}
+
+    try {
+      const listened = JSON.parse(localStorage.getItem('flipodListenedClips') || '[]');
+      localStorage.setItem('flipodListenedClips', JSON.stringify(dedupe(Array.isArray(listened) ? listened : [])));
+    } catch {}
+
+    try {
+      const practice = JSON.parse(localStorage.getItem('flipodPractice') || '{}');
+      const nextPractice = {};
+      Object.entries(practice || {}).forEach(([key, value]) => {
+        nextPractice[canonicalizeStoredClipKey(key)] = value;
+      });
+      localStorage.setItem('flipodPractice', JSON.stringify(nextPractice));
+    } catch {}
   }
 
   function getClipAudioSrcByClip(clip) {
-    return getClipKeyByClip(clip);
+    const src = getClipSourceObject(clip);
+    return src?.audio_url || clip.cdnAudio || clip.audio || '';
   }
+
+  function getClipPlaybackTime(idx) {
+    const audio = audios[idx];
+    const clip = clips[idx];
+    return sourceToClipRelativeTime(clip, audio.currentTime || 0);
+  }
+
+  migrateStoredClipState();
 
   // ── Filter & sort clips by user interests ──
   {
@@ -3232,7 +3386,15 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
         for (let li = 0; li < clip.lines.length; li++) {
           const line = clip.lines[li];
           if (line.words && line.words.some(ww => ww.word.toLowerCase() === w)) {
-            return { clipIdx: ci, lineIdx: li, en: line.en, zh: line.zh || '', start: line.start, end: line.end, audio: getClipAudioSrcByClip(clip) };
+            return {
+              clipIdx: ci,
+              lineIdx: li,
+              en: line.en,
+              zh: line.zh || '',
+              start: line.start,
+              end: line.end,
+              audio: getClipAudioSrcByClip(clip),
+            };
           }
         }
       }
@@ -3262,7 +3424,7 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
           <div class="rc-phonetic">${vocabItem.cefr || ''}</div>
           ${ctx ? `<div class="rc-context-label">出现在</div>
           <div class="rc-context">"${ctx.en}"</div>` : ''}
-          <button class="rc-play-btn" data-review-word="${vocabItem.word}" ${ctx ? `data-review-audio="${ctx.audio}" data-review-start="${ctx.start}" data-review-end="${ctx.end}"` : ''}>
+          <button class="rc-play-btn" data-review-word="${vocabItem.word}" ${ctx ? `data-review-audio="${ctx.audio}" data-review-clip-idx="${ctx.clipIdx}" data-review-start="${ctx.start}" data-review-end="${ctx.end}"` : ''}>
             <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
             再听一遍
           </button>
@@ -3281,14 +3443,16 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
           e.stopPropagation();
           const btn = e.currentTarget;
           const audioSrc = btn.dataset.reviewAudio;
+          const clipIdx = parseInt(btn.dataset.reviewClipIdx, 10);
           const start = parseFloat(btn.dataset.reviewStart);
           const end = parseFloat(btn.dataset.reviewEnd);
-          if (!audioSrc || isNaN(start)) return;
+          const clip = clips[clipIdx];
+          if (!audioSrc || !clip || isNaN(start)) return;
           const tempAudio = new Audio(audioSrc);
-          tempAudio.currentTime = start;
+          tempAudio.currentTime = clipRelativeToSourceTime(clip, start);
           tempAudio.play().catch(() => {});
           const stopAt = () => {
-            if (tempAudio.currentTime >= end) {
+            if (sourceToClipRelativeTime(clip, tempAudio.currentTime) >= end) {
               tempAudio.pause();
               tempAudio.removeEventListener('timeupdate', stopAt);
             }

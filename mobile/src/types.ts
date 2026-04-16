@@ -39,7 +39,9 @@ export type Clip = {
   source: {
     podcast?: string;
     episode?: string;
+    audio_url?: string;
     episode_url?: string;
+    feed_url?: string;
     timestamp_start?: string;
     timestamp_end?: string;
     pub_date?: string;
@@ -49,6 +51,8 @@ export type Clip = {
   audio?: string;
   cdnAudio?: string;
   duration?: number;
+  clip_start_sec?: number;
+  clip_end_sec?: number;
   difficulty_score?: number;
   difficulty?: ClipDifficulty;
   overlap_score?: number;
@@ -85,10 +89,13 @@ export type AuthSession = {
 };
 
 export type DominantHand = 'left' | 'right';
+export type SubtitleSize = 'sm' | 'md' | 'lg';
+export type PlaybackPhase = 'idle' | 'loading' | 'playing' | 'paused' | 'error';
 
 export type AppSettings = {
   dominantHand: DominantHand;
   playbackRate: number;
+  subtitleSize: SubtitleSize;
   practiceIntroSeen: boolean;
   bookmarkPracticeHintSeen: boolean;
 };

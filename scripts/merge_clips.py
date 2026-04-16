@@ -6,16 +6,16 @@ Usage:
     python3 scripts/merge_clips.py \
         --source output/batchN/approved_clips.json \
         --target data.json \
-        --audio-src output/batchN/clips \
-        --audio-dst clips \
+        [--audio-src output/batchN/clips] \
+        [--audio-dst clips] \
         [--dry-run]
 
 Behavior:
     1. Reads source approved_clips and target data.json
     2. Assigns new sequential IDs starting from max(existing) + 1
-    3. Copies audio files with renamed convention (clip_001.mp3 → clip{id}.mp3)
-    4. Appends clips to target, auto-backs up before writing
-    5. Validates all files post-merge; rolls back on failure
+    3. Metadata-first batches merge directly with no audio copy
+    4. Legacy audio batches can still copy audio files when --audio-src/--audio-dst are provided
+    5. Appends clips to target, auto-backs up before writing
 """
 
 import argparse
@@ -30,8 +30,8 @@ def main():
     parser = argparse.ArgumentParser(description="Merge approved clips into data.json")
     parser.add_argument("--source", required=True, help="Path to approved_clips.json")
     parser.add_argument("--target", required=True, help="Path to data.json")
-    parser.add_argument("--audio-src", required=True, help="Source audio directory")
-    parser.add_argument("--audio-dst", required=True, help="Destination audio directory")
+    parser.add_argument("--audio-src", help="Legacy source audio directory")
+    parser.add_argument("--audio-dst", help="Legacy destination audio directory")
     parser.add_argument("--dry-run", action="store_true", help="Report without modifying files")
     args = parser.parse_args()
 
@@ -48,21 +48,26 @@ def main():
         print("ℹ️  Source has no clips. Nothing to merge.")
         sys.exit(0)
 
-    # ── Pre-check: all source audio files exist ────────────────
-    missing_audio = []
-    for clip in source_clips:
-        audio_field = clip.get("audio", "")
-        # audio field may be "clips/clip_001.mp3" — extract filename
-        audio_filename = os.path.basename(audio_field)
-        audio_path = os.path.join(args.audio_src, audio_filename)
-        if not os.path.exists(audio_path):
-            missing_audio.append(audio_path)
-
-    if missing_audio:
-        print(f"❌ Missing source audio files:")
-        for p in missing_audio:
-            print(f"   {p}")
+    has_legacy_audio = any(clip.get("audio") for clip in source_clips)
+    if has_legacy_audio and (not args.audio_src or not args.audio_dst):
+        print("❌ Source clips still contain audio fields. 请同时提供 --audio-src 和 --audio-dst。")
         sys.exit(1)
+
+    # ── Pre-check: all source audio files exist (legacy only) ─
+    missing_audio = []
+    if has_legacy_audio:
+        for clip in source_clips:
+            audio_field = clip.get("audio", "")
+            audio_filename = os.path.basename(audio_field)
+            audio_path = os.path.join(args.audio_src, audio_filename)
+            if not os.path.exists(audio_path):
+                missing_audio.append(audio_path)
+
+        if missing_audio:
+            print("❌ Missing source audio files:")
+            for p in missing_audio:
+                print(f"   {p}")
+            sys.exit(1)
 
     # ── Read target ────────────────────────────────────────────
     if os.path.exists(args.target):
@@ -89,21 +94,25 @@ def main():
         new_id = next_id
         next_id += 1
 
-        old_audio = os.path.basename(clip.get("audio", ""))
-        new_audio_filename = f"clip{new_id}.mp3"
-        new_audio_rel = f"clips/{new_audio_filename}"
-
-        src_path = os.path.join(args.audio_src, old_audio)
-        dst_path = os.path.join(args.audio_dst, new_audio_filename)
-
-        merge_plan.append({
+        item = {
             "old_id": clip.get("id"),
             "new_id": new_id,
-            "src_audio": src_path,
-            "dst_audio": dst_path,
-            "new_audio_field": new_audio_rel,
             "clip": clip,
-        })
+        }
+
+        if has_legacy_audio:
+            old_audio = os.path.basename(clip.get("audio", ""))
+            new_audio_filename = f"clip{new_id}.mp3"
+            new_audio_rel = f"clips/{new_audio_filename}"
+
+            src_path = os.path.join(args.audio_src, old_audio)
+            dst_path = os.path.join(args.audio_dst, new_audio_filename)
+            item.update({
+                "src_audio": src_path,
+                "dst_audio": dst_path,
+                "new_audio_field": new_audio_rel,
+            })
+        merge_plan.append(item)
 
     id_range_start = merge_plan[0]["new_id"]
     id_range_end = merge_plan[-1]["new_id"]
@@ -113,12 +122,16 @@ def main():
     print(f"  Source: {args.source} ({len(source_clips)} clips)")
     print(f"  Target: {args.target} ({original_count} existing clips)")
     print(f"  New IDs: {id_range_start}-{id_range_end}")
-    print(f"  Audio: {args.audio_src}/*.mp3 → {args.audio_dst}/*.mp3 ({len(merge_plan)} files)")
+    if has_legacy_audio:
+        print(f"  Audio: {args.audio_src}/*.mp3 → {args.audio_dst}/*.mp3 ({len(merge_plan)} files)")
+    else:
+        print("  Audio: metadata-only merge (no audio files copied)")
 
     if args.dry_run:
-        print("\n  Audio copy plan:")
-        for item in merge_plan:
-            print(f"    {os.path.basename(item['src_audio'])} → {os.path.basename(item['dst_audio'])}")
+        if has_legacy_audio:
+            print("\n  Audio copy plan:")
+            for item in merge_plan:
+                print(f"    {os.path.basename(item['src_audio'])} → {os.path.basename(item['dst_audio'])}")
         print("\n  No files modified (dry-run).")
         return
 
@@ -130,20 +143,24 @@ def main():
         print(f"  Backup: {backup_path}")
 
     # ── Execute merge ──────────────────────────────────────────
-    os.makedirs(args.audio_dst, exist_ok=True)
+    if has_legacy_audio:
+        os.makedirs(args.audio_dst, exist_ok=True)
     copied_files = []
 
     try:
-        # Copy audio files
-        for item in merge_plan:
-            shutil.copy2(item["src_audio"], item["dst_audio"])
-            copied_files.append(item["dst_audio"])
+        if has_legacy_audio:
+            for item in merge_plan:
+                shutil.copy2(item["src_audio"], item["dst_audio"])
+                copied_files.append(item["dst_audio"])
 
         # Update clips and append
         for item in merge_plan:
-            clip = item["clip"]
+            clip = dict(item["clip"])
             clip["id"] = item["new_id"]
-            clip["audio"] = item["new_audio_field"]
+            if has_legacy_audio:
+                clip["audio"] = item["new_audio_field"]
+            else:
+                clip.pop("audio", None)
             target_clips.append(clip)
 
         # Write target
@@ -172,9 +189,10 @@ def main():
     if final_count != expected:
         errors.append(f"Clip count mismatch: expected {expected}, got {final_count}")
 
-    for item in merge_plan:
-        if not os.path.exists(item["dst_audio"]):
-            errors.append(f"Audio not found: {item['dst_audio']}")
+    if has_legacy_audio:
+        for item in merge_plan:
+            if not os.path.exists(item["dst_audio"]):
+                errors.append(f"Audio not found: {item['dst_audio']}")
 
     if errors:
         print(f"❌ Post-merge validation failed:")
@@ -193,7 +211,10 @@ def main():
 
     print(f"\n✅ Merged {len(source_clips)} clips (ids {id_range_start}-{id_range_end}) "
           f"from {args.source} into {args.target}")
-    print(f"   Audio files: {args.audio_src}/*.mp3 → {args.audio_dst}/*.mp3 ({len(copied_files)} files copied)")
+    if has_legacy_audio:
+        print(f"   Audio files: {args.audio_src}/*.mp3 → {args.audio_dst}/*.mp3 ({len(copied_files)} files copied)")
+    else:
+        print("   Audio files: metadata-only batch, no files copied")
     print(f"   Backup: {backup_path}")
 
 

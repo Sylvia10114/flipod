@@ -1,61 +1,51 @@
-"""Step 3: Whisper transcription via Azure OpenAI.
+"""Step 3: Whole-episode Whisper transcription via chunked temp audio.
 
-Input: local audio file path
-Output: dict {text, words, segments} or None
+Input: source audio URL or temp local file
+Output: dict {text, words, segments} with absolute episode timestamps
 """
 
 import json
 import os
+import shutil
 import subprocess
 import time
 
 from . import config
-from .utils import log
+from .download import materialize_audio_window, probe_audio_duration
+from .utils import hash_key, log, normalize_audio_url
 
 
-def _transcript_cache_path(audio_path):
-    """派生 transcript 缓存路径：<dir>/<basename>.transcript.json
-
-    存在 mp3 隔壁。单 episode 缓存 ~1MB，够 refilter / 调 filter / 调 prompt 反复复用，
-    避免重烧 Whisper（~$0.30/集）。
-    """
-    base = os.path.splitext(audio_path)[0]
-    return f"{base}.transcript.json"
+def _transcript_cache_path(audio_source, cache_dir):
+    """Cache transcript by normalized source audio URL, not by local temp file path."""
+    cache_key = hash_key(normalize_audio_url(audio_source) or str(audio_source))
+    return os.path.join(cache_dir, f"{cache_key}.transcript.json")
 
 
-def transcribe_audio(audio_path, use_cache=True):
-    """Transcribe audio using Azure Whisper API (via curl).
+def build_chunk_windows(duration_sec, chunk_seconds=600, overlap_seconds=3):
+    """Build fixed-size chunk windows with a small overlap between adjacent chunks."""
+    if duration_sec <= 0:
+        return []
 
-    Returns {text, words, segments} on success, None on failure.
-    Requires both word-level and segment-level timestamp_granularities.
+    windows = []
+    start = 0.0
+    duration_sec = float(duration_sec)
+    while start < duration_sec - 0.01:
+        end = min(duration_sec, start + chunk_seconds)
+        windows.append((round(start, 3), round(end, 3)))
+        if end >= duration_sec:
+            break
+        start = max(0.0, end - overlap_seconds)
+    return windows
 
-    缓存策略（2026-04-14 加）：
-    - 如果 audio_path 旁边已有 `<basename>.transcript.json`，直接读取返回。
-    - 新转录成功后自动落盘到上述路径。
-    - 测试/强制重转录时传 use_cache=False。
-    """
-    cache_path = _transcript_cache_path(audio_path)
 
-    if use_cache and os.path.exists(cache_path):
-        try:
-            with open(cache_path, "r", encoding="utf-8") as f:
-                cached = json.load(f)
-            n_words = len(cached.get("words", []))
-            n_segs = len(cached.get("segments", []))
-            log(f"  📦 命中 transcript 缓存: {n_words} 词, {n_segs} 段 "
-                f"({os.path.basename(cache_path)})", "ok")
-            return cached
-        except Exception as e:
-            log(f"  ⚠️ 缓存读取失败, 重新转录: {e}", "warn")
-
-    log("Step 3: 转录音频...", "step")
-
+def _transcribe_local_file(audio_path):
+    """Transcribe a local chunk using Azure Whisper API via curl."""
     url = (f"{config.WHISPER_ENDPOINT}/openai/deployments/{config.WHISPER_DEPLOYMENT}"
            f"/audio/transcriptions?api-version={config.WHISPER_API_VERSION}")
 
     file_size = os.path.getsize(audio_path)
     if file_size > 25 * 1024 * 1024:
-        log(f"  文件过大 ({file_size // 1024 // 1024}MB)，跳过", "warn")
+        log(f"  Chunk 文件过大 ({file_size // 1024 // 1024}MB)，跳过", "warn")
         return None
 
     for attempt in range(3):
@@ -69,11 +59,11 @@ def transcribe_audio(audio_path, use_cache=True):
                 "-F", "timestamp_granularities[]=segment",
                 "-F", "language=en",
                 "--connect-timeout", "15",
-                "--max-time", "120",
-            ], capture_output=True, text=True, timeout=130)
+                "--max-time", "240",
+            ], capture_output=True, text=True, timeout=250)
 
             if result.returncode != 0:
-                log(f"  转录 curl 失败 (尝试 {attempt+1}/3): {result.stderr[:200]}", "error")
+                log(f"  chunk 转录 curl 失败 (尝试 {attempt+1}/3): {result.stderr[:200]}", "error")
                 if attempt < 2:
                     time.sleep(3)
                 continue
@@ -85,35 +75,139 @@ def transcribe_audio(audio_path, use_cache=True):
                     time.sleep(3)
                 continue
 
-            words = data.get("words", [])
-            segments = data.get("segments", [])
-
-            if not words and not segments:
-                log("  转录结果为空", "error")
-                return None
-
-            # Verify language is English
-            detected_lang = data.get("language", "english").lower()
-            if detected_lang not in ("english", "en"):
-                log(f"  检测到非英语内容 (lang={detected_lang})，跳过", "warn")
-                return None
-
-            log(f"  转录完成: {len(words)} 词, {len(segments)} 段, 语言: {detected_lang}", "ok")
-            transcript = {"text": data.get("text", ""), "words": words, "segments": segments}
-
-            # 落盘缓存，下次命中无需重转录
-            try:
-                with open(cache_path, "w", encoding="utf-8") as f:
-                    json.dump(transcript, f, ensure_ascii=False)
-                log(f"  💾 transcript 缓存已写入: {os.path.basename(cache_path)}", "info")
-            except Exception as e:
-                log(f"  ⚠️ transcript 缓存写入失败 (忽略): {e}", "warn")
-
-            return transcript
-
+            return {
+                "text": data.get("text", ""),
+                "words": data.get("words", []) or [],
+                "segments": data.get("segments", []) or [],
+                "language": (data.get("language") or "").lower(),
+            }
         except Exception as e:
-            log(f"  转录失败 (尝试 {attempt+1}/3): {e}", "error")
+            log(f"  chunk 转录失败 (尝试 {attempt+1}/3): {e}", "error")
             if attempt < 2:
                 time.sleep(3)
 
     return None
+
+
+def merge_chunk_transcript(merged, chunk_transcript, chunk_start):
+    """Merge one chunk transcript into an episode-level absolute transcript."""
+    words = merged.setdefault("words", [])
+    segments = merged.setdefault("segments", [])
+
+    last_word_end = words[-1]["end"] if words else -1.0
+    for word in chunk_transcript.get("words", []):
+        abs_start = round(float(chunk_start) + float(word.get("start", 0)), 2)
+        abs_end = round(float(chunk_start) + float(word.get("end", 0)), 2)
+        if abs_end <= last_word_end + 0.05:
+            continue
+        merged_word = dict(word)
+        merged_word["start"] = abs_start
+        merged_word["end"] = abs_end
+        words.append(merged_word)
+        last_word_end = abs_end
+
+    last_seg_end = segments[-1]["end"] if segments else -1.0
+    for seg in chunk_transcript.get("segments", []):
+        abs_start = round(float(chunk_start) + float(seg.get("start", 0)), 2)
+        abs_end = round(float(chunk_start) + float(seg.get("end", 0)), 2)
+        if abs_end <= last_seg_end + 0.05:
+            continue
+        merged_seg = dict(seg)
+        merged_seg["start"] = abs_start
+        merged_seg["end"] = abs_end
+        segments.append(merged_seg)
+        last_seg_end = abs_end
+
+    merged["text"] = " ".join(seg.get("text", "").strip() for seg in segments if seg.get("text")).strip()
+    return merged
+
+
+def transcribe_audio(audio_source, tmp_dir, cache_dir, duration_sec=None, use_cache=True,
+                     chunk_seconds=600, overlap_seconds=3):
+    """Transcribe a full episode by chunking it into temporary audio windows."""
+    cache_path = _transcript_cache_path(audio_source, cache_dir)
+
+    if use_cache and os.path.exists(cache_path):
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                cached = json.load(f)
+            log(
+                f"  📦 命中整集 transcript 缓存: {len(cached.get('words', []))} 词, "
+                f"{len(cached.get('segments', []))} 段 ({os.path.basename(cache_path)})",
+                "ok",
+            )
+            return cached
+        except Exception as e:
+            log(f"  ⚠️ transcript 缓存读取失败, 重新转录: {e}", "warn")
+
+    log("Step 3: 整集分块转录...", "step")
+
+    os.makedirs(cache_dir, exist_ok=True)
+    duration = duration_sec or probe_audio_duration(audio_source)
+    if not duration:
+        log("  无法探测音频总时长，无法分块转录", "error")
+        return None
+
+    chunk_dir = os.path.join(tmp_dir, "chunks", hash_key(normalize_audio_url(audio_source) or str(audio_source)))
+    os.makedirs(chunk_dir, exist_ok=True)
+    windows = build_chunk_windows(duration, chunk_seconds=chunk_seconds, overlap_seconds=overlap_seconds)
+    total_chunks = len(windows)
+    merged = {"text": "", "words": [], "segments": []}
+    seen_english_content = False
+
+    try:
+        for idx, (chunk_start, chunk_end) in enumerate(windows, start=1):
+            chunk_path = os.path.join(chunk_dir, f"chunk_{idx:03d}.mp3")
+            if not materialize_audio_window(audio_source, chunk_start, chunk_end, chunk_path, timeout=240):
+                log(f"  chunk {idx}/{total_chunks} materialize 失败", "error")
+                return None
+
+            log(
+                f"  chunk {idx}/{total_chunks}: {chunk_start/60:.1f}-{chunk_end/60:.1f} 分钟 "
+                f"({chunk_end - chunk_start:.0f}s)",
+                "info",
+            )
+            chunk_transcript = _transcribe_local_file(chunk_path)
+
+            try:
+                os.remove(chunk_path)
+            except OSError:
+                pass
+
+            if chunk_transcript is None:
+                return None
+
+            chunk_words = chunk_transcript.get("words", [])
+            chunk_segments = chunk_transcript.get("segments", [])
+            if not chunk_words and not chunk_segments:
+                log(f"  chunk {idx}/{total_chunks} 无有效语音内容，跳过", "warn")
+                continue
+
+            detected_lang = chunk_transcript.get("language", "")
+            if detected_lang and detected_lang not in ("english", "en"):
+                if not seen_english_content:
+                    log(f"  检测到非英语内容 (lang={detected_lang})，整集跳过", "warn")
+                    return None
+                log(f"  chunk {idx}/{total_chunks} 非英语 (lang={detected_lang})，跳过该块", "warn")
+                continue
+
+            seen_english_content = True
+            merge_chunk_transcript(merged, chunk_transcript, chunk_start)
+
+        if not merged["words"] and not merged["segments"]:
+            log("  整集转录结果为空", "error")
+            return None
+
+        merged["duration_sec"] = round(float(duration), 2)
+
+        try:
+            with open(cache_path, "w", encoding="utf-8") as f:
+                json.dump(merged, f, ensure_ascii=False)
+            log(f"  💾 整集 transcript 缓存已写入: {os.path.basename(cache_path)}", "info")
+        except Exception as e:
+            log(f"  ⚠️ transcript 缓存写入失败 (忽略): {e}", "warn")
+
+        log(f"  转录完成: {len(merged['words'])} 词, {len(merged['segments'])} 段", "ok")
+        return merged
+    finally:
+        shutil.rmtree(chunk_dir, ignore_errors=True)

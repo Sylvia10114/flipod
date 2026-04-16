@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { radii, spacing } from '../design';
 import { useAppTheme } from '../theme';
-import type { ClipLine, ClipLineWord } from '../types';
+import type { ClipLine, ClipLineWord, SubtitleSize } from '../types';
 
 function spokenWordStyle(cefr: string | undefined, styles: ReturnType<typeof createStyles>) {
   const normalized = (cefr || '').toUpperCase();
@@ -22,6 +22,7 @@ type Props = {
   masked?: boolean;
   practiced?: boolean;
   compact?: boolean;
+  subtitleSize?: SubtitleSize;
   onWordTap: (word: ClipLineWord, line: ClipLine) => void;
 };
 
@@ -49,15 +50,28 @@ export function WordLine({
   masked = false,
   practiced = false,
   compact = false,
+  subtitleSize = 'md',
   onWordTap,
 }: Props) {
   const { colors } = useAppTheme();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
+  const englishScale = subtitleSize === 'sm' ? 0.9 : subtitleSize === 'lg' ? 1.12 : 1;
+  const zhScale = subtitleSize === 'sm' ? 0.92 : subtitleSize === 'lg' ? 1.08 : 1;
+  const wordScaleStyle = compact
+    ? { fontSize: 18 * englishScale, lineHeight: 28 * englishScale }
+    : { fontSize: 22 * englishScale, lineHeight: 33 * englishScale };
+  const plainScaleStyle = compact
+    ? { fontSize: 18 * englishScale, lineHeight: 28 * englishScale }
+    : { fontSize: 22 * englishScale, lineHeight: 33 * englishScale };
+  const zhScaleStyle = { fontSize: 14 * zhScale, lineHeight: 20 * zhScale };
+
   if (!line.words || line.words.length === 0) {
     return (
       <View style={styles.container}>
-        <Text style={[styles.plainEn, compact && styles.plainEnCompact, masked && styles.plainEnMasked]}>{line.en}</Text>
-        {showZh && <Text style={styles.zh}>{line.zh || ''}</Text>}
+        <Text style={[styles.plainEn, compact && styles.plainEnCompact, masked && styles.plainEnMasked, plainScaleStyle]}>
+          {line.en}
+        </Text>
+        {showZh && <Text style={[styles.zh, zhScaleStyle]}>{line.zh || ''}</Text>}
       </View>
     );
   }
@@ -76,6 +90,7 @@ export function WordLine({
                 style={[
                   styles.word,
                   compact && styles.wordCompact,
+                  wordScaleStyle,
                   !masked && styles.wordDim,
                   !masked && spoken && spokenWordStyle(w.cefr, styles),
                   !masked && active && styles.wordActive,
@@ -90,7 +105,7 @@ export function WordLine({
           );
         })}
       </View>
-      {showZh && <Text style={styles.zh}>{line.zh || ''}</Text>}
+      {showZh && <Text style={[styles.zh, zhScaleStyle]}>{line.zh || ''}</Text>}
     </View>
   );
 }

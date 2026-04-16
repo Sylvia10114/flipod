@@ -181,14 +181,22 @@ def _check_internal_silence(candidate, audio_path):
         return None
 
     try:
-        result = subprocess.run([
-            FFMPEG, "-hide_banner",
-            "-ss", str(start),
-            "-t", str(duration),
+        cmd = [FFMPEG, "-hide_banner", "-ss", str(start), "-t", str(duration)]
+        if str(audio_path).startswith(("http://", "https://")):
+            cmd.extend([
+                "-rw_timeout", "30000000",
+                "-timeout", "30000000",
+                "-reconnect", "1",
+                "-reconnect_streamed", "1",
+                "-reconnect_delay_max", "2",
+                "-user_agent", "Mozilla/5.0",
+            ])
+        cmd.extend([
             "-i", audio_path,
             "-af", "silencedetect=noise=-35dB:d=3",
-            "-f", "null", "-"
-        ], capture_output=True, text=True, timeout=30)
+            "-f", "null", "-",
+        ])
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=45)
 
         if result.returncode not in (0, 255):
             return None  # Can't check, don't reject

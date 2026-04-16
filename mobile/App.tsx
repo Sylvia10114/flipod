@@ -5,11 +5,12 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   buildClipKey,
+  canonicalizeClipKey,
   findClipIndexByKey,
   getClipDurationSeconds,
   getLevelWeight,
   getSourceLabel,
-  resolveDataUrl,
+  resolveDataUrls,
   toBookmark,
 } from './src/clip-utils';
 import { AppToast } from './src/components/AppToast';
@@ -91,6 +92,7 @@ import type {
   RankRequest,
   RankedFeedItem,
   ReviewState,
+  SubtitleSize,
   VocabEntry,
 } from './src/types';
 
@@ -199,6 +201,27 @@ function buildFeedReasonMap(feed: RankedFeedItem[]) {
     }
     return acc;
   }, {});
+}
+
+function cycleSubtitleSize(size: SubtitleSize): SubtitleSize {
+  if (size === 'sm') return 'md';
+  if (size === 'md') return 'lg';
+  return 'sm';
+}
+
+function isMetadataFirstClip(clip: Clip) {
+  if (!clip || typeof clip !== 'object') return false;
+  if (!clip.lines?.length) return false;
+  if (typeof clip.source !== 'object' || !clip.source) return false;
+  if (!clip.source.audio_url || !/^https?:\/\//i.test(String(clip.source.audio_url))) return false;
+  const clipStart = Number(clip.clip_start_sec);
+  const clipEnd = Number(clip.clip_end_sec);
+  return Number.isFinite(clipStart) && Number.isFinite(clipEnd) && clipEnd > clipStart;
+}
+
+function isMetadataFirstClipSet(clips: Clip[]) {
+  if (!Array.isArray(clips) || clips.length === 0) return false;
+  return clips.every(isMetadataFirstClip);
 }
 
 export default function App() {
@@ -420,19 +443,35 @@ export default function App() {
 
     async function loadClips() {
       try {
-        const response = await fetch(resolveDataUrl());
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+        let data: { clips?: Clip[] } | null = null;
+        let lastError: Error | null = null;
+        for (const url of resolveDataUrls()) {
+          try {
+            const response = await fetch(url);
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+            data = await response.json() as { clips?: Clip[] };
+            if (Array.isArray(data.clips) && data.clips.length > 0) {
+              break;
+            }
+          } catch (error) {
+            lastError = error instanceof Error ? error : new Error('Failed to load clips');
+          }
         }
-        const data = await response.json() as { clips?: Clip[] };
         if (cancelled) return;
 
-        if (Array.isArray(data.clips) && data.clips.length > 0) {
+        if (data && Array.isArray(data.clips) && isMetadataFirstClipSet(data.clips as Clip[])) {
           setClipsData(normalizeClips(data.clips));
           setClipsLoaded(true);
           return;
         }
 
+        if (data && Array.isArray(data.clips) && data.clips.length > 0) {
+          console.warn('Remote clip JSON is legacy/non-metadata-first; falling back to bundled demo data.');
+        } else if (lastError) {
+          throw lastError;
+        }
         setClipsData(demoClips);
         setClipsLoaded(true);
       } catch {
@@ -448,6 +487,104 @@ export default function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!clipsData.length) return;
+
+    const canonicalize = (clipKey: string) => canonicalizeClipKey(clipsData, clipKey);
+    const dedupeStrings = (values: string[]) => {
+      const seen = new Set<string>();
+      return values.filter(value => {
+        const normalized = canonicalize(value);
+        if (seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
+      }).map(value => canonicalize(value));
+    };
+
+    const nextBookmarks = (() => {
+      let changed = false;
+      const seen = new Set<string>();
+      const mapped = bookmarks.reduce<Bookmark[]>((acc, item) => {
+        const clipKey = canonicalize(item.clipKey);
+        changed = changed || clipKey !== item.clipKey;
+        if (seen.has(clipKey)) {
+          changed = true;
+          return acc;
+        }
+        seen.add(clipKey);
+        acc.push({ ...item, clipKey });
+        return acc;
+      }, []);
+      return changed ? mapped : null;
+    })();
+
+    const nextPracticeData = (() => {
+      let changed = false;
+      const remapped: PracticeMap = {};
+      Object.entries(practiceData).forEach(([clipKey, record]) => {
+        const canonicalKey = canonicalize(clipKey);
+        changed = changed || canonicalKey !== clipKey;
+        remapped[canonicalKey] = record;
+      });
+      return changed ? remapped : null;
+    })();
+
+    const nextLikedClipKeys = (() => {
+      const mapped = dedupeStrings(likedClipKeys);
+      const changed = mapped.length !== likedClipKeys.length || mapped.some((value, index) => value !== likedClipKeys[index]);
+      return changed ? mapped : null;
+    })();
+
+    const nextListenedClipKeys = (() => {
+      const mapped = dedupeStrings(listenedClipKeys);
+      const changed = mapped.length !== listenedClipKeys.length || mapped.some((value, index) => value !== listenedClipKeys[index]);
+      return changed ? mapped : null;
+    })();
+
+    const nextVocabList = (() => {
+      let changed = false;
+      const mapped = vocabList.map(item => {
+        if (!item.clipKey) return item;
+        const clipKey = canonicalize(item.clipKey);
+        if (clipKey !== item.clipKey) {
+          changed = true;
+          return { ...item, clipKey };
+        }
+        return item;
+      });
+      return changed ? mapped : null;
+    })();
+
+    if (practiceClipKey) {
+      const canonicalPracticeClipKey = canonicalize(practiceClipKey);
+      if (canonicalPracticeClipKey !== practiceClipKey) {
+        setPracticeClipKey(canonicalPracticeClipKey);
+      }
+    }
+
+    if (nextBookmarks) {
+      setBookmarks(nextBookmarks);
+      void saveBookmarks(nextBookmarks);
+    }
+    if (nextPracticeData) {
+      setPracticeData(nextPracticeData);
+      void savePracticeData(nextPracticeData);
+    }
+    if (nextLikedClipKeys) {
+      setLikedClipKeys(nextLikedClipKeys);
+      void saveLikedClips(nextLikedClipKeys);
+    }
+    if (nextListenedClipKeys) {
+      setListenedClipKeys(nextListenedClipKeys);
+      playedKeysRef.current = new Set(nextListenedClipKeys);
+      void saveListenedClips(nextListenedClipKeys);
+    }
+    if (nextVocabList) {
+      setVocabList(nextVocabList);
+      void saveVocab(nextVocabList);
+    }
+  }, [bookmarks, clipsData, likedClipKeys, listenedClipKeys, practiceClipKey, practiceData, vocabList]);
   const bookmarkedKeys = useMemo(() => bookmarks.map(item => item.clipKey), [bookmarks]);
   const likedKeys = useMemo(() => new Set(likedClipKeys), [likedClipKeys]);
   const vocabWords = useMemo(() => vocabList.map(item => item.word), [vocabList]);
@@ -741,7 +878,7 @@ export default function App() {
     setActiveScreen('feed');
   };
 
-  const handlePromoteInterest = async (tag: string) => {
+  const boostInterestFromLike = async (tag: string) => {
     const normalized = normalizeTopic(tag);
     if (!normalized) return;
 
@@ -759,7 +896,7 @@ export default function App() {
       try {
         await Promise.all([
           api.saveProfile(authToken, nextProfile),
-          api.trackEvent(authToken, 'topic_promoted', {
+          api.trackEvent(authToken, 'topic_promoted_from_like', {
             topic: normalized,
             interests: nextProfile.interests,
           }),
@@ -944,6 +1081,8 @@ export default function App() {
       saveLikedClips(nextLikedClips),
       saveLikeEvents(nextLikeEvents),
     ]);
+    showToast('已收藏，我们会多推一些这样的内容');
+    void boostInterestFromLike(topic);
 
     if (authToken) {
       try {
@@ -1027,6 +1166,14 @@ export default function App() {
     void persistSettings(nextSettings);
   };
 
+  const handleSubtitleSizeChange = () => {
+    const nextSettings: AppSettings = {
+      ...settings,
+      subtitleSize: cycleSubtitleSize(settings.subtitleSize),
+    };
+    void persistSettings(nextSettings);
+  };
+
   const handleToggleHand = () => {
     const nextSettings: AppSettings = {
       ...settings,
@@ -1036,7 +1183,7 @@ export default function App() {
   };
 
   const handleToggleTheme = useCallback(async () => {
-    const nextProfile = {
+    const nextProfile: Profile = {
       ...profile,
       theme: profile.theme === 'light' ? 'dark' : 'light',
     };
@@ -1366,6 +1513,7 @@ export default function App() {
         profile={profile}
         dominantHand={settings.dominantHand}
         playbackRate={settings.playbackRate}
+        subtitleSize={settings.subtitleSize}
         feedState={feedState}
         bookmarkedKeys={bookmarkedKeys}
         likedKeys={likedClipKeys}
@@ -1383,9 +1531,9 @@ export default function App() {
         onRecordWordLookup={handleRecordWordLookup}
         onReviewAction={handleReviewAction}
         onOpenMenu={() => setMenuOpen(true)}
-        onPromoteInterest={handlePromoteInterest}
         onLoadMoreClips={handleLoadMoreFeed}
         onPlaybackRateChange={handlePlaybackRateChange}
+        onSubtitleSizeChange={handleSubtitleSizeChange}
         onClipStarted={handleClipStarted}
         onClipCompleted={handleClipCompleted}
         onClipSkipped={handleClipSkipped}

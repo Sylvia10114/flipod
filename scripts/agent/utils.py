@@ -1,10 +1,12 @@
 """Shared utilities: logging, step timer, curl-based HTTP fetch, GPT caller."""
 
+import hashlib
 import json
 import re
 import subprocess
 import time
 from datetime import datetime
+from urllib.parse import urlsplit, urlunsplit
 
 from . import config
 
@@ -53,6 +55,23 @@ def fetch_url(url, timeout=20):
     except Exception:
         pass
     return None
+
+
+def normalize_audio_url(url):
+    """Normalize a source audio URL for dedup/cache keys."""
+    if not url:
+        return ""
+    try:
+        parts = urlsplit(url.strip())
+        path = parts.path.rstrip("/")
+        return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), path, "", ""))
+    except Exception:
+        return url.strip().split("?", 1)[0].rstrip("/").lower()
+
+
+def hash_key(text):
+    """Stable short hash helper for cache keys and temp artifact names."""
+    return hashlib.sha1((text or "").encode("utf-8")).hexdigest()
 
 
 def call_gpt(messages, temperature=0.3, max_tokens=4000):

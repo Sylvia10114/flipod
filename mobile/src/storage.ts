@@ -32,6 +32,7 @@ const LEVEL_CALIBRATION_KEY = 'flipodLevelCalibration';
 export const DEFAULT_SETTINGS: AppSettings = {
   dominantHand: 'right',
   playbackRate: 1,
+  subtitleSize: 'md',
   practiceIntroSeen: false,
   bookmarkPracticeHintSeen: false,
 };

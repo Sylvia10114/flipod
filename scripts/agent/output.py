@@ -8,7 +8,7 @@ import json
 import os
 import re
 
-from .utils import log, LOG
+from .utils import log, LOG, normalize_audio_url
 from datetime import datetime
 
 
@@ -347,12 +347,26 @@ def validate_clip(clip, output_dir):
     """Validate a single clip. Returns list of issues (empty = valid)."""
     issues = []
     cid = clip.get("id", "?")
+    source = clip.get("source", {}) or {}
+    audio_url = source.get("audio_url", "")
+    clip_start = clip.get("clip_start_sec")
+    clip_end = clip.get("clip_end_sec")
 
-    audio_path = os.path.join(output_dir, clip.get("audio", ""))
-    if not os.path.exists(audio_path):
-        issues.append(f"clip {cid}: 音频文件不存在 {clip.get('audio')}")
-    elif os.path.getsize(audio_path) < 5000:
-        issues.append(f"clip {cid}: 音频文件过小 ({os.path.getsize(audio_path)} bytes)")
+    if not isinstance(audio_url, str) or not audio_url.startswith(("http://", "https://")):
+        issues.append(f"clip {cid}: source.audio_url 缺失或非法")
+    if clip_start is None or clip_end is None:
+        issues.append(f"clip {cid}: clip_start_sec/clip_end_sec 缺失")
+    else:
+        try:
+            clip_start = float(clip_start)
+            clip_end = float(clip_end)
+            if clip_end <= clip_start:
+                issues.append(f"clip {cid}: clip 时间窗非法 ({clip_start}-{clip_end})")
+            declared = clip.get("duration")
+            if declared is not None and abs(float(declared) - (clip_end - clip_start)) > 1.5:
+                issues.append(f"clip {cid}: duration 与 clip 时间窗不一致")
+        except (TypeError, ValueError):
+            issues.append(f"clip {cid}: clip 时间窗格式非法")
 
     lines = clip.get("lines", [])
     if not lines:
@@ -360,12 +374,15 @@ def validate_clip(clip, output_dir):
         return issues
 
     prev_end = -1
+    clip_duration = float(clip.get("duration") or 0)
     for i, line in enumerate(lines):
         if line["start"] < prev_end - 0.1:
             issues.append(f"clip {cid} line {i}: 时间戳重叠")
         if prev_end >= 0 and line["start"] - prev_end > 2.0:
             issues.append(f"clip {cid} line {i}: 时间戳间隙过大 ({line['start'] - prev_end:.1f}s)")
         prev_end = line["end"]
+        if line["start"] < -0.05 or (clip_duration and line["end"] > clip_duration + 0.2):
+            issues.append(f"clip {cid} line {i}: 超出 clip 时间窗")
 
         if not line.get("zh"):
             issues.append(f"clip {cid} line {i}: 缺少中文翻译")
@@ -374,9 +391,21 @@ def validate_clip(clip, output_dir):
         if not words:
             issues.append(f"clip {cid} line {i}: 缺少词级时间戳")
         else:
+            prev_word_end = -1
             no_cefr = sum(1 for w in words if w.get("cefr") is None and re.sub(r"[^a-zA-Z']", "", w["word"]))
             if no_cefr > len(words) * 0.3:
                 issues.append(f"clip {cid} line {i}: CEFR 标注覆盖率低 ({no_cefr}/{len(words)})")
+            for j, word in enumerate(words):
+                w_start = word.get("start")
+                w_end = word.get("end")
+                if w_start is None or w_end is None or w_end < w_start:
+                    issues.append(f"clip {cid} line {i} word {j}: 词级时间戳非法")
+                    continue
+                if w_start < -0.05 or (clip_duration and w_end > clip_duration + 0.2):
+                    issues.append(f"clip {cid} line {i} word {j}: 词级时间超出 clip 时间窗")
+                if prev_word_end >= 0 and w_start < prev_word_end - 0.05:
+                    issues.append(f"clip {cid} line {i} word {j}: 词级时间倒序")
+                prev_word_end = w_end
 
     if not clip.get("title"):
         issues.append(f"clip {cid}: 缺少标题")
@@ -395,7 +424,13 @@ def validate_all_clips(clips, output_dir):
         if issues:
             for issue in issues:
                 log(f"  校验问题: {issue}", "warn")
-            critical = any("音频文件不存在" in i or "无字幕行" in i for i in issues)
+            critical = any(
+                "source.audio_url 缺失或非法" in i
+                or "clip_start_sec/clip_end_sec 缺失" in i
+                or "clip 时间窗非法" in i
+                or "无字幕行" in i
+                for i in issues
+            )
             if not critical:
                 valid_clips.append(clip)
             else:
@@ -411,7 +446,7 @@ def validate_all_clips(clips, output_dir):
 # ── Processed episodes tracking ────────────────────────────────
 
 def load_processed_episodes(output_dir):
-    """Load set of already-processed episode URLs for incremental mode."""
+    """Load set of already-processed source audio URLs for incremental mode."""
     processed = set()
     new_clips_path = os.path.join(output_dir, "new_clips.json")
     if os.path.exists(new_clips_path):
@@ -419,42 +454,50 @@ def load_processed_episodes(output_dir):
             with open(new_clips_path, "r") as f:
                 data = json.load(f)
             for clip in data.get("clips", []):
-                ep_url = clip.get("source", {}).get("episode_url", "")
-                if ep_url:
-                    processed.add(ep_url.split("?")[0].rstrip("/").lower())
+                audio_url = clip.get("source", {}).get("audio_url", "")
+                if audio_url:
+                    processed.add(normalize_audio_url(audio_url))
         except Exception:
             pass
     tracking_path = os.path.join(output_dir, "processed_episodes.json")
     if os.path.exists(tracking_path):
         try:
             with open(tracking_path, "r") as f:
-                processed.update(json.load(f))
+                processed.update(normalize_audio_url(u) for u in json.load(f))
         except Exception:
             pass
     return processed
 
 
 def save_processed_episodes(output_dir, processed_set):
-    """Save processed episode URLs for incremental dedup."""
+    """Save processed source audio URLs for incremental dedup."""
     tracking_path = os.path.join(output_dir, "processed_episodes.json")
     try:
         with open(tracking_path, "w") as f:
-            json.dump(sorted(processed_set), f, indent=2)
+            json.dump(sorted(normalize_audio_url(u) for u in processed_set if u), f, indent=2)
     except Exception as e:
         log(f"保存处理记录失败: {e}", "warn")
 
 
 def get_next_clip_id(output_dir):
-    """Auto-detect next clip ID from existing files."""
-    clips_dir = os.path.join(output_dir, "clips")
-    if not os.path.exists(clips_dir):
-        return 1
-    existing = [f for f in os.listdir(clips_dir) if f.startswith("clip_") and f.endswith(".mp3")]
-    if not existing:
-        return 1
     ids = []
-    for f in existing:
-        match = re.match(r"clip_(\d+)\.mp3", f)
-        if match:
-            ids.append(int(match.group(1)))
+    new_clips_path = os.path.join(output_dir, "new_clips.json")
+    if os.path.exists(new_clips_path):
+        try:
+            with open(new_clips_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            for clip in data.get("clips", []):
+                cid = clip.get("id")
+                if isinstance(cid, int):
+                    ids.append(cid)
+        except Exception:
+            pass
+
+    clips_dir = os.path.join(output_dir, "clips")
+    if os.path.exists(clips_dir):
+        existing = [f for f in os.listdir(clips_dir) if f.startswith("clip_") and f.endswith(".mp3")]
+        for f in existing:
+            match = re.match(r"clip_(\d+)\.mp3", f)
+            if match:
+                ids.append(int(match.group(1)))
     return max(ids) + 1 if ids else 1

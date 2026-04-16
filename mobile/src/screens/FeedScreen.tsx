@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   FlatList,
   Modal,
@@ -42,11 +43,13 @@ import type {
   DominantHand,
   Profile,
   ReviewState,
+  SubtitleSize,
   VocabEntry,
 } from '../types';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const ONE_DAY = 24 * 60 * 60 * 1000;
+const AUTOPLAY_DEBOUNCE_MS = 180;
 
 type Props = {
   clips: Clip[];
@@ -55,6 +58,7 @@ type Props = {
   profile: Profile;
   dominantHand: DominantHand;
   playbackRate: number;
+  subtitleSize: SubtitleSize;
   feedState: 'loading' | 'normal' | 'rerank' | 'fallback';
   bookmarkedKeys: string[];
   likedKeys: string[];
@@ -72,9 +76,9 @@ type Props = {
   onRecordWordLookup: (cefr?: string, details?: { clip?: Clip | null; word?: string }) => void;
   onReviewAction: (word: string, action: 'remember' | 'forgot') => void;
   onOpenMenu: () => void;
-  onPromoteInterest: (tag: string) => void;
   onLoadMoreClips: () => void;
   onPlaybackRateChange: (rate: number) => void;
+  onSubtitleSizeChange: () => void;
   onClipStarted: (clip: Clip, index: number) => void;
   onClipCompleted: (clip: Clip, index: number, progressRatio: number) => void;
   onClipSkipped: (clip: Clip, index: number, progressRatio: number, dwellMs: number) => void;
@@ -115,6 +119,7 @@ export function FeedScreen({
   profile,
   dominantHand,
   playbackRate,
+  subtitleSize,
   feedState,
   bookmarkedKeys,
   likedKeys,
@@ -132,9 +137,9 @@ export function FeedScreen({
   onRecordWordLookup,
   onReviewAction,
   onOpenMenu,
-  onPromoteInterest,
   onLoadMoreClips,
   onPlaybackRateChange,
+  onSubtitleSizeChange,
   onClipStarted,
   onClipCompleted,
   onClipSkipped,
@@ -149,9 +154,16 @@ export function FeedScreen({
   const [popup, setPopup] = useState<PopupState>(null);
   const [dismissedCards, setDismissedCards] = useState<Set<string>>(new Set());
   const [transcriptIndex, setTranscriptIndex] = useState<number | null>(null);
+  const [visibleClipIndex, setVisibleClipIndex] = useState<number | null>(null);
+  const [visibleRequestId, setVisibleRequestId] = useState<number | null>(null);
+  const [pendingAutoplayIndex, setPendingAutoplayIndex] = useState<number | null>(null);
   const startedRef = useRef<Set<string>>(new Set());
   const completedRef = useRef<Set<string>>(new Set());
   const loadTriggerRef = useRef(0);
+  const autoplayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoplayTargetRef = useRef<number | null>(null);
+  const visibleRequestIdRef = useRef<number | null>(null);
+  const requestCounterRef = useRef(0);
   const sessionRef = useRef<{
     clip: Clip;
     clipIndex: number;
@@ -163,20 +175,23 @@ export function FeedScreen({
   const {
     activeIndex,
     activeLineIndex,
+    currentRequestId,
     durationMillis,
     errorMessage,
-    isLoading,
-    isPlaying,
-    pause,
+    pendingClipIndex,
     playbackRate: currentPlaybackRate,
+    playbackPhase,
     positionMillis,
     playIndex,
+    pause,
+    requestAutoplay,
     seekNextSentence,
     seekPrevSentence,
     seekToRatio,
     setRate,
-    togglePlay,
+    stop,
   } = useFeedPlayer(clips, playbackRate);
+  const isCurrentlyPlaying = playbackPhase === 'playing';
 
   const dismissCard = useCallback((key: string) => {
     setDismissedCards(prev => {
@@ -184,6 +199,22 @@ export function FeedScreen({
       next.add(key);
       return next;
     });
+  }, []);
+
+  const clearAutoplayTimer = useCallback(() => {
+    if (!autoplayTimerRef.current) return;
+    clearTimeout(autoplayTimerRef.current);
+    autoplayTimerRef.current = null;
+  }, []);
+
+  const setCurrentVisibleRequestId = useCallback((requestId: number | null) => {
+    visibleRequestIdRef.current = requestId;
+    setVisibleRequestId(requestId);
+  }, []);
+
+  const createRequestId = useCallback(() => {
+    requestCounterRef.current += 1;
+    return requestCounterRef.current;
   }, []);
 
   const reviewEntries = useMemo(() => {
@@ -257,26 +288,6 @@ export function FeedScreen({
     ];
   }, [vocabEntries]);
 
-  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const firstVisible = viewableItems.find(viewable => viewable.isViewable && typeof viewable.index === 'number');
-    if (!firstVisible || typeof firstVisible.index !== 'number') return;
-
-    const page = feedPages[firstVisible.index];
-    if (!page) return;
-
-    if (page.type === 'clip') {
-      const loadThreshold = Math.max(0, data.length - 3);
-      if (hasMoreClips && page.clipIndex >= loadThreshold && loadTriggerRef.current < data.length) {
-        loadTriggerRef.current = data.length;
-        onLoadMoreClips();
-      }
-      void playIndex(page.clipIndex);
-      return;
-    }
-
-    void pause();
-  }, [data.length, feedPages, hasMoreClips, onLoadMoreClips, pause, playIndex]);
-
   const finalizeSession = useCallback(() => {
     const session = sessionRef.current;
     if (!session) return;
@@ -289,6 +300,74 @@ export function FeedScreen({
     sessionRef.current = null;
   }, [onClipSkipped]);
 
+  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    const firstVisible = viewableItems.find(viewable => viewable.isViewable && typeof viewable.index === 'number');
+    if (!firstVisible || typeof firstVisible.index !== 'number') return;
+
+    const page = feedPages[firstVisible.index];
+    if (!page) return;
+
+    if (page.type === 'clip') {
+      setVisibleClipIndex(page.clipIndex);
+      const loadThreshold = Math.max(0, data.length - 3);
+      if (hasMoreClips && page.clipIndex >= loadThreshold && loadTriggerRef.current < data.length) {
+        loadTriggerRef.current = data.length;
+        onLoadMoreClips();
+      }
+
+      const sameClipAlreadyStable = page.clipIndex === activeIndex
+        && (playbackPhase === 'playing' || playbackPhase === 'loading');
+      if (sameClipAlreadyStable) {
+        autoplayTargetRef.current = page.clipIndex;
+        setPendingAutoplayIndex(null);
+        clearAutoplayTimer();
+        setCurrentVisibleRequestId(currentRequestId);
+        return;
+      }
+
+      if (autoplayTargetRef.current === page.clipIndex && pendingAutoplayIndex === page.clipIndex) {
+        return;
+      }
+
+      finalizeSession();
+      autoplayTargetRef.current = page.clipIndex;
+      const requestId = createRequestId();
+      setCurrentVisibleRequestId(requestId);
+      setPendingAutoplayIndex(page.clipIndex);
+      clearAutoplayTimer();
+      void stop();
+      autoplayTimerRef.current = setTimeout(() => {
+        if (autoplayTargetRef.current !== page.clipIndex) return;
+        if (visibleRequestIdRef.current !== requestId) return;
+        void requestAutoplay(page.clipIndex, requestId);
+      }, AUTOPLAY_DEBOUNCE_MS);
+      return;
+    }
+
+    autoplayTargetRef.current = null;
+    setVisibleClipIndex(null);
+    setCurrentVisibleRequestId(null);
+    setPendingAutoplayIndex(null);
+    clearAutoplayTimer();
+    finalizeSession();
+    void stop();
+  }, [
+    activeIndex,
+    clearAutoplayTimer,
+    createRequestId,
+    currentRequestId,
+    data.length,
+    feedPages,
+    finalizeSession,
+    hasMoreClips,
+    onLoadMoreClips,
+    pendingAutoplayIndex,
+    playbackPhase,
+    requestAutoplay,
+    setCurrentVisibleRequestId,
+    stop,
+  ]);
+
   React.useEffect(() => {
     if (loadTriggerRef.current > data.length || visibleClipCount <= 10) {
       loadTriggerRef.current = 0;
@@ -296,7 +375,22 @@ export function FeedScreen({
   }, [data.length, visibleClipCount]);
 
   React.useEffect(() => {
-    if (!isPlaying) return;
+    if (pendingAutoplayIndex === null) return;
+    if (activeIndex !== pendingAutoplayIndex) return;
+    if (currentRequestId === null || currentRequestId !== visibleRequestIdRef.current) return;
+    if (
+      playbackPhase !== 'loading'
+      && playbackPhase !== 'playing'
+      && playbackPhase !== 'paused'
+      && playbackPhase !== 'error'
+    ) {
+      return;
+    }
+    setPendingAutoplayIndex(null);
+  }, [activeIndex, currentRequestId, pendingAutoplayIndex, playbackPhase]);
+
+  React.useEffect(() => {
+    if (!isCurrentlyPlaying) return;
 
     const clip = clips[activeIndex];
     if (!clip) return;
@@ -319,10 +413,10 @@ export function FeedScreen({
       startedRef.current.add(clipKey);
       onClipStarted(clip, activeIndex);
     }
-  }, [activeIndex, clips, finalizeSession, isPlaying, onClipStarted, progress]);
+  }, [activeIndex, clips, finalizeSession, isCurrentlyPlaying, onClipStarted, progress]);
 
   React.useEffect(() => {
-    if (!isPlaying) return;
+    if (!isCurrentlyPlaying) return;
     const clip = clips[activeIndex];
     if (!clip || progress < 0.8) return;
 
@@ -330,13 +424,14 @@ export function FeedScreen({
     if (completedRef.current.has(clipKey)) return;
     completedRef.current.add(clipKey);
     onClipCompleted(clip, activeIndex, progress);
-  }, [activeIndex, clips, isPlaying, onClipCompleted, progress]);
+  }, [activeIndex, clips, isCurrentlyPlaying, onClipCompleted, progress]);
 
   React.useEffect(() => {
     return () => {
+      clearAutoplayTimer();
       finalizeSession();
     };
-  }, [finalizeSession]);
+  }, [clearAutoplayTimer, finalizeSession]);
 
   return (
     <ScreenSurface>
@@ -385,6 +480,13 @@ export function FeedScreen({
           const clip = item.clip;
           const index = item.clipIndex;
           const isActive = index === activeIndex;
+          const isVisible = index === visibleClipIndex;
+          const isPreparingAutoplay = index === pendingAutoplayIndex;
+          const showLoadingOverlay = isVisible
+            && isActive
+            && playbackPhase === 'loading'
+            && pendingClipIndex === index
+            && (visibleRequestId === null || currentRequestId === visibleRequestId);
           const line = isActive ? clip.lines?.[activeLineIndex] : clip.lines?.[0];
           const clipKey = item.key;
           const liked = likedKeys.includes(clipKey);
@@ -415,42 +517,49 @@ export function FeedScreen({
                         <Text style={styles.clipSource}>{getSourceLabel(clip.source)}{clip.tag ? ` · ${clip.tag}` : ''}</Text>
                       </Pressable>
                       {clip._aiReason ? <Text style={styles.clipReason}>{clip._aiReason}</Text> : null}
-                      {clip.tag ? (
-                        <Pressable
-                          onPress={() => {
-                            triggerUiFeedback('card');
-                            onPromoteInterest(clip.tag || '');
-                          }}
-                          style={styles.topicBoostPill}
-                        >
-                          <Text style={styles.topicBoostText}>多来点这个主题</Text>
-                        </Pressable>
-                      ) : null}
                     </View>
                   </View>
                 }
                 controls={
                   <View style={styles.controlsWrap}>
-                    <ProgressBar
-                      progress={isActive ? progress : 0}
-                      markers={[]}
-                      currentSentenceRange={isActive ? currentSentenceRange : null}
-                      onSeek={ratio => {
-                        if (!isActive) return;
-                        void seekToRatio(ratio);
-                      }}
-                    />
                     <PlayerControls
-                      isPlaying={isActive && isPlaying}
-                      isLoading={isActive && isLoading}
+                      playbackPhase={isActive ? playbackPhase : 'idle'}
+                      disabled={isActive && playbackPhase === 'loading'}
                       positionMillis={isActive ? positionMillis : 0}
                       durationMillis={isActive ? durationMillis : 0}
                       playbackRate={currentPlaybackRate}
+                      subtitleSize={subtitleSize}
                       dominantHand={dominantHand}
                       showZh={showZh}
                       masked={masked}
+                      progressBar={(
+                        <ProgressBar
+                          progress={isActive ? progress : 0}
+                          markers={[]}
+                          currentSentenceRange={isActive ? currentSentenceRange : null}
+                          onSeek={ratio => {
+                            if (!isActive) return;
+                            void seekToRatio(ratio);
+                          }}
+                        />
+                      )}
                       onTogglePlay={() => {
-                        void togglePlay(index);
+                        autoplayTargetRef.current = index;
+                        setVisibleClipIndex(index);
+                        clearAutoplayTimer();
+                        if (isActive && playbackPhase === 'loading') {
+                          return;
+                        }
+                        if (isActive && playbackPhase === 'playing') {
+                          void pause();
+                          return;
+                        }
+                        const requestId = isPreparingAutoplay && visibleRequestIdRef.current
+                          ? visibleRequestIdRef.current
+                          : createRequestId();
+                        setCurrentVisibleRequestId(requestId);
+                        setPendingAutoplayIndex(null);
+                        void playIndex(index, requestId);
                       }}
                       onSeekPrevSentence={() => {
                         if (!isActive) return;
@@ -464,6 +573,7 @@ export function FeedScreen({
                         void setRate(rate);
                         onPlaybackRateChange(rate);
                       }}
+                      onCycleSubtitleSize={onSubtitleSizeChange}
                       onToggleZh={() => setShowZh(prev => !prev)}
                       onToggleMask={() => setMasked(prev => !prev)}
                       onOpenMenu={onOpenMenu}
@@ -472,6 +582,14 @@ export function FeedScreen({
                 }
               >
                 <View style={styles.contentStage}>
+                  {showLoadingOverlay ? (
+                    <View style={styles.loadingOverlay}>
+                      <View style={styles.loadingOverlayCard}>
+                        <ActivityIndicator size="small" color={colors.textPrimary} />
+                        <Text style={styles.loadingOverlayText}>正在准备播放...</Text>
+                      </View>
+                    </View>
+                  ) : null}
                   <View style={[styles.sideRail, dominantHand === 'left' ? styles.sideRailLeft : styles.sideRailRight]}>
                     <Pressable
                       onPress={() => onToggleLike(clip, index)}
@@ -500,6 +618,7 @@ export function FeedScreen({
                         isActive={isActive}
                         showZh={showZh}
                         masked={masked}
+                        subtitleSize={subtitleSize}
                         onWordTap={(word: ClipLineWord, lineData: ClipLine) => {
                           onRecordWordLookup(word.cefr, {
                             clip,
@@ -517,8 +636,7 @@ export function FeedScreen({
                       />
                     ) : null}
                     {!showZh ? <View style={styles.translationBar} /> : null}
-                    {isActive && errorMessage ? <Text style={styles.audioStateError}>{errorMessage}</Text> : null}
-                    {isActive && !errorMessage && isLoading ? <Text style={styles.audioStateHint}>音频加载中...</Text> : null}
+                    {isVisible && errorMessage ? <Text style={styles.audioStateError}>{errorMessage}</Text> : null}
                   </View>
                 </View>
               </PlayerLayout>
@@ -571,8 +689,24 @@ export function FeedScreen({
           <ScrollView contentContainerStyle={styles.transcriptBody}>
             {(transcriptClip?.lines || []).map((entry, idx) => (
               <GlassCard key={`${idx}-${entry.start}`} style={styles.transcriptLine}>
-                <Text style={styles.transcriptEn}>{entry.en}</Text>
-                <Text style={styles.transcriptZh}>{entry.zh}</Text>
+                <Text
+                  style={[
+                    styles.transcriptEn,
+                    subtitleSize === 'sm' && styles.transcriptEnSmall,
+                    subtitleSize === 'lg' && styles.transcriptEnLarge,
+                  ]}
+                >
+                  {entry.en}
+                </Text>
+                <Text
+                  style={[
+                    styles.transcriptZh,
+                    subtitleSize === 'sm' && styles.transcriptZhSmall,
+                    subtitleSize === 'lg' && styles.transcriptZhLarge,
+                  ]}
+                >
+                  {entry.zh}
+                </Text>
               </GlassCard>
             ))}
           </ScrollView>
@@ -632,23 +766,9 @@ return StyleSheet.create({
     textAlign: 'center',
     maxWidth: 260,
   },
-  topicBoostPill: {
-    marginTop: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(139,156,247,0.28)',
-    backgroundColor: 'rgba(139,156,247,0.12)',
-  },
-  topicBoostText: {
-    color: colors.textPrimary,
-    fontSize: typography.micro,
-    fontWeight: '600',
-  },
   controlsWrap: {
     width: layout.playerContentWidth,
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   contentStage: {
     width: layout.playerContentWidth,
@@ -656,6 +776,32 @@ return StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.18)',
+    borderRadius: radii.xl,
+  },
+  loadingOverlayCard: {
+    minWidth: 168,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: radii.lg,
+    backgroundColor: colors.bgSurface1,
+    borderWidth: 1,
+    borderColor: colors.strokeStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  loadingOverlayText: {
+    color: colors.textPrimary,
+    fontSize: typography.caption,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   sideRail: {
     position: 'absolute',
@@ -688,11 +834,6 @@ return StyleSheet.create({
   },
   audioStateError: {
     color: '#FCA5A5',
-    fontSize: typography.caption,
-    textAlign: 'center',
-  },
-  audioStateHint: {
-    color: colors.textTertiary,
     fontSize: typography.caption,
     textAlign: 'center',
   },
@@ -735,10 +876,26 @@ return StyleSheet.create({
     fontSize: typography.bodyLg,
     lineHeight: 22,
   },
+  transcriptEnSmall: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  transcriptEnLarge: {
+    fontSize: 17,
+    lineHeight: 25,
+  },
   transcriptZh: {
     color: colors.textSecondary,
     fontSize: typography.caption,
     lineHeight: 18,
+  },
+  transcriptZhSmall: {
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  transcriptZhLarge: {
+    fontSize: 13,
+    lineHeight: 20,
   },
 });
 }
