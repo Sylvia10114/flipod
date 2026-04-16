@@ -167,7 +167,7 @@ export function buildContentTranslationRequestItem(clip: Clip, index = 0): Conte
 }
 
 export function shouldRequestRemoteTranslations(nativeLanguage: NativeLanguage) {
-  return nativeLanguage !== 'simplified_chinese';
+  return nativeLanguage !== 'simplified_chinese' && nativeLanguage !== 'english';
 }
 
 export function buildLocalizedClip(
