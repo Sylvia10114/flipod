@@ -956,6 +956,159 @@ html,body{
   opacity:0.7;
 }
 
+/* ── Audio Level Test (Onboarding Screen 1 v2) ── */
+.ob-listen-area{
+  width:100%;
+  max-width:360px;
+  margin-top:28px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:20px;
+}
+.ob-level-badge{
+  display:inline-block;
+  padding:4px 14px;
+  border-radius:20px;
+  background:var(--accent-bg);
+  color:var(--accent);
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:0.5px;
+}
+.ob-audio-card{
+  width:100%;
+  background:var(--bg-card);
+  border:1.5px solid var(--border);
+  border-radius:20px;
+  padding:24px 20px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:16px;
+  box-shadow:var(--shadow);
+  transition:opacity 0.35s, transform 0.35s;
+}
+.ob-audio-card.ob-fade-out{
+  opacity:0;
+  transform:translateY(-12px);
+}
+.ob-clip-title{
+  font-size:14px;
+  color:var(--text-2);
+  text-align:center;
+  line-height:1.5;
+}
+.ob-play-btn{
+  width:64px; height:64px;
+  border-radius:50%;
+  background:var(--accent);
+  border:none;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:transform 0.15s, box-shadow 0.15s;
+  box-shadow:0 4px 16px rgba(99,102,241,0.3);
+}
+.ob-play-btn:active{ transform:scale(0.92); }
+.ob-play-btn svg{
+  width:28px; height:28px;
+  fill:#fff;
+}
+.ob-progress-ring{
+  position:absolute;
+  width:72px; height:72px;
+  transform:rotate(-90deg);
+}
+.ob-progress-ring circle{
+  fill:none;
+  stroke:var(--accent);
+  stroke-width:3;
+  stroke-linecap:round;
+  stroke-dasharray:204;
+  stroke-dashoffset:204;
+  transition:stroke-dashoffset 0.3s linear;
+}
+.ob-play-wrap{
+  position:relative;
+  width:72px; height:72px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.ob-ask-row{
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:12px;
+  opacity:0;
+  transform:translateY(8px);
+  transition:opacity 0.3s, transform 0.3s;
+  pointer-events:none;
+}
+.ob-ask-row.visible{
+  opacity:1;
+  transform:translateY(0);
+  pointer-events:auto;
+}
+.ob-ask-label{
+  font-size:15px;
+  font-weight:500;
+  color:var(--text-1);
+}
+.ob-ask-btns{
+  display:flex;
+  gap:12px;
+  width:100%;
+}
+.ob-ask-btn{
+  flex:1;
+  padding:12px 0;
+  border-radius:14px;
+  border:1.5px solid var(--border);
+  background:var(--bg-card);
+  font-size:15px;
+  font-weight:600;
+  cursor:pointer;
+  transition:background 0.2s, border-color 0.2s, color 0.2s;
+}
+.ob-ask-btn:active{ background:var(--mask-bg); }
+.ob-ask-btn.ob-yes{
+  color:var(--accent);
+}
+.ob-ask-btn.ob-yes:hover{
+  background:var(--accent-bg);
+  border-color:var(--accent);
+}
+.ob-ask-btn.ob-no{
+  color:var(--text-2);
+}
+.ob-ask-btn.ob-no:hover{
+  background:var(--mask-bg);
+}
+.ob-staircase{
+  display:flex;
+  gap:6px;
+  margin-top:4px;
+}
+.ob-stair{
+  width:40px; height:4px;
+  border-radius:2px;
+  background:var(--text-4);
+  opacity:0.3;
+  transition:background 0.3s, opacity 0.3s;
+}
+.ob-stair.active{
+  background:var(--accent);
+  opacity:1;
+}
+.ob-stair.done{
+  background:var(--accent);
+  opacity:0.5;
+}
+
 /* Tags */
 .ob-tags{
   width:100%;
@@ -1983,43 +2136,44 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
 
 <!-- Onboarding overlay -->
 <div id="onboarding-overlay">
-  <!-- Screen 1: CEFR Level -->
+  <!-- Screen 1: Audio Level Test (staircase) -->
   <div class="ob-screen" id="ob-screen-1">
     <div class="ob-dots"><div class="ob-dot active"></div><div class="ob-dot"></div></div>
-    <div class="ob-title">你现在听英语播客的感受？</div>
-    <div class="ob-subtitle">选择最接近你的描述</div>
-    <div class="ob-cards" id="ob-level-cards">
-      <div class="ob-card" data-level="A1-A2">
-        <div class="ob-card-check"><svg class="ob-card-check-inner" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
-        <div class="ob-card-text">
-          <div class="ob-card-label">基本听不懂，偶尔抓到几个词</div>
-          <div class="ob-card-level">A1-A2</div>
+    <div class="ob-title">听一段试试？</div>
+    <div class="ob-subtitle">播放后告诉我你能不能听懂大意</div>
+
+    <div class="ob-listen-area" id="ob-listen-area">
+      <div class="ob-staircase" id="ob-staircase">
+        <div class="ob-stair active" data-idx="0"></div>
+        <div class="ob-stair" data-idx="1"></div>
+        <div class="ob-stair" data-idx="2"></div>
+        <div class="ob-stair" data-idx="3"></div>
+      </div>
+
+      <div class="ob-level-badge" id="ob-level-badge">第 1 段</div>
+
+      <div class="ob-audio-card" id="ob-audio-card">
+        <div class="ob-clip-title" id="ob-clip-title"></div>
+        <div class="ob-play-wrap">
+          <svg class="ob-progress-ring" viewBox="0 0 72 72">
+            <circle id="ob-ring" cx="36" cy="36" r="32.5"/>
+          </svg>
+          <button class="ob-play-btn" id="ob-play-btn">
+            <svg id="ob-play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </button>
         </div>
       </div>
-      <div class="ob-card" data-level="B1">
-        <div class="ob-card-check"><svg class="ob-card-check-inner" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
-        <div class="ob-card-text">
-          <div class="ob-card-label">能听懂大意，细节经常漏</div>
-          <div class="ob-card-level">B1</div>
-        </div>
-      </div>
-      <div class="ob-card" data-level="B2">
-        <div class="ob-card-check"><svg class="ob-card-check-inner" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
-        <div class="ob-card-text">
-          <div class="ob-card-label">大部分能跟上，复杂话题偶尔吃力</div>
-          <div class="ob-card-level">B2</div>
-        </div>
-      </div>
-      <div class="ob-card" data-level="C1-C2">
-        <div class="ob-card-check"><svg class="ob-card-check-inner" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
-        <div class="ob-card-text">
-          <div class="ob-card-label">基本无障碍，想挑战更难的</div>
-          <div class="ob-card-level">C1-C2</div>
+
+      <div class="ob-ask-row" id="ob-ask-row">
+        <div class="ob-ask-label">能听懂大意吗？</div>
+        <div class="ob-ask-btns">
+          <button class="ob-ask-btn ob-yes" id="ob-yes-btn">能听懂</button>
+          <button class="ob-ask-btn ob-no" id="ob-no-btn">有点难</button>
         </div>
       </div>
     </div>
-    <div class="ob-hint">不确定也没关系，AI 会根据你的表现自动调整</div>
-    <button class="ob-btn disabled" id="ob-next-btn">下一步</button>
+
+    <div class="ob-hint">AI 之后还会根据你的表现持续调整</div>
   </div>
 
   <!-- Screen 2: Interests -->
@@ -2241,7 +2395,7 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
 </div>
 
 <script>
-// ── Onboarding logic (2 screens: Level → Interests → Transition) ──
+// ── Onboarding logic (2 screens: Audio Level Test → Interests → Transition) ──
 (function(){
   const overlay = document.getElementById('onboarding-overlay');
   if (localStorage.getItem('onboardingDone') === 'true') {
@@ -2251,31 +2405,160 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
 
   const screen1 = document.getElementById('ob-screen-1');
   const screen2 = document.getElementById('ob-screen-2');
-  const nextBtn = document.getElementById('ob-next-btn');
   const startBtn = document.getElementById('ob-start-btn');
-  const levelCards = document.querySelectorAll('#ob-level-cards .ob-card');
   const tagChips = document.querySelectorAll('#ob-interest-tags .ob-tag');
 
-  let selectedLevel = null;
-  const selectedTags = [];
+  // ── Screen 1: TTS staircase (original CEFR-aligned sentences) ──
+  const STAIRCASE = [
+    { text: 'I like to go to the park with my dog. We play there every day.',
+      rate: 0.85, label: '第 1 段', resultIfNo: 'A1-A2', title: '日常生活' },
+    { text: 'Last summer I traveled to a small town near the sea. The local food was delicious and the people were friendly.',
+      rate: 0.9, label: '第 2 段', resultIfNo: 'B1', title: '旅行经历' },
+    { text: 'The government has introduced new regulations to tackle pollution in major cities. Many residents remain skeptical about whether these measures will be sufficient.',
+      rate: 0.95, label: '第 3 段', resultIfNo: 'B2', title: '社会话题' },
+    { text: 'The rapid advancement of surveillance technology raises profound ethical dilemmas. Critics argue that insufficient transparency could undermine fundamental civil liberties.',
+      rate: 1.0, label: '第 4 段', resultIfNo: 'C1-C2', title: '科技与伦理' },
+  ];
+  const FINAL_YES_LEVEL = 'C1-C2';
+  const RING_CIRCUM = 204; // 2 * pi * 32.5
 
-  // Level card selection
-  levelCards.forEach(card => {
-    card.addEventListener('click', () => {
-      levelCards.forEach(c => c.classList.remove('selected'));
-      card.classList.add('selected');
-      selectedLevel = card.dataset.level;
-      nextBtn.classList.remove('disabled');
-      nextBtn.classList.add('enabled');
+  let currentStep = 0;
+  let obPlaying = false;
+  let obTimer = null;
+  let selectedLevel = null;
+  let obUtterance = null;
+
+  const badge    = document.getElementById('ob-level-badge');
+  const card     = document.getElementById('ob-audio-card');
+  const clipTitle= document.getElementById('ob-clip-title');
+  const playBtn  = document.getElementById('ob-play-btn');
+  const playIcon = document.getElementById('ob-play-icon');
+  const ring     = document.getElementById('ob-ring');
+  const askRow   = document.getElementById('ob-ask-row');
+  const yesBtn   = document.getElementById('ob-yes-btn');
+  const noBtn    = document.getElementById('ob-no-btn');
+  const stairs   = document.querySelectorAll('.ob-stair');
+
+  // Estimate TTS duration: ~150 words/min at rate 1.0
+  function estimateDuration(text, rate) {
+    const words = text.split(/\s+/).length;
+    return (words / 150) * 60 / rate;
+  }
+
+  function loadStep(idx) {
+    const s = STAIRCASE[idx];
+    badge.textContent = s.label;
+    clipTitle.textContent = s.title;
+    ring.style.strokeDashoffset = RING_CIRCUM;
+    playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+    askRow.classList.remove('visible');
+    card.classList.remove('ob-fade-out');
+
+    stairs.forEach((st, i) => {
+      st.classList.remove('active', 'done');
+      if (i < idx) st.classList.add('done');
+      if (i === idx) st.classList.add('active');
     });
+
+    stopPlay();
+  }
+
+  function startPlay() {
+    if (obPlaying) return;
+    const s = STAIRCASE[currentStep];
+    obPlaying = true;
+    playIcon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+
+    window.speechSynthesis.cancel();
+    obUtterance = new SpeechSynthesisUtterance(s.text);
+    obUtterance.lang = 'en-US';
+    obUtterance.rate = s.rate;
+
+    // Pick an English voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const enVoice = voices.find(v => v.lang.startsWith('en') && v.localService) ||
+                    voices.find(v => v.lang.startsWith('en'));
+    if (enVoice) obUtterance.voice = enVoice;
+
+    const estDur = estimateDuration(s.text, s.rate);
+    const startT = Date.now();
+    obTimer = setInterval(() => {
+      const elapsed = (Date.now() - startT) / 1000;
+      const pct = Math.min(elapsed / estDur, 0.95); // cap at 95%, let end event finish
+      ring.style.strokeDashoffset = RING_CIRCUM * (1 - pct);
+    }, 50);
+
+    obUtterance.onend = () => {
+      if (obTimer) { clearInterval(obTimer); obTimer = null; }
+      ring.style.strokeDashoffset = 0;
+      obPlaying = false;
+      playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+      askRow.classList.add('visible');
+    };
+
+    obUtterance.onerror = () => {
+      if (obTimer) { clearInterval(obTimer); obTimer = null; }
+      obPlaying = false;
+      playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+    };
+
+    window.speechSynthesis.speak(obUtterance);
+  }
+
+  function stopPlay() {
+    if (obTimer) { clearInterval(obTimer); obTimer = null; }
+    window.speechSynthesis.cancel();
+    obUtterance = null;
+    obPlaying = false;
+    playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+  }
+
+  playBtn.addEventListener('click', () => {
+    if (obPlaying) {
+      stopPlay();
+    } else {
+      startPlay();
+    }
   });
 
-  // Screen 1 → Screen 2
-  nextBtn.addEventListener('click', () => {
-    if (!selectedLevel) return;
+  function finishLevel(level) {
+    selectedLevel = level;
+    stopPlay();
     screen1.classList.add('ob-hidden-left');
     screen2.classList.remove('ob-hidden-right');
+  }
+
+  yesBtn.addEventListener('click', () => {
+    askRow.classList.remove('visible');
+    if (currentStep >= STAIRCASE.length - 1) {
+      finishLevel(FINAL_YES_LEVEL);
+      return;
+    }
+    card.classList.add('ob-fade-out');
+    setTimeout(() => {
+      currentStep++;
+      loadStep(currentStep);
+      requestAnimationFrame(() => {
+        card.classList.remove('ob-fade-out');
+      });
+    }, 350);
   });
+
+  noBtn.addEventListener('click', () => {
+    const s = STAIRCASE[currentStep];
+    finishLevel(s.resultIfNo);
+  });
+
+  // Ensure voices are loaded, then init
+  function initStaircase() { loadStep(0); }
+  if (window.speechSynthesis.getVoices().length) {
+    initStaircase();
+  } else {
+    window.speechSynthesis.onvoiceschanged = initStaircase;
+  }
+
+  // ── Screen 2: Interests ──
+  const selectedTags = [];
 
   function updateStartBtn() {
     const ok = selectedTags.length === 3;
@@ -2283,7 +2566,6 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
     startBtn.classList.toggle('enabled', ok);
   }
 
-  // Tag selection — exactly 3, FIFO replace
   tagChips.forEach(chip => {
     chip.addEventListener('click', () => {
       const tag = chip.dataset.tag;
@@ -2303,7 +2585,6 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
     });
   });
 
-  // Start exploring — save, show transition, then dismiss
   startBtn.addEventListener('click', () => {
     if (selectedTags.length < 3) return;
     localStorage.setItem('flipodLevel', selectedLevel);
