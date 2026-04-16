@@ -90,7 +90,9 @@
       "levelA1A2": "You catch a few words and still need more help.",
       "levelB1": "You can usually follow the gist, but details still slip away.",
       "levelB2": "You understand most of it, but complex sentences still slow you down.",
-      "levelC1C2": "You understand almost everything and want harder material."
+      "levelC1C2": "You understand almost everything and want harder material.",
+      "languagePageSubtitle": "Choose the app language first. Later UI and content translations will follow this choice.",
+      "languagePageHint": "You can change this later in Settings."
     },
     "topics": {
       "science": "Science",
@@ -219,7 +221,9 @@
       "levelA1A2": "能抓到少量单词，需要更多帮助。",
       "levelB1": "大意大概能跟上，细节经常漏掉。",
       "levelB2": "大部分能听懂，偶尔卡在复杂句。",
-      "levelC1C2": "基本无障碍，想听更难一点的。"
+      "levelC1C2": "基本无障碍，想听更难一点的。",
+      "languagePageSubtitle": "先选一个应用语言。之后页面文案和内容翻译都会跟着这个选择变化。",
+      "languagePageHint": "之后也可以在设置里再改。"
     },
     "topics": {
       "science": "科学",
@@ -348,7 +352,9 @@
       "levelA1A2": "只能抓到少量單字，還需要更多幫助。",
       "levelB1": "大意通常跟得上，但細節經常漏掉。",
       "levelB2": "大部分能聽懂，複雜句偶爾還是會卡住。",
-      "levelC1C2": "幾乎沒有障礙，想聽更難一點的內容。"
+      "levelC1C2": "幾乎沒有障礙，想聽更難一點的內容。",
+      "languagePageSubtitle": "先選一個應用語言。之後頁面文案和內容翻譯都會跟著這個選擇變化。",
+      "languagePageHint": "之後也可以在設定裡再改。"
     },
     "topics": {
       "science": "科學",
@@ -477,7 +483,9 @@
       "levelA1A2": "少しの単語は拾えるが、まだ多くの助けが必要。",
       "levelB1": "大意は追えるが、細部は抜けがち。",
       "levelB2": "大部分は理解できるが、複雑な文で引っかかることがある。",
-      "levelC1C2": "ほぼ問題なく理解でき、もっと難しい内容も聞きたい。"
+      "levelC1C2": "ほぼ問題なく理解でき、もっと難しい内容も聞きたい。",
+      "languagePageSubtitle": "最初にアプリの言語を選んでください。以後、UI と内容の翻訳はこの設定に従います。",
+      "languagePageHint": "あとで設定から変更できます。"
     },
     "topics": {
       "science": "科学",
@@ -606,7 +614,9 @@
       "levelA1A2": "몇몇 단어는 잡히지만 아직 많은 도움이 필요함.",
       "levelB1": "대체로 요지는 따라가지만 세부 정보는 자주 놓침.",
       "levelB2": "대부분 이해하지만 복잡한 문장에서 가끔 막힘.",
-      "levelC1C2": "거의 무리 없이 이해하고 더 어려운 콘텐츠를 원함."
+      "levelC1C2": "거의 무리 없이 이해하고 더 어려운 콘텐츠를 원함.",
+      "languagePageSubtitle": "먼저 앱 언어를 선택하세요. 이후 UI와 콘텐츠 번역이 이 선택을 따릅니다.",
+      "languagePageHint": "나중에 설정에서 다시 바꿀 수 있어요."
     },
     "topics": {
       "science": "과학",
@@ -735,7 +745,9 @@
       "levelA1A2": "Captas algunas palabras y aún necesitas bastante ayuda.",
       "levelB1": "Sueles seguir la idea general, pero se te escapan detalles.",
       "levelB2": "Entiendes la mayor parte, aunque las frases complejas todavía frenan.",
-      "levelC1C2": "Entiendes casi todo y quieres contenido más difícil."
+      "levelC1C2": "Entiendes casi todo y quieres contenido más difícil.",
+      "languagePageSubtitle": "Primero elige el idioma de la app. Después, la interfaz y las traducciones del contenido seguirán esta elección.",
+      "languagePageHint": "Luego podrás cambiarlo en Ajustes."
     },
     "topics": {
       "science": "Ciencia",
@@ -864,7 +876,9 @@
       "levelA1A2": "Tu repères quelques mots, mais tu as encore besoin de beaucoup d'aide.",
       "levelB1": "Tu suis généralement l'idée générale, mais les détails t'échappent encore.",
       "levelB2": "Tu comprends la plupart des choses, même si les phrases complexes te ralentissent encore.",
-      "levelC1C2": "Tu comprends presque tout et tu veux du contenu plus difficile."
+      "levelC1C2": "Tu comprends presque tout et tu veux du contenu plus difficile.",
+      "languagePageSubtitle": "Choisis d'abord la langue de l'application. Ensuite, l'interface et les traductions de contenu suivront ce choix.",
+      "languagePageHint": "Tu pourras la modifier plus tard dans Réglages."
     },
     "topics": {
       "science": "Science",
@@ -993,7 +1007,9 @@
       "levelA1A2": "Você capta algumas palavras e ainda precisa de bastante ajuda.",
       "levelB1": "Você costuma acompanhar a ideia geral, mas ainda perde detalhes.",
       "levelB2": "Entende a maior parte, mas frases complexas ainda te atrasam.",
-      "levelC1C2": "Entende quase tudo e quer conteúdo mais difícil."
+      "levelC1C2": "Entende quase tudo e quer conteúdo mais difícil.",
+      "languagePageSubtitle": "Escolha primeiro o idioma do app. Depois, a interface e as traduções do conteúdo seguirão essa escolha.",
+      "languagePageHint": "Você pode mudar isso depois em Ajustes."
     },
     "topics": {
       "science": "Ciência",
@@ -1122,7 +1138,9 @@
       "levelA1A2": "Cogli alcune parole ma hai ancora bisogno di molto aiuto.",
       "levelB1": "Di solito segui l'idea generale, ma i dettagli ti sfuggono ancora.",
       "levelB2": "Capisci la maggior parte, anche se le frasi complesse ti rallentano ancora.",
-      "levelC1C2": "Capisci quasi tutto e vuoi contenuti più difficili."
+      "levelC1C2": "Capisci quasi tutto e vuoi contenuti più difficili.",
+      "languagePageSubtitle": "Scegli prima la lingua dell'app. Poi interfaccia e traduzioni dei contenuti seguiranno questa scelta.",
+      "languagePageHint": "Potrai cambiarla più tardi nelle impostazioni."
     },
     "topics": {
       "science": "Scienza",
@@ -1251,7 +1269,9 @@
       "levelA1A2": "Du erkennst einige Wörter, brauchst aber noch viel Unterstützung.",
       "levelB1": "Du verstehst meistens die Hauptidee, aber Details gehen noch verloren.",
       "levelB2": "Du verstehst das meiste, aber komplexe Sätze bremsen dich noch aus.",
-      "levelC1C2": "Du verstehst fast alles und möchtest schwierigere Inhalte."
+      "levelC1C2": "Du verstehst fast alles und möchtest schwierigere Inhalte.",
+      "languagePageSubtitle": "Wähle zuerst die App-Sprache. Danach folgen Oberfläche und Inhaltsübersetzungen dieser Auswahl.",
+      "languagePageHint": "Du kannst das später in den Einstellungen ändern."
     },
     "topics": {
       "science": "Wissenschaft",

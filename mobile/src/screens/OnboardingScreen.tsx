@@ -60,7 +60,7 @@ const MIN_LOADING_FEEDBACK_MS = 320;
 export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
   const { colors } = useAppTheme();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [selectedLevel, setSelectedLevel] = useState<Level | null>(initialProfile?.level || null);
   const [selectedTags, setSelectedTags] = useState<string[]>(initialProfile?.interests || []);
   const [selectedNativeLanguage, setSelectedNativeLanguage] = useState<NativeLanguage>(
@@ -101,7 +101,7 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
   const canStart = useMemo(() => selectedTags.length === 3, [selectedTags]);
 
   useEffect(() => {
-    if (step !== 3 || !selectedLevel || selectedTags.length !== 3) return;
+    if (step !== 4 || !selectedLevel || selectedTags.length !== 3) return;
     const timeout = setTimeout(() => {
       onSubmit({
         level: selectedLevel,
@@ -132,7 +132,7 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
   }, []);
 
   useEffect(() => {
-    if (step === 1) return;
+    if (step === 2) return;
     if (progressTimerRef.current) {
       clearInterval(progressTimerRef.current);
       progressTimerRef.current = null;
@@ -299,7 +299,7 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
     void stopPlayback(true);
     setSelectedLevel(level);
     setManualLevelFallback(false);
-    setStep(2);
+    setStep(3);
   };
 
   const renderLanguagePicker = () => (
@@ -325,11 +325,34 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
     </View>
   );
 
+  const renderLanguageStep = () => (
+    <>
+      <View style={styles.topBlock}>
+        <StepDots count={3} active={1} accent={colors.accentFeed} />
+        <Text style={styles.title}>{ui.t('onboarding.nativeLanguageTitle')}</Text>
+        <Text style={styles.subtitle}>{ui.t('onboarding.languagePageSubtitle')}</Text>
+      </View>
+
+      <View style={styles.languageStepWrap}>
+        {renderLanguagePicker()}
+      </View>
+
+      <Text style={styles.hint}>{ui.t('onboarding.languagePageHint')}</Text>
+      <ActionButton
+        label={ui.t('common.continue')}
+        onPress={() => {
+          triggerUiFeedback('onboarding');
+          setStep(2);
+        }}
+        style={styles.primaryAction}
+      />
+    </>
+  );
+
   const renderManualLevelFallback = () => (
     <>
       <View style={styles.topBlock}>
-        {renderLanguagePicker()}
-        <StepDots count={2} active={1} accent={colors.accentFeed} />
+        <StepDots count={3} active={2} accent={colors.accentFeed} />
         <Text style={styles.title}>{ui.t('onboarding.manualTitle')}</Text>
         <Text style={styles.subtitle}>{ui.t('onboarding.manualSubtitle')}</Text>
       </View>
@@ -365,7 +388,7 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
         onPress={() => {
           if (!selectedLevel) return;
           triggerUiFeedback('onboarding');
-          setStep(2);
+          setStep(3);
         }}
         style={styles.primaryAction}
       />
@@ -375,8 +398,7 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
   const renderStaircase = () => (
     <>
       <View style={styles.topBlock}>
-        {renderLanguagePicker()}
-        <StepDots count={2} active={1} accent={colors.accentFeed} />
+        <StepDots count={3} active={2} accent={colors.accentFeed} />
         <Text style={styles.title}>{ui.t('onboarding.staircaseTitle')}</Text>
         <Text style={styles.subtitle}>{ui.t('onboarding.staircaseSubtitle')}</Text>
       </View>
@@ -510,13 +532,14 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
   return (
     <ScreenSurface>
       <View style={styles.container}>
-        {step === 1 ? (manualLevelFallback ? renderManualLevelFallback() : renderStaircase()) : null}
+        {step === 1 ? renderLanguageStep() : null}
 
-        {step === 2 ? (
+        {step === 2 ? (manualLevelFallback ? renderManualLevelFallback() : renderStaircase()) : null}
+
+        {step === 3 ? (
           <>
             <View style={styles.topBlock}>
-              {renderLanguagePicker()}
-              <StepDots count={2} active={2} accent={colors.accentFeed} />
+              <StepDots count={3} active={3} accent={colors.accentFeed} />
               <Text style={styles.title}>{ui.t('onboarding.interestsTitle')}</Text>
               <Text style={styles.subtitle}>{ui.t('onboarding.interestsSubtitle')}</Text>
               {selectedLevel ? (
@@ -552,14 +575,14 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
               onPress={() => {
                 if (!selectedLevel || selectedTags.length !== 3) return;
                 triggerUiFeedback('onboarding');
-                setStep(3);
+                setStep(4);
               }}
               style={styles.primaryAction}
             />
           </>
         ) : null}
 
-        {step === 3 ? (
+        {step === 4 ? (
           <View style={styles.loadingBlock}>
             <Text style={styles.loadingCopy}>{ui.t('onboarding.preparingFeed')}</Text>
             <View style={styles.loadingDots}>
@@ -591,6 +614,12 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       width: '100%',
       gap: spacing.sm,
       alignItems: 'center',
+    },
+    languageStepWrap: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '100%',
     },
     languageTitle: {
       color: colors.textSecondary,
