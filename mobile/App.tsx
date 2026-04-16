@@ -209,21 +209,6 @@ function cycleSubtitleSize(size: SubtitleSize): SubtitleSize {
   return 'sm';
 }
 
-function isMetadataFirstClip(clip: Clip) {
-  if (!clip || typeof clip !== 'object') return false;
-  if (!clip.lines?.length) return false;
-  if (typeof clip.source !== 'object' || !clip.source) return false;
-  if (!clip.source.audio_url || !/^https?:\/\//i.test(String(clip.source.audio_url))) return false;
-  const clipStart = Number(clip.clip_start_sec);
-  const clipEnd = Number(clip.clip_end_sec);
-  return Number.isFinite(clipStart) && Number.isFinite(clipEnd) && clipEnd > clipStart;
-}
-
-function isMetadataFirstClipSet(clips: Clip[]) {
-  if (!Array.isArray(clips) || clips.length === 0) return false;
-  return clips.every(isMetadataFirstClip);
-}
-
 export default function App() {
   const [booting, setBooting] = useState(true);
   const [deviceId, setDeviceId] = useState('');
@@ -461,15 +446,13 @@ export default function App() {
         }
         if (cancelled) return;
 
-        if (data && Array.isArray(data.clips) && isMetadataFirstClipSet(data.clips as Clip[])) {
+        if (data && Array.isArray(data.clips) && data.clips.length > 0) {
           setClipsData(normalizeClips(data.clips));
           setClipsLoaded(true);
           return;
         }
 
-        if (data && Array.isArray(data.clips) && data.clips.length > 0) {
-          console.warn('Remote clip JSON is legacy/non-metadata-first; falling back to bundled demo data.');
-        } else if (lastError) {
+        if (lastError) {
           throw lastError;
         }
         setClipsData(demoClips);

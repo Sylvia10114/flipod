@@ -111,14 +111,14 @@ export function sourceToClipRelativeSeconds(clip: Clip, sourceSeconds: number) {
 }
 
 export function getClipAudioUrl(clip: Clip) {
-  const source = getSourceObject(clip);
-  const direct = source?.audio_url || clip.cdnAudio || '';
+  const direct = clip.cdnAudio || clip.audio || '';
   if (direct) {
     if (/^https?:\/\//i.test(direct)) return direct;
     return `${CONTENT_BASE_URL}/${normalizeContentPath(direct)}`;
   }
 
-  const raw = clip.audio || '';
+  const source = getSourceObject(clip);
+  const raw = source?.audio_url || '';
   if (!raw) return '';
   if (/^https?:\/\//i.test(raw)) return raw;
   return `${CONTENT_BASE_URL}/${normalizeContentPath(raw)}`;
