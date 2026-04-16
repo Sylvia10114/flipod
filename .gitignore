@@ -4,10 +4,12 @@ clips/clip_*.mp3
 
 # Data backups
 data.json.bak*
+data.backup-*.json
 
 # Python
 __pycache__/
 *.pyc
+.pytest_cache/
 
 # Build / deploy artifacts
 .cf-pages-dist/
