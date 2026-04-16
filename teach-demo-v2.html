@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Flipod 单路径教学 Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0C0C0E;
+  --bg2:#16161A;
+  --card:rgba(255,255,255,0.05);
+  --card2:rgba(255,255,255,0.03);
+  --border:rgba(255,255,255,0.08);
+  --border2:rgba(255,255,255,0.05);
+  --t1:rgba(255,255,255,0.87);
+  --t2:rgba(255,255,255,0.55);
+  --t3:rgba(255,255,255,0.30);
+  --t4:rgba(255,255,255,0.15);
+  --accent:#8B9CF7;
+  --accent-bg:rgba(139,156,247,0.12);
+  --green:#4ade80;
+  --green-bg:rgba(74,222,128,0.12);
+  --red:#f87171;
+  --red-bg:rgba(248,113,113,0.12);
+  --orange:#fbbf24;
+  --B1:#6EC6A8;
+  --B2:#C4A96E;
+  --C1:#C47A6E;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--bg);color:var(--t1);
+  display:flex;justify-content:center;
+  min-height:100vh;
+}
+.phone{
+  width:375px;position:relative;
+  background:linear-gradient(180deg,#0C0C0E,#12121A);
+  overflow-y:auto;overflow-x:hidden;
+  border-left:1px solid var(--border);
+  border-right:1px solid var(--border);
+  scroll-snap-type:y proximity;
+}
+
+/* === Feed Header === */
+.feed-header{
+  position:sticky;top:0;z-index:20;
+  padding:52px 20px 14px;
+  background:rgba(12,12,14,0.95);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.feed-logo{font-size:18px;font-weight:700;color:var(--t1);letter-spacing:-0.5px;}
+.feed-logo span{color:var(--accent);}
+.feed-level{
+  padding:4px 12px;border-radius:14px;
+  background:var(--accent-bg);color:var(--accent);
+  font-size:12px;font-weight:600;
+}
+
+/* === Clip Card === */
+.clip-card{
+  padding:0 0 0 0;
+  border-bottom:1px solid var(--border);
+  scroll-snap-align:start;
+}
+.clip-main{padding:20px;}
+.clip-meta{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.clip-podcast{
+  display:flex;align-items:center;gap:8px;flex:1;
+}
+.clip-podcast-icon{
+  width:28px;height:28px;border-radius:7px;
+  background:linear-gradient(135deg,#1a1a2e,#2a2a4a);
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;flex-shrink:0;
+}
+.clip-podcast-name{font-size:12px;color:var(--t3);font-weight:500;}
+.clip-time{font-size:11px;color:var(--t3);}
+.clip-tag{
+  padding:3px 10px;border-radius:10px;
+  font-size:11px;font-weight:600;
+}
+.tag-b2{background:rgba(196,169,110,0.15);color:var(--B2);}
+.tag-b1{background:rgba(110,198,168,0.15);color:var(--B1);}
+
+.clip-title{font-size:16px;font-weight:600;color:var(--t1);line-height:1.4;margin-bottom:8px;}
+.clip-desc{font-size:13px;color:var(--t3);line-height:1.5;margin-bottom:16px;}
+
+/* Player bar */
+.player-bar{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 14px;background:var(--card);
+  border-radius:14px;border:1px solid var(--border);
+}
+.play-btn{
+  width:38px;height:38px;border-radius:50%;
+  background:var(--accent);border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:transform 0.15s;
+}
+.play-btn:active{transform:scale(0.92);}
+.play-btn svg{width:16px;height:16px;fill:#fff;}
+.player-info{flex:1;min-width:0;}
+.player-progress{height:3px;background:var(--t4);border-radius:2px;overflow:hidden;}
+.player-progress-fill{height:100%;border-radius:2px;transition:width 0.3s;}
+.progress-active{background:var(--accent);}
+.progress-done{background:var(--green);}
+.player-time{display:flex;justify-content:space-between;margin-top:4px;}
+.player-time span{font-size:10px;color:var(--t3);}
+.player-status{font-size:11px;font-weight:500;margin-bottom:4px;}
+.status-playing{color:var(--accent);}
+.status-done{color:var(--green);}
+
+/* Clip actions */
+.clip-actions{
+  display:flex;align-items:center;gap:6px;
+  margin-top:14px;
+}
+.action-btn{
+  display:flex;align-items:center;gap:5px;
+  padding:7px 14px;border-radius:20px;
+  background:var(--card);border:1px solid var(--border);
+  font-size:12px;color:var(--t3);cursor:pointer;
+  font-family:inherit;transition:all 0.2s;
+}
+.action-btn:hover{background:rgba(255,255,255,0.08);}
+.action-btn svg{width:14px;height:14px;fill:var(--t3);}
+.action-btn.bookmarked svg{fill:var(--accent);}
+.action-btn.bookmarked{color:var(--accent);border-color:rgba(139,156,247,0.3);}
+
+/* === Teaching Zone (expands below clip) === */
+.teach-zone{
+  overflow:hidden;
+  transition:max-height 0.5s cubic-bezier(0.4,0,0.2,1),opacity 0.4s;
+}
+.teach-zone.collapsed{max-height:0;opacity:0;pointer-events:none;}
+.teach-zone.expanded{max-height:3000px;opacity:1;}
+
+.teach-enter{
+  padding:14px 20px;
+  background:linear-gradient(180deg,rgba(139,156,247,0.04),transparent);
+  border-top:1px solid rgba(139,156,247,0.12);
+  animation:slideIn 0.4s ease-out;
+}
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
+
+/* Phase headers */
+.ph-head{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:12px;
+}
+.ph-label{
+  display:flex;align-items:center;gap:6px;
+  font-size:12px;font-weight:600;color:var(--accent);
+}
+.ph-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);}
+.ph-skip{
+  font-size:11px;color:var(--t4);cursor:pointer;
+  background:none;border:none;font-family:inherit;
+  padding:4px 8px;border-radius:8px;
+  transition:color 0.2s;
+}
+.ph-skip:hover{color:var(--t3);}
+
+/* Gist question */
+.gist-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:14px;padding:16px;
+}
+.gist-q{font-size:14px;font-weight:500;color:var(--t1);line-height:1.5;margin-bottom:12px;}
+.gist-opts{display:flex;flex-direction:column;gap:7px;}
+.gist-opt{
+  padding:11px 13px;border-radius:11px;
+  border:1.5px solid var(--border);background:transparent;
+  font-size:13px;color:var(--t2);text-align:left;
+  cursor:pointer;font-family:inherit;line-height:1.4;
+  transition:all 0.2s;
+}
+.gist-opt:active{transform:scale(0.98);}
+.gist-opt.selected{border-color:var(--accent);background:var(--accent-bg);color:var(--accent);}
+.gist-opt.correct{border-color:var(--green);background:var(--green-bg);color:var(--green);}
+.gist-opt.wrong{border-color:var(--red);background:var(--red-bg);color:var(--red);}
+.gist-opt.dim{opacity:0.35;pointer-events:none;}
+.gist-feedback{
+  margin-top:10px;padding:10px 12px;border-radius:10px;
+  font-size:12px;line-height:1.5;
+  animation:fadeIn 0.3s;
+}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+.gist-feedback.ok{background:var(--green-bg);color:var(--green);}
+.gist-feedback.nope{background:var(--red-bg);color:var(--red);}
+
+/* Vocab cards */
+.vocab-phase{padding:14px 20px 18px;border-top:1px solid var(--border2);}
+.vocab-scroll{
+  display:flex;gap:10px;overflow-x:auto;
+  padding-bottom:8px;
+  scrollbar-width:none;
+}
+.vocab-scroll::-webkit-scrollbar{display:none;}
+.vocab-card{
+  min-width:200px;max-width:220px;flex-shrink:0;
+  padding:14px;border-radius:14px;
+  background:var(--card);border:1px solid var(--border);
+}
+.vc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.vc-word{font-size:16px;font-weight:700;color:var(--t1);}
+.vc-level{
+  font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;
+}
+.vc-level.b1p{background:rgba(110,198,168,0.2);color:var(--B1);}
+.vc-level.b2{background:rgba(196,169,110,0.2);color:var(--B2);}
+.vc-level.c1{background:rgba(196,122,110,0.2);color:var(--C1);}
+.vc-zh{font-size:13px;color:var(--t2);margin-bottom:8px;}
+.vc-ctx{
+  font-size:12px;color:var(--t3);line-height:1.5;
+  font-style:italic;
+  border-left:2px solid var(--border);padding-left:8px;
+}
+.vc-ctx mark{
+  background:none;color:var(--accent);font-weight:600;font-style:normal;
+}
+.vc-add{
+  display:flex;align-items:center;gap:4px;
+  margin-top:10px;font-size:11px;color:var(--accent);
+  cursor:pointer;background:none;border:none;font-family:inherit;
+}
+.vc-add svg{width:12px;height:12px;fill:var(--accent);}
+.vc-add.added{color:var(--green);}
+.vc-add.added svg{fill:var(--green);}
+
+/* Practice CTA */
+.practice-cta-wrap{
+  padding:0 20px 18px;
+  text-align:center;
+}
+.practice-cta{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:12px 28px;border-radius:24px;
+  background:linear-gradient(135deg,var(--accent),#a78bfa);
+  color:#fff;font-size:14px;font-weight:600;
+  border:none;cursor:pointer;font-family:inherit;
+  transition:transform 0.15s,box-shadow 0.15s;
+  box-shadow:0 4px 20px rgba(139,156,247,0.3);
+}
+.practice-cta:active{transform:scale(0.95);}
+.practice-cta svg{width:16px;height:16px;fill:#fff;}
+
+/* AI Practice section */
+.ai-section{
+  padding:16px 20px;
+  border-top:1px solid var(--border);
+  background:linear-gradient(180deg,rgba(139,156,247,0.03),transparent);
+}
+.ai-divider{
+  display:flex;align-items:center;gap:10px;
+  margin-bottom:16px;
+}
+.ai-divider-line{flex:1;height:1px;background:var(--border);}
+.ai-divider-text{
+  display:flex;align-items:center;gap:5px;
+  font-size:10px;color:var(--t4);white-space:nowrap;
+}
+.ai-divider-text svg{width:12px;height:12px;fill:var(--t4);}
+
+.ai-practice-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:14px;padding:16px;margin-bottom:10px;
+}
+.ai-p-num{font-size:10px;font-weight:700;color:var(--t4);margin-bottom:6px;}
+.ai-p-text{font-size:14px;color:var(--t1);line-height:1.8;}
+.ai-p-text .blank{
+  display:inline-block;min-width:70px;
+  border-bottom:2px dashed var(--accent);
+  color:var(--accent);font-weight:600;
+  text-align:center;padding:0 4px;cursor:pointer;
+  transition:all 0.2s;
+}
+.ai-p-text .blank:hover{background:var(--accent-bg);border-radius:4px 4px 0 0;}
+.ai-p-text .filled{
+  display:inline-block;
+  color:var(--green);font-weight:600;
+  border-bottom:2px solid var(--green);padding:0 4px;
+}
+.ai-p-text .wrong-fill{
+  display:inline-block;
+  color:var(--red);font-weight:600;text-decoration:line-through;
+  border-bottom:2px solid var(--red);padding:0 4px;
+}
+
+.word-bank{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px;}
+.wb-word{
+  padding:6px 14px;border-radius:20px;
+  background:var(--accent-bg);color:var(--accent);
+  font-size:13px;font-weight:500;cursor:pointer;
+  transition:all 0.2s;border:1px solid transparent;
+}
+.wb-word:active{transform:scale(0.95);}
+.wb-word.used{opacity:0.25;pointer-events:none;}
+.wb-word.wrong-word{
+  border-color:var(--red);background:var(--red-bg);color:var(--red);
+}
+
+/* Summary */
+.summary-section{
+  padding:16px 20px 24px;
+  border-top:1px solid var(--border);
+}
+.summary-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;}
+.s-stat{
+  padding:14px 8px;border-radius:12px;
+  background:var(--card);border:1px solid var(--border);
+  text-align:center;
+}
+.s-stat-num{font-size:22px;font-weight:700;color:var(--accent);}
+.s-stat-label{font-size:10px;color:var(--t3);margin-top:3px;}
+
+.summary-words{
+  padding:12px;border-radius:12px;
+  background:var(--card);border:1px solid var(--border);
+  margin-bottom:14px;
+}
+.sw-title{font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px;}
+.sw-list{display:flex;flex-wrap:wrap;gap:6px;}
+.sw-chip{
+  display:flex;align-items:center;gap:4px;
+  padding:5px 10px;border-radius:8px;
+  background:rgba(255,255,255,0.03);
+  font-size:12px;color:var(--t1);
+}
+.sw-chip .dot{width:5px;height:5px;border-radius:50%;}
+
+.next-btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;padding:14px;border-radius:14px;
+  background:var(--accent);color:#fff;
+  font-size:15px;font-weight:600;border:none;
+  cursor:pointer;font-family:inherit;
+  transition:transform 0.15s;
+}
+.next-btn:active{transform:scale(0.97);}
+.next-btn svg{width:18px;height:18px;fill:#fff;}
+
+/* === Next clip preview (below teaching) === */
+.next-clip-peek{
+  padding:20px;
+  opacity:0.5;
+  border-bottom:1px solid var(--border);
+}
+
+/* === Interaction states === */
+.hidden{display:none!important;}
+.phase-enter{animation:slideIn 0.4s ease-out;}
+
+/* Source attribution mini */
+.source-mini{
+  display:flex;align-items:center;gap:6px;
+  margin-top:10px;
+  font-size:11px;color:var(--t4);
+}
+.source-mini a{color:var(--accent);text-decoration:none;font-size:11px;}
+
+/* Swipe hint */
+.swipe-hint{
+  text-align:center;padding:12px;
+  font-size:11px;color:var(--t4);
+  animation:pulse 2s infinite;
+}
+@keyframes pulse{0%,100%{opacity:0.3;}50%{opacity:0.7;}}
+
+/* Demo controls */
+.demo-bar{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:375px;z-index:100;
+  background:rgba(12,12,14,0.95);backdrop-filter:blur(12px);
+  border-top:1px solid var(--border);
+  padding:10px 16px;
+  display:flex;align-items:center;gap:8px;
+}
+.demo-btn{
+  flex:1;padding:10px;border-radius:10px;
+  background:var(--card);border:1px solid var(--border);
+  color:var(--t2);font-size:12px;font-weight:600;
+  cursor:pointer;font-family:inherit;text-align:center;
+  transition:all 0.2s;
+}
+.demo-btn:hover{background:var(--accent-bg);color:var(--accent);border-color:rgba(139,156,247,0.3);}
+.demo-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.demo-step{font-size:10px;color:var(--t3);text-align:center;width:100%;margin-top:4px;}
+
+/* Bottom safe area */
+.bottom-spacer{height:80px;}
+</style>
+</head>
+<body>
+
+<div class="phone" id="phone">
+
+  <!-- Feed Header -->
+  <div class="feed-header">
+    <div class="feed-logo"><span>F</span>lipod</div>
+    <div class="feed-level">B2</div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- CLIP 1: Teaching Flow -->
+  <!-- ===================== -->
+  <div class="clip-card" id="clip1">
+    <div class="clip-main">
+      <div class="clip-meta">
+        <div class="clip-podcast">
+          <div class="clip-podcast-icon">🎙</div>
+          <div class="clip-podcast-name">Marketplace (APM)</div>
+        </div>
+        <span class="clip-tag tag-b2">B2</span>
+      </div>
+      <div class="clip-title">How Taylor Swift Boosted the U.S. Economy</div>
+      <div class="clip-desc">美联储在加息发布会上给出乐观预测，而 Taylor Swift 的巡演意外成为经济话题</div>
+
+      <!-- Player -->
+      <div class="player-bar" id="player1">
+        <button class="play-btn" id="playBtn1" onclick="handlePlay()">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <div class="player-info">
+          <div class="player-status" id="playerStatus1">
+            <span class="status-done">✓ 已听完</span>
+          </div>
+          <div class="player-progress">
+            <div class="player-progress-fill progress-done" id="progressFill1" style="width:100%"></div>
+          </div>
+          <div class="player-time">
+            <span>0:55</span><span>0:55</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="clip-actions">
+        <button class="action-btn bookmarked">
+          <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+          已收藏
+        </button>
+        <button class="action-btn">
+          <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/></svg>
+          分享
+        </button>
+      </div>
+
+      <div class="source-mini">
+        来自 Marketplace (APM) · <a href="#">收听完整节目 →</a>
+      </div>
+    </div>
+
+    <!-- ========== Teaching Zone ========== -->
+    <div class="teach-zone" id="teachZone">
+
+      <!-- Phase 1: Gist -->
+      <div class="teach-enter" id="phase1">
+        <div class="ph-head">
+          <div class="ph-label"><span class="ph-dot"></span>听完了，测测理解</div>
+          <button class="ph-skip" onclick="skipToVocab()">跳过</button>
+        </div>
+        <div class="gist-card">
+          <div class="gist-q">这段内容主要在讲什么？</div>
+          <div class="gist-opts" id="gistOpts">
+            <button class="gist-opt" data-idx="0" onclick="answerGist(this,true)">美联储加息并给出乐观经济预期，Taylor Swift 的巡演意外参与了经济话题</button>
+            <button class="gist-opt" data-idx="1" onclick="answerGist(this,false)">Taylor Swift 的演唱会导致了美国通货膨胀</button>
+            <button class="gist-opt" data-idx="2" onclick="answerGist(this,false)">美联储主席在新闻发布会上讨论了流行音乐产业</button>
+          </div>
+          <div class="gist-feedback ok hidden" id="gistOk">✓ 没错！美联储加息 + 不预期衰退是主线，Taylor Swift 是个有趣的经济注脚。</div>
+          <div class="gist-feedback nope hidden" id="gistNope">✗ 不太对 — 再听一遍？核心是美联储的加息决策和经济预期。</div>
+        </div>
+      </div>
+
+      <!-- Phase 2: Vocab Cards -->
+      <div class="vocab-phase hidden" id="phase2">
+        <div class="ph-head">
+          <div class="ph-label"><span class="ph-dot"></span>这段里的重点词</div>
+          <button class="ph-skip" onclick="skipToPracticeOrNext()">跳过</button>
+        </div>
+        <div class="vocab-scroll">
+          <div class="vocab-card">
+            <div class="vc-head">
+              <div class="vc-word">recession</div>
+              <span class="vc-level b2">B2</span>
+            </div>
+            <div class="vc-zh">经济衰退；萧条期</div>
+            <div class="vc-ctx">"...they are not <mark>recession</mark> anymore, projecting soft landing..."</div>
+            <button class="vc-add" onclick="addWord(this)">
+              <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              加入生词本
+            </button>
+          </div>
+          <div class="vocab-card">
+            <div class="vc-head">
+              <div class="vc-word">inflation</div>
+              <span class="vc-level b2">B2</span>
+            </div>
+            <div class="vc-zh">通货膨胀</div>
+            <div class="vc-ctx">"...talking about <mark>inflation</mark> and Taylor Swift..."</div>
+            <button class="vc-add" onclick="addWord(this)">
+              <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              加入生词本
+            </button>
+          </div>
+          <div class="vocab-card">
+            <div class="vc-head">
+              <div class="vc-word">forecasting</div>
+              <span class="vc-level b2">B2</span>
+            </div>
+            <div class="vc-zh">预测；预报</div>
+            <div class="vc-ctx">"...they are now <mark>forecasting</mark> no recession..."</div>
+            <button class="vc-add" onclick="addWord(this)">
+              <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              加入生词本
+            </button>
+          </div>
+          <div class="vocab-card">
+            <div class="vc-head">
+              <div class="vc-word">benchmark</div>
+              <span class="vc-level b2">B2</span>
+            </div>
+            <div class="vc-zh">基准；标杆</div>
+            <div class="vc-ctx">"...raised <mark>benchmark</mark> interest rate..."</div>
+            <button class="vc-add" onclick="addWord(this)">
+              <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              加入生词本
+            </button>
+          </div>
+          <div class="vocab-card">
+            <div class="vc-head">
+              <div class="vc-word">agitated</div>
+              <span class="vc-level c1">C1</span>
+            </div>
+            <div class="vc-zh">焦虑的；激动的</div>
+            <div class="vc-ctx">"...everyone is pretty <mark>agitated</mark>..."</div>
+            <button class="vc-add" onclick="addWord(this)">
+              <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              加入生词本
+            </button>
+          </div>
+        </div>
+
+        <!-- Practice CTA -->
+        <div class="practice-cta-wrap" style="margin-top:14px;">
+          <button class="practice-cta" onclick="showPractice()">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            练习这些词汇
+          </button>
+        </div>
+      </div>
+
+      <!-- Phase 3: AI Practice -->
+      <div class="ai-section hidden" id="phase3">
+        <div class="ai-divider">
+          <div class="ai-divider-line"></div>
+          <div class="ai-divider-text">
+            <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+            以下练习基于同话题 AI 原创内容
+          </div>
+          <div class="ai-divider-line"></div>
+        </div>
+
+        <div class="ai-practice-card">
+          <div class="ai-p-num">1 / 4</div>
+          <div class="ai-p-text">
+            Many economists are <span class="filled">forecasting</span> a decline in consumer confidence this quarter.
+          </div>
+        </div>
+        <div class="ai-practice-card">
+          <div class="ai-p-num">2 / 4</div>
+          <div class="ai-p-text">
+            The tourism boom <span class="filled">boosted</span> local revenue, but critics say the effect is temporary.
+          </div>
+        </div>
+        <div class="ai-practice-card">
+          <div class="ai-p-num">3 / 4</div>
+          <div class="ai-p-text">
+            The central bank uses the <span class="blank" id="blank3" onclick="selectBlank(3)">________</span> interest rate to control lending.
+          </div>
+        </div>
+        <div class="ai-practice-card">
+          <div class="ai-p-num">4 / 4</div>
+          <div class="ai-p-text">
+            Despite fears of a prolonged <span class="blank" id="blank4" onclick="selectBlank(4)">________</span>, GDP growth rebounded in Q3.
+          </div>
+        </div>
+
+        <div class="word-bank" id="wordBank">
+          <span class="wb-word used">forecasting</span>
+          <span class="wb-word used">boosted</span>
+          <span class="wb-word" onclick="fillWord(this,'benchmark',3)">benchmark</span>
+          <span class="wb-word" onclick="fillWord(this,'recession',4)">recession</span>
+          <span class="wb-word" onclick="fillWord(this,'agitated',0)">agitated</span>
+        </div>
+      </div>
+
+      <!-- Phase 4: Summary -->
+      <div class="summary-section hidden" id="phase4">
+        <div class="ph-head">
+          <div class="ph-label"><span class="ph-dot"></span>本次学习</div>
+        </div>
+
+        <div class="summary-stats">
+          <div class="s-stat">
+            <div class="s-stat-num">5</div>
+            <div class="s-stat-label">新词汇</div>
+          </div>
+          <div class="s-stat">
+            <div class="s-stat-num" style="color:var(--green);">✓</div>
+            <div class="s-stat-label">理解正确</div>
+          </div>
+          <div class="s-stat">
+            <div class="s-stat-num">4/4</div>
+            <div class="s-stat-label">填空</div>
+          </div>
+        </div>
+
+        <div class="summary-words">
+          <div class="sw-title">已加入生词本</div>
+          <div class="sw-list">
+            <div class="sw-chip"><span class="dot" style="background:var(--B2);"></span>recession</div>
+            <div class="sw-chip"><span class="dot" style="background:var(--B2);"></span>inflation</div>
+            <div class="sw-chip"><span class="dot" style="background:var(--B2);"></span>forecasting</div>
+            <div class="sw-chip"><span class="dot" style="background:var(--B2);"></span>benchmark</div>
+            <div class="sw-chip"><span class="dot" style="background:var(--C1);"></span>agitated</div>
+          </div>
+        </div>
+
+        <button class="next-btn" onclick="scrollToNext()">
+          下一个 Clip
+          <svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+        </button>
+      </div>
+
+    </div><!-- /teach-zone -->
+  </div><!-- /clip1 -->
+
+  <!-- ===================== -->
+  <!-- CLIP 2: Next in Feed  -->
+  <!-- ===================== -->
+  <div class="clip-card" id="clip2">
+    <div class="clip-main">
+      <div class="clip-meta">
+        <div class="clip-podcast">
+          <div class="clip-podcast-icon">🔬</div>
+          <div class="clip-podcast-name">Radiolab (WNYC)</div>
+        </div>
+        <span class="clip-tag tag-b2">B2</span>
+      </div>
+      <div class="clip-title">The Science of First Impressions</div>
+      <div class="clip-desc">人们在 7 秒内形成第一印象，而这些印象的准确率可能超乎你的想象</div>
+
+      <div class="player-bar">
+        <button class="play-btn">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <div class="player-info">
+          <div class="player-status"><span style="color:var(--t3);">0:48</span></div>
+          <div class="player-progress">
+            <div class="player-progress-fill progress-active" style="width:0%"></div>
+          </div>
+          <div class="player-time">
+            <span>0:00</span><span>0:48</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="clip-actions">
+        <button class="action-btn">
+          <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2zm0 15l-5-2.18L7 18V5h10v13z"/></svg>
+          收藏
+        </button>
+        <button class="action-btn">
+          <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/></svg>
+          分享
+        </button>
+      </div>
+
+      <div class="source-mini">
+        来自 Radiolab (WNYC) · <a href="#">收听完整节目 →</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLIP 3: Another peek -->
+  <div class="clip-card" id="clip3" style="opacity:0.6;">
+    <div class="clip-main">
+      <div class="clip-meta">
+        <div class="clip-podcast">
+          <div class="clip-podcast-icon">🌍</div>
+          <div class="clip-podcast-name">The Daily (NYT)</div>
+        </div>
+        <span class="clip-tag tag-b1">B1</span>
+      </div>
+      <div class="clip-title">Why Young People Are Leaving Cities</div>
+      <div class="clip-desc">远程工作改变了年轻人对城市生活的看法</div>
+
+      <div class="player-bar">
+        <button class="play-btn" style="background:var(--t4);">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <div class="player-info">
+          <div class="player-status"><span style="color:var(--t3);">1:02</span></div>
+          <div class="player-progress">
+            <div class="player-progress-fill" style="width:0%;background:var(--t4);"></div>
+          </div>
+          <div class="player-time">
+            <span>0:00</span><span>1:02</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-spacer"></div>
+
+</div><!-- /phone -->
+
+<!-- Demo Controls -->
+<div class="demo-bar" id="demoBar">
+  <button class="demo-btn active" onclick="demoStep(0)">听完</button>
+  <button class="demo-btn" onclick="demoStep(1)">答 Gist</button>
+  <button class="demo-btn" onclick="demoStep(2)">看词汇</button>
+  <button class="demo-btn" onclick="demoStep(3)">AI练习</button>
+  <button class="demo-btn" onclick="demoStep(4)">总结</button>
+</div>
+
+<script>
+// State
+let currentPhase = 0;
+let activeBlank = null;
+let filledCount = 0;
+
+// Demo step control
+function demoStep(step) {
+  // Reset all demo buttons
+  document.querySelectorAll('.demo-btn').forEach((b,i) => {
+    b.classList.toggle('active', i === step);
+  });
+
+  const tz = document.getElementById('teachZone');
+  const p1 = document.getElementById('phase1');
+  const p2 = document.getElementById('phase2');
+  const p3 = document.getElementById('phase3');
+  const p4 = document.getElementById('phase4');
+
+  if (step === 0) {
+    // Just finished listening — show gist
+    tz.className = 'teach-zone expanded';
+    p1.classList.remove('hidden');
+    p2.classList.add('hidden');
+    p3.classList.add('hidden');
+    p4.classList.add('hidden');
+    resetGist();
+    currentPhase = 1;
+    scrollTo(p1);
+  }
+  else if (step === 1) {
+    // Answer gist correctly
+    tz.className = 'teach-zone expanded';
+    p1.classList.remove('hidden');
+    p2.classList.add('hidden');
+    p3.classList.add('hidden');
+    p4.classList.add('hidden');
+    // Simulate correct answer
+    simulateGist();
+  }
+  else if (step === 2) {
+    // Show vocab
+    tz.className = 'teach-zone expanded';
+    p1.classList.remove('hidden');
+    simulateGist();
+    p2.classList.remove('hidden');
+    p3.classList.add('hidden');
+    p4.classList.add('hidden');
+    currentPhase = 2;
+    scrollTo(p2);
+  }
+  else if (step === 3) {
+    // Show AI practice
+    tz.className = 'teach-zone expanded';
+    p1.classList.remove('hidden');
+    simulateGist();
+    p2.classList.remove('hidden');
+    p3.classList.remove('hidden');
+    p4.classList.add('hidden');
+    currentPhase = 3;
+    scrollTo(p3);
+  }
+  else if (step === 4) {
+    // Show summary
+    tz.className = 'teach-zone expanded';
+    p1.classList.remove('hidden');
+    simulateGist();
+    p2.classList.remove('hidden');
+    p3.classList.remove('hidden');
+    p4.classList.remove('hidden');
+    // Fill remaining blanks
+    fillAllBlanks();
+    currentPhase = 4;
+    scrollTo(p4);
+  }
+}
+
+function scrollTo(el) {
+  setTimeout(() => {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+}
+
+// Gist interaction
+function answerGist(btn, correct) {
+  const opts = document.querySelectorAll('.gist-opt');
+  opts.forEach(o => {
+    o.style.pointerEvents = 'none';
+    if (o === btn) {
+      o.classList.add(correct ? 'correct' : 'wrong');
+    } else if (o.dataset.idx === '0') {
+      o.classList.add('correct'); // show correct answer
+    } else {
+      o.classList.add('dim');
+    }
+  });
+
+  if (correct) {
+    document.getElementById('gistOk').classList.remove('hidden');
+    document.getElementById('gistNope').classList.add('hidden');
+  } else {
+    document.getElementById('gistNope').classList.remove('hidden');
+    document.getElementById('gistOk').classList.add('hidden');
+  }
+
+  // Show vocab after delay
+  if (correct) {
+    setTimeout(() => {
+      document.getElementById('phase2').classList.remove('hidden');
+      scrollTo(document.getElementById('phase2'));
+      currentPhase = 2;
+    }, 800);
+  }
+}
+
+function resetGist() {
+  const opts = document.querySelectorAll('.gist-opt');
+  opts.forEach(o => {
+    o.style.pointerEvents = '';
+    o.classList.remove('correct','wrong','dim');
+  });
+  document.getElementById('gistOk').classList.add('hidden');
+  document.getElementById('gistNope').classList.add('hidden');
+}
+
+function simulateGist() {
+  const opts = document.querySelectorAll('.gist-opt');
+  opts.forEach((o,i) => {
+    o.style.pointerEvents = 'none';
+    if (i === 0) o.classList.add('correct');
+    else o.classList.add('dim');
+  });
+  document.getElementById('gistOk').classList.remove('hidden');
+  document.getElementById('gistNope').classList.add('hidden');
+}
+
+// Vocab
+function addWord(btn) {
+  btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg> 已添加';
+  btn.classList.add('added');
+  btn.style.pointerEvents = 'none';
+}
+
+function skipToVocab() {
+  document.getElementById('phase2').classList.remove('hidden');
+  scrollTo(document.getElementById('phase2'));
+  currentPhase = 2;
+}
+
+function skipToPracticeOrNext() {
+  scrollTo(document.getElementById('clip2'));
+}
+
+// AI Practice
+function showPractice() {
+  document.getElementById('phase3').classList.remove('hidden');
+  scrollTo(document.getElementById('phase3'));
+  currentPhase = 3;
+}
+
+function selectBlank(n) {
+  activeBlank = n;
+  document.querySelectorAll('.blank').forEach(b => {
+    b.style.background = '';
+    b.style.borderRadius = '';
+  });
+  const b = document.getElementById('blank'+n);
+  if (b) {
+    b.style.background = 'var(--accent-bg)';
+    b.style.borderRadius = '4px 4px 0 0';
+  }
+}
+
+function fillWord(wordEl, word, targetBlank) {
+  if (activeBlank === null) activeBlank = targetBlank;
+  const blank = document.getElementById('blank' + activeBlank);
+  if (!blank) return;
+
+  if (activeBlank === targetBlank) {
+    blank.className = 'filled';
+    blank.textContent = word;
+    blank.style.background = '';
+    wordEl.classList.add('used');
+    filledCount++;
+    activeBlank = null;
+
+    // Check if all done
+    if (filledCount >= 2) {
+      setTimeout(() => {
+        document.getElementById('phase4').classList.remove('hidden');
+        scrollTo(document.getElementById('phase4'));
+        currentPhase = 4;
+      }, 600);
+    }
+  } else {
+    // Wrong placement
+    blank.className = 'wrong-fill';
+    blank.textContent = word;
+    blank.style.background = '';
+    wordEl.classList.add('wrong-word');
+    setTimeout(() => {
+      blank.className = 'blank';
+      blank.textContent = '________';
+      blank.id = 'blank' + activeBlank;
+      wordEl.classList.remove('wrong-word','used');
+    }, 800);
+  }
+}
+
+function fillAllBlanks() {
+  const b3 = document.getElementById('blank3');
+  const b4 = document.getElementById('blank4');
+  if (b3 && b3.classList.contains('blank')) {
+    b3.className = 'filled';
+    b3.textContent = 'benchmark';
+  }
+  if (b4 && b4.classList.contains('blank')) {
+    b4.className = 'filled';
+    b4.textContent = 'recession';
+  }
+  document.querySelectorAll('.wb-word').forEach(w => w.classList.add('used'));
+}
+
+function scrollToNext() {
+  document.getElementById('clip2').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function handlePlay() {
+  // In demo, just show the teaching zone
+  demoStep(0);
+}
+
+// Init: show phase 1 expanded
+document.addEventListener('DOMContentLoaded', () => {
+  demoStep(0);
+});
+</script>
+
+</body>
+</html>

@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles/teaching-v3.css">
+<link rel="stylesheet" href="styles/listening-practice.css">
 <style>
 :root{
   /* Premium palette */
@@ -1020,6 +1022,7 @@ html,body{
   position:absolute;
   width:72px; height:72px;
   transform:rotate(-90deg);
+  pointer-events:none;
 }
 .ob-progress-ring circle{
   fill:none;
@@ -2130,6 +2133,93 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
 .calibration-toast .cal-btn.primary{ background:var(--accent); color:#fff; }
 .calibration-toast .cal-btn.secondary{ background:var(--bg-card); color:var(--text-2); }
 
+/* ═══════════════════════════════════════════
+   Teaching Module
+   ═══════════════════════════════════════════ */
+.teaching-card{
+  scroll-snap-align:start;
+  scroll-snap-stop:always;
+  min-height:100vh;min-height:100dvh;
+  display:flex;flex-direction:column;align-items:center;
+  padding:calc(env(safe-area-inset-top,48px) + 24px) 20px calc(env(safe-area-inset-bottom,20px) + 24px);
+  background:var(--bg-primary);
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  animation:teachIn 0.35s ease-out;
+}
+@keyframes teachIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+.teaching-card.teaching-exit{animation:teachOut 0.3s ease-in forwards}
+@keyframes teachOut{to{opacity:0;transform:translateY(-16px)}}
+.teaching-phase{width:100%;max-width:500px;margin-bottom:28px}
+.teaching-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.teaching-phase-label{font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-3)}
+.teaching-skip{border:none;background:none;font-size:13px;color:var(--text-4);cursor:pointer;-webkit-tap-highlight-color:transparent;padding:4px 0}
+.teaching-skip:active{color:var(--text-3)}
+.teaching-question{font-size:17px;font-weight:500;line-height:1.5;color:var(--text-1);margin-bottom:16px}
+.teaching-options{display:flex;flex-direction:column;gap:10px}
+.teaching-option{width:100%;text-align:left;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--bg-card);color:var(--text-2);font-size:14px;line-height:1.45;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:border-color 0.2s,background 0.2s,color 0.2s}
+.teaching-option:active{background:var(--accent-bg)}
+.teaching-option:disabled{cursor:default;opacity:0.6}
+.teaching-option.correct{border-color:rgba(80,200,120,0.5);background:rgba(80,200,120,0.10);color:var(--text-1);opacity:1}
+.teaching-option.wrong{border-color:rgba(255,80,80,0.4);background:rgba(255,80,80,0.08);color:var(--text-3)}
+.teaching-feedback{margin-top:14px}
+.feedback-correct,.feedback-wrong{padding:14px 16px;border-radius:12px;font-size:13px;line-height:1.55;color:var(--text-2)}
+.feedback-correct{background:rgba(80,200,120,0.08);border:1px solid rgba(80,200,120,0.15)}
+.feedback-correct span{font-size:18px;margin-right:6px;vertical-align:middle}
+.feedback-wrong{background:rgba(255,160,80,0.06);border:1px solid rgba(255,160,80,0.12)}
+.teaching-relisten{display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:8px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent-bg);color:var(--accent);font-size:13px;font-weight:500;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.teaching-relisten:active{opacity:0.7}
+.teaching-word-card{padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--bg-card);margin-bottom:10px}
+.word-header{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.word-text{font-size:18px;font-weight:600;color:var(--text-1)}
+.word-cefr{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px}
+.word-cefr.cefr-a1,.word-cefr.cefr-a2{color:var(--cefr-a);background:rgba(255,255,255,0.08)}
+.word-cefr.cefr-b1{color:var(--cefr-b1);background:rgba(122,175,196,0.20)}
+.word-cefr.cefr-b2{color:var(--cefr-b2);background:rgba(196,169,110,0.20)}
+.word-cefr.cefr-c1{color:var(--cefr-c1);background:rgba(196,122,110,0.20)}
+.word-cefr.cefr-c2{color:var(--cefr-c2);background:rgba(201,123,219,0.20)}
+[data-theme="light"] .word-cefr.cefr-a1,[data-theme="light"] .word-cefr.cefr-a2{color:var(--cefr-a);background:rgba(0,0,0,0.06)}
+.word-behavior-tag{font-size:11px;color:var(--accent);opacity:0.8}
+.word-context{font-size:13px;color:var(--text-2);line-height:1.5;font-style:italic}
+.word-context-zh{font-size:12px;color:var(--text-3);line-height:1.5;margin-top:2px}
+.word-definition{font-size:13px;color:var(--text-1);margin-top:8px;line-height:1.45}
+.word-save-btn{margin-top:8px;border:1px solid var(--accent);border-radius:8px;background:none;color:var(--accent);font-size:12px;font-weight:500;padding:5px 12px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.word-save-btn:active{opacity:0.7}
+.word-save-btn:disabled{border-color:var(--text-4);color:var(--text-3);cursor:default}
+.word-saved{display:inline-block;margin-top:8px;font-size:12px;color:var(--text-3)}
+.teaching-cta{width:100%;margin-top:6px;padding:14px;border:none;border-radius:12px;background:var(--accent);color:var(--text-inv);font-size:15px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity 0.15s}
+.teaching-cta:active{opacity:0.8}
+.exercise-progress{font-size:12px;font-weight:500;color:var(--text-3)}
+.word-bank{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.bank-word{padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text-1);font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background 0.15s,border-color 0.15s,opacity 0.2s}
+.bank-word:active{background:var(--accent-bg)}
+.bank-word.used{opacity:0.3;pointer-events:none;border-color:rgba(80,200,120,0.3)}
+.bank-word.wrong-shake{animation:shake 0.4s ease;border-color:rgba(255,80,80,0.4)}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-4px)}40%,80%{transform:translateX(4px)}}
+.exercise-sentence{padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--bg-card);font-size:15px;line-height:1.6;color:var(--text-1)}
+.exercise-feedback{margin-top:10px;font-size:14px;text-align:center}
+.exercise-feedback .correct{color:rgba(80,200,120,0.9)}
+.exercise-feedback .wrong{color:rgba(255,80,80,0.7)}
+.summary-stats{margin-bottom:16px}
+.summary-stats p{font-size:14px;color:var(--text-2);line-height:1.7}
+.summary-words{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:20px}
+.summary-word{font-size:13px;font-weight:500;padding:4px 10px;border-radius:6px;background:var(--bg-card);border:1px solid var(--border)}
+.summary-word.cefr-b1{color:var(--cefr-b1)}
+.summary-word.cefr-b2{color:var(--cefr-b2)}
+.summary-word.cefr-c1{color:var(--cefr-c1)}
+.summary-word.cefr-c2{color:var(--cefr-c2)}
+.save-all-btn{padding:6px 14px;border:1px solid var(--accent);border-radius:8px;background:none;color:var(--accent);font-size:12px;font-weight:500;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.save-all-btn:active{opacity:0.7}
+.teaching-reflection{margin-bottom:20px}
+.reflection-prompt{font-size:14px;color:var(--text-2);margin-bottom:10px}
+.reflection-option{display:block;width:100%;text-align:left;padding:12px 14px;margin-bottom:8px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card);color:var(--text-2);font-size:13px;line-height:1.4;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:border-color 0.2s,background 0.2s}
+.reflection-option:active{background:var(--accent-bg)}
+.reflection-option.selected{border-color:var(--accent);background:var(--accent-bg);color:var(--text-1)}
+.teaching-next{width:100%;padding:14px;border:none;border-radius:12px;background:var(--accent);color:var(--text-inv);font-size:15px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity 0.15s}
+.teaching-next:active{opacity:0.8}
+.teaching-mini{scroll-snap-align:start;display:flex;justify-content:center;align-items:center;padding:16px 20px;background:var(--bg-primary)}
+.mini-entry-btn{border:1px solid var(--border);border-radius:10px;background:var(--bg-card);color:var(--text-3);font-size:13px;padding:10px 20px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.mini-entry-btn:active{color:var(--text-2);background:var(--accent-bg)}
+
 </style>
 </head>
 <body>
@@ -2307,6 +2397,9 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
   <div class="pr-body" id="pr-body"></div>
 </div>
 
+<!-- Listening Practice overlay -->
+<div class="lp-overlay" id="lp-overlay"></div>
+
 <!-- Bookmark toast -->
 <div class="bm-toast" id="bm-toast">
   <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
@@ -2323,7 +2416,15 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
   </div>
 </div>
 
+  <!-- Mode tab bar -->
+  <div class="mode-tab-bar" id="mode-tab-bar">
+    <button class="mode-tab" data-mode="listen" id="tab-listen">纯听</button>
+    <button class="mode-tab is-active" data-mode="learn" id="tab-learn">学习</button>
+  </div>
+
   <div id="container">
+  <!-- Teaching panel (v3) — overlays feed when active -->
+  <div class="teaching-panel" id="teaching-panel"></div>
   <div class="screen" id="start-screen">
     <div class="start-ambient"></div>
     <div class="start-text">先听这一条</div>
@@ -2398,6 +2499,12 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
 // ── Onboarding logic (2 screens: Audio Level Test → Interests → Transition) ──
 (function(){
   const overlay = document.getElementById('onboarding-overlay');
+  // DEV: auto-skip onboarding for teaching demo
+  if (!localStorage.getItem('flipodLevel')) localStorage.setItem('flipodLevel', 'B1');
+  localStorage.setItem('onboardingDone', 'true');
+  overlay.remove();
+  return;
+
   if (localStorage.getItem('onboardingDone') === 'true') {
     overlay.remove();
     return;
@@ -2839,13 +2946,18 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
     return;
   }
 
-  // ── REFACTOR 3: Validate clips & audio mapping ──
-  console.log('Loaded clips:', clips.map((c, i) => i + ': ' + c.audio + ' - ' + c.title));
+  // ── DEV: 只保留有 questions 的 clip，取前 3 个用于教学测试 ──
+  clips = clips.filter(c => c.questions && c.questions.length > 0).slice(0, 3);
+  console.log('Teaching demo clips:', clips.length, clips.map(c => c.title));
 
   let total = clips.length;
   const audios = [];
   const screens = [];
   let masked = false;
+
+  // Expose for teaching-module.js
+  window.clips = clips;
+  window.audios = audios;
   const speeds = [0.75, 1.0, 1.25, 1.5];
   let playbackRate = parseFloat(localStorage.getItem('flipodSpeed')) || 1.0;
   if (!speeds.includes(playbackRate)) playbackRate = 1.0;
@@ -2853,6 +2965,7 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
   let sessionClipsPlayed = 0;
   let sessionDuration = 0; // seconds
   const tappedWordsThisSession = new Set(); // track unique words viewed in session
+  window.tappedWordsThisSession = tappedWordsThisSession;
 
   // ── AI Feed State System ──
   // States: 'loading' | 'normal' | 'rerank' | 'fallback'
@@ -3065,8 +3178,10 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
         if (aListened !== bListened) return aListened ? 1 : -1;
         const aOverlap = typeof a.overlap_score === 'number' ? a.overlap_score : 0.5;
         const bOverlap = typeof b.overlap_score === 'number' ? b.overlap_score : 0.5;
-        const aDiff = diffWeight[(a.difficulty || 'medium').toLowerCase()] || 0.6;
-        const bDiff = diffWeight[(b.difficulty || 'medium').toLowerCase()] || 0.6;
+        const aDiffKey = typeof a.difficulty === 'string' ? a.difficulty : (a.difficulty?.level || 'medium');
+        const bDiffKey = typeof b.difficulty === 'string' ? b.difficulty : (b.difficulty?.level || 'medium');
+        const aDiff = diffWeight[aDiffKey.toLowerCase()] || 0.6;
+        const bDiff = diffWeight[bDiffKey.toLowerCase()] || 0.6;
         const aScore = aOverlap * 0.6 + aDiff * 0.4;
         const bScore = bOverlap * 0.6 + bDiff * 0.4;
         if (bScore !== aScore) return bScore - aScore;
@@ -3819,6 +3934,7 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
 
   // ── REFACTOR 2: Unified subtitle sync ──
   let currentIdx = -1;
+  window.currentIdx = currentIdx;
   const lastRenderedLine = {};  // idx -> last rendered line number
 
   // ── Audio resource management (free network connections) ──
@@ -3912,13 +4028,36 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
       if (currentIdx === idx) showLoading(idx, false);
     });
 
+    // Teaching behavior: record seek/replay
+    audio.addEventListener('seeked', () => {
+      if (currentIdx === idx && typeof TeachingModule !== 'undefined') {
+        TeachingModule.onReplay(audio.currentTime);
+      }
+    });
+
     audio.addEventListener('ended', () => {
       if (currentIdx !== idx) return;
+      // If teaching is active (e.g. relisten just finished), don't auto-advance
+      // The relisten handler has its own 'ended' listener that fires first
+      const panel = document.getElementById('teaching-panel');
+      if (panel && (panel.classList.contains('is-visible') || panel.classList.contains('is-relisten-hidden'))) {
+        return;
+      }
+      // Teaching v3: check if clip has questions and mode is 'learn'
+      const mode = localStorage.getItem('flipodMode') || 'learn';
+      const clip = clips[idx];
+      const hasTeaching = clip && clip.questions && clip.questions.length > 0;
+
+      if (mode === 'learn' && hasTeaching && typeof TeachingController !== 'undefined') {
+        isPlaying = false;
+        updatePlayPauseIcons();
+        window._startTeaching(idx);
+        return;
+      }
       if (idx + 1 < total) {
         screens[idx + 1].scrollIntoView({ behavior: 'smooth' });
         setTimeout(() => playClip(idx + 1), 400);
       } else {
-        // Last clip ended — loop back to first clip
         screens[0].scrollIntoView({ behavior: 'smooth' });
         setTimeout(() => playClip(0), 400);
       }
@@ -4021,6 +4160,7 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
     if (idx - 1 >= 0) restoreAudio(idx - 1);
 
     currentIdx = idx;
+    window.currentIdx = idx;
     renderProgressMarkers(idx);
     isPlaying = true;
     sessionClipsPlayed++;
@@ -4081,6 +4221,7 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
   function stopAll() {
     audios.forEach(a => a.pause());
     currentIdx = -1;
+    window.currentIdx = -1;
   }
 
   // ── Toast helper ──
@@ -4327,6 +4468,12 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
     tappedWordsThisSession.add(word);
     recordWordLookup(cefr);
 
+    // Teaching behavior: record word tap
+    if (typeof TeachingModule !== 'undefined') {
+      const lineIdx = clip ? findLineAtTime(clip, parseFloat(span.dataset.start)) : -1;
+      TeachingModule.onWordTap(word, cefr, lineIdx, audios[idx]?.currentTime || 0);
+    }
+
     // Pause audio
     popupWasPlaying = false;
     if (idx >= 0 && idx < total && audios[idx]) {
@@ -4448,6 +4595,10 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
         timestamp: Date.now()
       });
       wpStar.classList.add('starred');
+      // Teaching behavior: record word save
+      if (typeof TeachingModule !== 'undefined') {
+        TeachingModule.onWordSave(popupCurrentWord, popupCurrentCefr, lastRenderedLine[currentIdx] || 0);
+      }
     }
     saveVocab(vocab);
   });
@@ -4466,6 +4617,9 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
   let started = false;
   const observer = new IntersectionObserver((entries) => {
     if (!started) return;
+    // Block auto-advance while teaching panel is active
+    const tp = document.getElementById('teaching-panel');
+    if (tp && (tp.classList.contains('is-visible') || tp.classList.contains('is-relisten-hidden'))) return;
     for (const entry of entries) {
       if (!entry.isIntersecting || entry.intersectionRatio < 0.5) continue;
       const el = entry.target;
@@ -4517,6 +4671,76 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
       setTimeout(() => playClip(idx), 400);
     }
   });
+
+  // ── Teaching v3: start teaching + resume feed ──
+  window._startTeaching = function(clipIndex) {
+    const panel = document.getElementById('teaching-panel');
+    if (!panel) return;
+    // Destroy previous controller if any
+    if (window._activeTeachingCtrl) {
+      window._activeTeachingCtrl.destroy();
+      window._activeTeachingCtrl = null;
+    }
+    panel.innerHTML = '';
+    panel.classList.remove('is-exiting');
+    panel.classList.add('is-visible');
+    // Lock feed scroll while teaching is active
+    container.style.overflow = 'hidden';
+
+    const onFinish = () => {
+      panel.classList.remove('is-visible');
+      container.style.overflow = '';
+      if (clipIndex + 1 < total) {
+        screens[clipIndex + 1].scrollIntoView({ behavior: 'smooth' });
+        setTimeout(() => playClip(clipIndex + 1), 400);
+      }
+    };
+
+    const tappedWords = window.tappedWordsThisSession ? new Set(window.tappedWordsThisSession) : new Set();
+    const ctrl = new TeachingController(panel, clips[clipIndex], onFinish, tappedWords);
+    window._activeTeachingCtrl = ctrl;
+    ctrl.enter('1-question');
+  };
+
+  window.onTeachingDismiss = function(clipIndex) {
+    if (clipIndex + 1 < total) {
+      screens[clipIndex + 1].scrollIntoView({ behavior: 'smooth' });
+      setTimeout(() => playClip(clipIndex + 1), 400);
+    }
+  };
+
+  // ── Mode tab: 纯听 / 学习 ──
+  {
+    const tabBar = document.getElementById('mode-tab-bar');
+    const tabListen = document.getElementById('tab-listen');
+    const tabLearn = document.getElementById('tab-learn');
+    // Restore persisted mode
+    const savedMode = localStorage.getItem('flipodMode') || 'learn';
+    tabListen.classList.toggle('is-active', savedMode === 'listen');
+    tabLearn.classList.toggle('is-active', savedMode === 'learn');
+
+    tabBar.addEventListener('click', e => {
+      const btn = e.target.closest('.mode-tab');
+      if (!btn) return;
+      const mode = btn.dataset.mode;
+      localStorage.setItem('flipodMode', mode);
+      tabListen.classList.toggle('is-active', mode === 'listen');
+      tabLearn.classList.toggle('is-active', mode === 'learn');
+
+      // If switching to 纯听 while teaching is visible, close it
+      if (mode === 'listen') {
+        const panel = document.getElementById('teaching-panel');
+        if (panel && panel.classList.contains('is-visible')) {
+          if (window._activeTeachingCtrl) {
+            window._activeTeachingCtrl.destroy();
+            window._activeTeachingCtrl = null;
+          }
+          panel.classList.remove('is-visible');
+          container.style.overflow = '';
+        }
+      }
+    });
+  }
 
   // ══════════════════════════════════════════
   // ── Practice Mode (4-step listening drill) ──
@@ -5436,5 +5660,8 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
   })();
 })();
 </script>
+<script src="mock/practice-data.js"></script>
+<script src="listening-practice.js"></script>
+<script src="teaching-module-v3.js"></script>
 </body>
 </html>

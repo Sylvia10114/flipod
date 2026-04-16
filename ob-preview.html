@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Onboarding Preview</title>
+<style>
+:root{
+  --bg-primary:#0C0C0E;
+  --bg-secondary:#16161A;
+  --bg-card:rgba(255,255,255,0.05);
+  --border:rgba(255,255,255,0.05);
+  --text-1:rgba(255,255,255,0.87);
+  --text-2:rgba(255,255,255,0.55);
+  --text-3:rgba(255,255,255,0.30);
+  --text-4:rgba(255,255,255,0.15);
+  --accent:#8B9CF7;
+  --accent-bg:rgba(139,156,247,0.12);
+  --shadow:none;
+  --mask-bg:rgba(255,255,255,0.10);
+  --ob-gradient:linear-gradient(180deg, #0C0C0E 0%, #16161A 100%);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',system-ui,sans-serif;background:#0C0C0E;display:flex;justify-content:center;}
+.phone{width:375px;height:812px;position:relative;overflow:hidden;border-radius:40px;border:2px solid rgba(255,255,255,0.1);}
+
+#onboarding-overlay{
+  position:absolute;top:0;left:0;right:0;bottom:0;
+  background:var(--ob-gradient);
+  z-index:200;display:flex;flex-direction:column;
+}
+.ob-screen{
+  position:absolute;top:0;left:0;right:0;bottom:0;
+  display:flex;flex-direction:column;align-items:center;
+  padding:60px 24px 40px;overflow-y:auto;
+}
+.ob-title{font-size:22px;font-weight:600;color:var(--text-1);text-align:center;margin-top:24px;}
+.ob-subtitle{font-size:14px;color:var(--text-3);margin-top:8px;text-align:center;}
+.ob-hint{font-size:12px;color:var(--text-4);text-align:center;margin-top:auto;padding:0 20px;}
+.ob-dots{display:flex;gap:8px;margin-top:20px;margin-bottom:8px;}
+.ob-dot{width:8px;height:8px;border-radius:50%;background:var(--text-4);}
+.ob-dot.active{background:var(--accent);}
+
+.ob-listen-area{width:100%;max-width:360px;margin-top:28px;display:flex;flex-direction:column;align-items:center;gap:20px;}
+.ob-level-badge{display:inline-block;padding:4px 14px;border-radius:20px;background:var(--accent-bg);color:var(--accent);font-size:12px;font-weight:600;letter-spacing:0.5px;}
+.ob-audio-card{width:100%;background:var(--bg-card);border:1.5px solid var(--border);border-radius:20px;padding:24px 20px;display:flex;flex-direction:column;align-items:center;gap:16px;box-shadow:var(--shadow);}
+.ob-clip-title{font-size:14px;color:var(--text-2);text-align:center;line-height:1.5;}
+.ob-play-btn{width:64px;height:64px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(99,102,241,0.3);}
+.ob-play-btn svg{width:28px;height:28px;fill:#fff;}
+.ob-progress-ring{position:absolute;width:72px;height:72px;transform:rotate(-90deg);}
+.ob-progress-ring circle{fill:none;stroke:var(--accent);stroke-width:3;stroke-linecap:round;stroke-dasharray:204;stroke-dashoffset:102;}
+.ob-play-wrap{position:relative;width:72px;height:72px;display:flex;align-items:center;justify-content:center;}
+.ob-ask-row{width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;}
+.ob-ask-label{font-size:15px;font-weight:500;color:var(--text-1);}
+.ob-ask-btns{display:flex;gap:12px;width:100%;}
+.ob-ask-btn{flex:1;padding:12px 0;border-radius:14px;border:1.5px solid var(--border);background:var(--bg-card);font-size:15px;font-weight:600;cursor:pointer;}
+.ob-ask-btn.ob-yes{color:var(--accent);}
+.ob-ask-btn.ob-no{color:var(--text-2);}
+.ob-staircase{display:flex;gap:6px;margin-top:4px;}
+.ob-stair{width:40px;height:4px;border-radius:2px;background:var(--text-4);opacity:0.3;}
+.ob-stair.active{background:var(--accent);opacity:1;}
+.ob-stair.done{background:var(--accent);opacity:0.5;}
+</style>
+</head>
+<body style="padding:40px;">
+<div class="phone">
+<div id="onboarding-overlay">
+  <div class="ob-screen" id="ob-screen-1">
+    <div class="ob-dots"><div class="ob-dot active"></div><div class="ob-dot"></div></div>
+    <div class="ob-title">听一段试试？</div>
+    <div class="ob-subtitle">播放后告诉我你能不能听懂大意</div>
+    <div class="ob-listen-area">
+      <div class="ob-staircase">
+        <div class="ob-stair done"></div>
+        <div class="ob-stair active"></div>
+        <div class="ob-stair"></div>
+        <div class="ob-stair"></div>
+      </div>
+      <div class="ob-level-badge">第 2 段</div>
+      <div class="ob-audio-card">
+        <div class="ob-clip-title">一段关于美国飞行员的历史</div>
+        <div class="ob-play-wrap">
+          <svg class="ob-progress-ring" viewBox="0 0 72 72">
+            <circle cx="36" cy="36" r="32.5"/>
+          </svg>
+          <button class="ob-play-btn">
+            <svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="ob-ask-row">
+        <div class="ob-ask-label">能听懂大意吗？</div>
+        <div class="ob-ask-btns">
+          <button class="ob-ask-btn ob-yes">能听懂</button>
+          <button class="ob-ask-btn ob-no">有点难</button>
+        </div>
+      </div>
+    </div>
+    <div class="ob-hint">AI 之后还会根据你的表现持续调整</div>
+  </div>
+</div>
+</div>
+</body>
+</html>
