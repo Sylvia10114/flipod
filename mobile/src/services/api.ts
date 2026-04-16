@@ -111,6 +111,9 @@ export const api = {
   logout(token: string) {
     return request<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }, { token });
   },
+  deleteAccount(token: string) {
+    return request<{ ok: boolean }>('/api/auth/delete', { method: 'POST' }, { token });
+  },
   linkPhone(token: string, phoneNumber: string, code: string, deviceId: string) {
     return request<{ ok: boolean; linkedIdentities: AuthBootstrapResponse['linkedIdentities'] }>(
       '/api/auth/link/phone',

@@ -1,6 +1,6 @@
 import React, { useCallback, useRef } from 'react';
 import { type GestureResponderEvent, StyleSheet, View } from 'react-native';
-import { colors } from '../design';
+import { useAppTheme } from '../theme';
 
 type Range = {
   start: number;
@@ -18,6 +18,8 @@ type Props = {
 };
 
 export function ProgressBar({ progress, markers = [], currentSentenceRange, highlightRanges = [], onSeek }: Props) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const barRef = useRef<View>(null);
   const widthRef = useRef(0);
   const offsetRef = useRef(0);
@@ -87,7 +89,8 @@ export function ProgressBar({ progress, markers = [], currentSentenceRange, high
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
+  return StyleSheet.create({
   track: {
     width: '100%',
     height: 22,
@@ -100,7 +103,7 @@ const styles = StyleSheet.create({
     right: 0,
     height: 4,
     borderRadius: 999,
-    backgroundColor: colors.bgSurface3,
+    backgroundColor: colors.progressBg,
   },
   range: {
     position: 'absolute',
@@ -109,7 +112,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   currentRange: {
-    backgroundColor: 'rgba(139,156,247,0.45)',
+    backgroundColor: `${colors.progressFill}73`,
   },
   fill: {
     position: 'absolute',
@@ -117,7 +120,7 @@ const styles = StyleSheet.create({
     left: 0,
     height: 4,
     borderRadius: 999,
-    backgroundColor: colors.accentFeed,
+    backgroundColor: colors.progressFill,
   },
   marker: {
     position: 'absolute',
@@ -134,6 +137,7 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 999,
     marginLeft: -5,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.textPrimary,
   },
-});
+  });
+}

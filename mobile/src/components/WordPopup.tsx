@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ActionButton, GlassCard, PillButton } from './AppChrome';
-import { colors, radii, spacing, typography } from '../design';
+import { radii, spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
+import { useAppTheme } from '../theme';
 import type { ClipLineWord } from '../types';
 
 type Props = {
@@ -90,6 +91,8 @@ async function fetchWordInfo(word: string, fallbackDefinition: string): Promise<
 }
 
 export function WordPopup({ word, contextEn, contextZh, isSaved, isKnown, onSave, onMarkKnown, onDismiss }: Props) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const normalizedWord = useMemo(() => word.word.trim().toLowerCase(), [word.word]);
   const [info, setInfo] = useState<WordInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -176,7 +179,8 @@ export function WordPopup({ word, contextEn, contextZh, isSaved, isKnown, onSave
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
+  return StyleSheet.create({
   overlay: {
     position: 'absolute',
     top: 0,
@@ -283,4 +287,5 @@ const styles = StyleSheet.create({
   action: {
     flex: 1,
   },
-});
+  });
+}

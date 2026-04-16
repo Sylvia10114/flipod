@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ActionButton, GlassCard, ScreenSurface, StepDots } from '../components/AppChrome';
-import { colors, radii, spacing, typography } from '../design';
+import { radii, spacing, typography } from '../design';
 import { INTERESTS, LEVELS } from '../constants';
 import { triggerUiFeedback } from '../feedback';
+import { useAppTheme } from '../theme';
 import type { Level, Profile } from '../types';
 
 type Props = {
@@ -30,6 +31,8 @@ const INTEREST_LABELS: Record<(typeof INTERESTS)[number], string> = {
 };
 
 export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedLevel, setSelectedLevel] = useState<Level | null>(initialProfile?.level || null);
   const [selectedTags, setSelectedTags] = useState<string[]>(initialProfile?.interests || []);
@@ -168,7 +171,8 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: spacing.page,
@@ -202,8 +206,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   levelCardActive: {
-    backgroundColor: 'rgba(139,156,247,0.14)',
-    borderColor: 'rgba(139,156,247,0.28)',
+    backgroundColor: `${colors.accentFeed}24`,
+    borderColor: `${colors.accentFeed}47`,
   },
   levelCardTop: {
     flexDirection: 'row',
@@ -295,4 +299,5 @@ const styles = StyleSheet.create({
   loadingDotActive: {
     backgroundColor: colors.accentFeed,
   },
-});
+  });
+}

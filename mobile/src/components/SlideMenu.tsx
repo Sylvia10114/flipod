@@ -2,15 +2,17 @@ import React from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionButton, GlassCard } from './AppChrome';
-import { colors, radii, spacing, typography } from '../design';
+import { radii, spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
+import { useAppTheme } from '../theme';
 import type { DominantHand, LinkedIdentity, Profile } from '../types';
 
-export type MenuScreen = 'feed' | 'library' | 'practice' | 'vocab';
+export type MenuScreen = 'feed' | 'library' | 'practice' | 'vocab' | 'account';
 
 type Props = {
   visible: boolean;
   profile: Profile;
+  isGuest: boolean;
   dominantHand: DominantHand;
   activeScreen: MenuScreen;
   linkedIdentities: LinkedIdentity[];
@@ -21,9 +23,7 @@ type Props = {
   onClose: () => void;
   onNavigate: (screen: MenuScreen) => void;
   onToggleHand: () => void;
-  onLinkPhone: () => void;
-  onLinkApple: () => void;
-  onLogout: () => void;
+  onToggleTheme: () => void;
   onResetOnboarding: () => void;
 };
 
@@ -35,6 +35,8 @@ type MenuItemProps = {
 };
 
 function MenuItem({ label, count, active, onPress }: MenuItemProps) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   return (
     <Pressable onPress={onPress} style={[styles.menuItem, active && styles.menuItemActive]}>
       <Text style={[styles.menuItemText, active && styles.menuItemTextActive]}>{label}</Text>
@@ -46,6 +48,7 @@ function MenuItem({ label, count, active, onPress }: MenuItemProps) {
 export function SlideMenu({
   visible,
   profile,
+  isGuest,
   dominantHand,
   activeScreen,
   linkedIdentities,
@@ -56,15 +59,12 @@ export function SlideMenu({
   onClose,
   onNavigate,
   onToggleHand,
-  onLinkPhone,
-  onLinkApple,
-  onLogout,
+  onToggleTheme,
   onResetOnboarding,
 }: Props) {
+  const { colors, theme } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const hasPhone = linkedIdentities.some(item => item.provider === 'phone');
-  const hasApple = linkedIdentities.some(item => item.provider === 'apple');
-  const primaryIdentity = linkedIdentities[0];
   const interestText = profile.interests.length > 0 ? profile.interests.join(', ') : '未设置兴趣';
 
   return (
@@ -83,7 +83,7 @@ export function SlideMenu({
               <View style={styles.header}>
                 <View style={styles.headerCopy}>
                   <Text style={styles.greeting}>
-                    {primaryIdentity?.provider === 'phone' ? primaryIdentity.displayValue : 'Hi, Learner'}
+                    Hi, Learner
                   </Text>
                   <Text style={styles.meta}>{profile.level || 'B1'} · 已听 {clipsPlayed} 个片段</Text>
                 </View>
@@ -142,20 +142,39 @@ export function SlideMenu({
                 <Text style={styles.cardMeta}>{interestText}</Text>
               </GlassCard>
 
-              <GlassCard style={styles.accountCard}>
-                <Text style={styles.cardLabel}>账号</Text>
-                <Text style={styles.cardMeta}>
-                  {linkedIdentities.length > 0
-                    ? linkedIdentities.map(item => item.provider === 'phone' ? item.displayValue : 'Apple').join(' · ')
-                    : '未绑定登录方式'}
-                </Text>
-                <View style={styles.accountActions}>
-                  {!hasPhone ? <ActionButton label="绑定手机号" variant="secondary" onPress={onLinkPhone} style={styles.accountButton} /> : null}
-                  {!hasApple ? <ActionButton label="绑定 Apple" variant="secondary" onPress={onLinkApple} style={styles.accountButton} /> : null}
-                </View>
-              </GlassCard>
+              <Pressable
+                onPress={() => {
+                  triggerUiFeedback('menu');
+                  onNavigate('account');
+                }}
+              >
+                <GlassCard style={styles.accountCard}>
+                  <View style={styles.accountCardTop}>
+                    <View style={styles.accountCardCopy}>
+                      <Text style={styles.cardLabel}>账号</Text>
+                      <Text style={styles.cardValue}>进入账号页</Text>
+                    </View>
+                    <Text style={styles.accountChevron}>›</Text>
+                  </View>
+                  <Text style={styles.cardMeta}>
+                    {isGuest
+                      ? '当前为 Guest，可随时登录把本机进度保存到云端'
+                      : linkedIdentities.length > 0
+                      ? linkedIdentities.map(item => item.provider === 'phone' ? item.displayValue : 'Apple').join(' · ')
+                      : '查看绑定方式、退出登录和注销账号'}
+                  </Text>
+                </GlassCard>
+              </Pressable>
 
               <View style={styles.footer}>
+                <ActionButton
+                  label={theme === 'light' ? '切换深色' : '切换浅色'}
+                  variant="secondary"
+                  onPress={() => {
+                    triggerUiFeedback('menu');
+                    onToggleTheme();
+                  }}
+                />
                 <ActionButton
                   label={dominantHand === 'left' ? '切回右手模式' : '左手模式'}
                   variant="secondary"
@@ -172,14 +191,6 @@ export function SlideMenu({
                     onResetOnboarding();
                   }}
                 />
-                <ActionButton
-                  label="退出登录"
-                  variant="danger"
-                  onPress={() => {
-                    triggerUiFeedback('error');
-                    onLogout();
-                  }}
-                />
               </View>
             </ScrollView>
           </View>
@@ -189,10 +200,11 @@ export function SlideMenu({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
+  return StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.52)',
+    backgroundColor: colors.bgDim,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -209,7 +221,7 @@ const styles = StyleSheet.create({
   },
   sheet: {
     flex: 1,
-    backgroundColor: '#141418',
+    backgroundColor: colors.bgOverlay,
     borderRightWidth: 1,
     borderRightColor: colors.stroke,
     paddingHorizontal: spacing.lg,
@@ -283,6 +295,22 @@ const styles = StyleSheet.create({
   accountCard: {
     gap: spacing.sm,
   },
+  accountCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  accountCardCopy: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  accountChevron: {
+    color: colors.textTertiary,
+    fontSize: 24,
+    fontWeight: '600',
+    lineHeight: 24,
+  },
   cardLabel: {
     color: colors.textTertiary,
     fontSize: typography.micro,
@@ -299,14 +327,9 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     lineHeight: 20,
   },
-  accountActions: {
-    gap: spacing.sm,
-  },
-  accountButton: {
-    minHeight: 42,
-  },
   footer: {
     gap: spacing.sm,
     paddingBottom: spacing.lg,
   },
-});
+  });
+}

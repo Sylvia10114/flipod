@@ -15,6 +15,7 @@ import type {
 
 const DEVICE_ID_KEY = 'flipodDeviceId';
 const AUTH_TOKEN_KEY = 'flipodAuthToken';
+const GUEST_MODE_KEY = 'flipodGuestMode';
 const PROFILE_KEY = 'flipodProfile';
 const SETTINGS_KEY = 'flipodSettings';
 const PRACTICE_KEY = 'flipodPractice';
@@ -66,6 +67,23 @@ export async function saveAuthToken(token: string) {
 
 export async function clearAuthToken() {
   await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+}
+
+export async function loadGuestMode() {
+  const raw = await AsyncStorage.getItem(GUEST_MODE_KEY);
+  return raw === '1';
+}
+
+export async function saveGuestMode(enabled: boolean) {
+  if (enabled) {
+    await AsyncStorage.setItem(GUEST_MODE_KEY, '1');
+    return;
+  }
+  await AsyncStorage.removeItem(GUEST_MODE_KEY);
+}
+
+export async function clearGuestMode() {
+  await AsyncStorage.removeItem(GUEST_MODE_KEY);
 }
 
 export async function loadProfile(): Promise<Profile | null> {

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useAppTheme } from '../theme';
 
 type Props = {
   visible: boolean;
@@ -18,6 +19,8 @@ export function CalibrationToast({
   onAccept,
   onDismiss,
 }: Props) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   if (!visible || !message) return null;
 
   return (
@@ -37,7 +40,8 @@ export function CalibrationToast({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
+  return StyleSheet.create({
   wrap: {
     position: 'absolute',
     left: 20,
@@ -52,13 +56,13 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: 'rgba(18,18,28,0.98)',
+    backgroundColor: colors.bgOverlay,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.strokeStrong,
     gap: 14,
   },
   text: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 13,
     lineHeight: 19,
     textAlign: 'center',
@@ -74,19 +78,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonPrimary: {
-    backgroundColor: '#8B9CF7',
+    backgroundColor: colors.accentFeed,
   },
   buttonSecondary: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.bgSurface2,
   },
   buttonPrimaryText: {
-    color: '#09090B',
+    color: colors.textOnAccent,
     fontSize: 13,
     fontWeight: '700',
   },
   buttonSecondaryText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 13,
     fontWeight: '700',
   },
-});
+  });
+}

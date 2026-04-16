@@ -27,6 +27,7 @@ import {
   normalizeTopic,
 } from './src/feed-ranking';
 import { FeedScreen } from './src/screens/FeedScreen';
+import { AccountScreen } from './src/screens/AccountScreen';
 import { LibraryScreen } from './src/screens/LibraryScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
@@ -34,16 +35,19 @@ import { PracticeScreen } from './src/screens/PracticeScreen';
 import { VocabScreen } from './src/screens/VocabScreen';
 import { api } from './src/services/api';
 import { disposeUiFeedback, primeUiFeedback, triggerUiFeedback } from './src/feedback';
+import { AppThemeProvider } from './src/theme';
 import {
   DEFAULT_CALIBRATION_SIGNALS,
   clearAccountState,
   clearAuthToken,
+  clearGuestMode,
   DEFAULT_SETTINGS,
   getOrCreateDeviceId,
   loadAuthToken,
   loadBookmarks,
   loadCalibrationSignals,
   loadCalibrationState,
+  loadGuestMode,
   loadLikeEvents,
   loadLikedClips,
   loadListenedClips,
@@ -58,6 +62,7 @@ import {
   saveBookmarks,
   saveCalibrationSignals,
   saveCalibrationState,
+  saveGuestMode,
   saveLikeEvents,
   saveLikedClips,
   saveListenedClips,
@@ -200,6 +205,7 @@ export default function App() {
   const [booting, setBooting] = useState(true);
   const [deviceId, setDeviceId] = useState('');
   const [authToken, setAuthToken] = useState<string | null>(null);
+  const [guestMode, setGuestMode] = useState(false);
   const [linkedIdentities, setLinkedIdentities] = useState<LinkedIdentity[]>([]);
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState('');
@@ -230,6 +236,7 @@ export default function App() {
   const [practiceClipKey, setPracticeClipKey] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
+  const currentTheme = profile.theme === 'light' ? 'light' : 'dark';
   const playedKeysRef = useRef<Set<string>>(new Set());
   const calibrationStateRef = useRef<CalibrationState>({});
   const lastFeedSignatureRef = useRef<string | null>(null);
@@ -316,6 +323,7 @@ export default function App() {
         const [
           nextDeviceId,
           nextAuthToken,
+          nextGuestMode,
           localProfile,
           localSettings,
           localPractice,
@@ -331,6 +339,7 @@ export default function App() {
         ] = await Promise.all([
           getOrCreateDeviceId(),
           loadAuthToken(),
+          loadGuestMode(),
           loadProfile(),
           loadSettings(),
           loadPracticeData(),
@@ -355,6 +364,7 @@ export default function App() {
             : 0,
         };
         setDeviceId(nextDeviceId);
+        setGuestMode(nextGuestMode);
         setSettings(localSettings);
         setProfile(localProfile || defaultProfile);
         setPracticeData(localPractice);
@@ -381,7 +391,9 @@ export default function App() {
             if (cancelled) return;
             applyAuthSnapshot(snapshot);
             setAuthToken(nextAuthToken);
+            setGuestMode(false);
             await saveAuthBootstrapSnapshot(snapshot);
+            await clearGuestMode();
           } catch {
             await clearAuthToken();
             if (!cancelled) {
@@ -476,6 +488,8 @@ export default function App() {
   const practiceClipIndex = practiceClipKey ? findClipIndexByKey(clipsData, practiceClipKey) : -1;
   const practiceClip = practiceClipIndex >= 0 ? clipsData[practiceClipIndex] : null;
   const isAuthenticated = Boolean(authToken);
+  const isGuest = guestMode && !authToken;
+  const canAccessApp = Boolean(authToken || guestMode);
 
   const localMigrationPayload = useMemo(() => ({
     deviceId,
@@ -604,8 +618,10 @@ export default function App() {
     await Promise.all([
       saveAuthToken(payload.session.token),
       saveAuthBootstrapSnapshot(snapshot),
+      clearGuestMode(),
     ]);
     setAuthToken(payload.session.token);
+    setGuestMode(false);
     applyAuthSnapshot(snapshot);
     setActiveScreen('feed');
     setMenuOpen(false);
@@ -1019,6 +1035,24 @@ export default function App() {
     void persistSettings(nextSettings);
   };
 
+  const handleToggleTheme = useCallback(async () => {
+    const nextProfile = {
+      ...profile,
+      theme: profile.theme === 'light' ? 'dark' : 'light',
+    };
+    setProfile(nextProfile);
+    await saveProfile(nextProfile);
+
+    if (authToken) {
+      try {
+        await api.saveProfile(authToken, nextProfile);
+      } catch {
+      }
+    }
+
+    showToast(nextProfile.theme === 'light' ? '已切换到浅色模式' : '已切换到深色模式');
+  }, [authToken, profile, showToast]);
+
   const handleDismissPracticeIntro = () => {
     if (settings.practiceIntroSeen) return;
     const nextSettings = { ...settings, practiceIntroSeen: true };
@@ -1144,6 +1178,24 @@ export default function App() {
     setActiveScreen('practice');
   }, []);
 
+  const handleTryGuest = useCallback(async () => {
+    await saveGuestMode(true);
+    setGuestMode(true);
+    setAuthError('');
+    setShowAuthSheet(false);
+    setMenuOpen(false);
+    setActiveScreen('feed');
+  }, []);
+
+  const handleEndGuestMode = useCallback(async () => {
+    await clearGuestMode();
+    setGuestMode(false);
+    setShowAuthSheet(false);
+    setMenuOpen(false);
+    setActiveScreen('feed');
+    setAuthError('');
+  }, []);
+
   const handleLogout = useCallback(async () => {
     if (authToken) {
       try {
@@ -1155,9 +1207,11 @@ export default function App() {
     await Promise.all([
       clearAuthToken(),
       clearAccountState(),
+      clearGuestMode(),
     ]);
 
     setAuthToken(null);
+    setGuestMode(false);
     setLinkedIdentities([]);
     setProfile(defaultProfile);
     setPracticeData({});
@@ -1186,6 +1240,53 @@ export default function App() {
     setAuthError('');
   }, [authToken]);
 
+  const handleDeleteAccount = useCallback(async () => {
+    try {
+      if (authToken) {
+        await api.deleteAccount(authToken);
+      }
+    } catch (error) {
+      showToast(readErrorMessage(error));
+      return;
+    }
+
+    await Promise.all([
+      clearAuthToken(),
+      clearAccountState(),
+      clearGuestMode(),
+    ]);
+
+    setAuthToken(null);
+    setGuestMode(false);
+    setLinkedIdentities([]);
+    setProfile(defaultProfile);
+    setPracticeData({});
+    setBookmarks([]);
+    setVocabList([]);
+    setLikedClipKeys([]);
+    setListenedClipKeys([]);
+    setLikeEvents([]);
+    setKnownWords([]);
+    setReviewState({});
+    setCalibrationSignals(DEFAULT_CALIBRATION_SIGNALS);
+    setCalibrationState({});
+    playedKeysRef.current = new Set();
+    calibrationStateRef.current = {};
+    setCalibrationSuggestion(null);
+    setClipsPlayed(0);
+    setFeedOrderIds([]);
+    setFeedReasons({});
+    setSkippedClipIds([]);
+    setVisibleFeedCount(FEED_BATCH_SIZE);
+    lastFeedSignatureRef.current = null;
+    setActiveScreen('feed');
+    setMenuOpen(false);
+    setShowAuthSheet(false);
+    setPracticeClipKey(null);
+    setAuthError('');
+    showToast('账号已注销');
+  }, [authToken, showToast]);
+
   let content: React.ReactNode;
 
   if (booting) {
@@ -1195,7 +1296,7 @@ export default function App() {
         <Text style={styles.loadingText}>正在初始化 Flipod RN...</Text>
       </View>
     );
-  } else if (!isAuthenticated) {
+  } else if (!canAccessApp) {
     content = (
       <LoginScreen
         loading={authBusy}
@@ -1203,6 +1304,7 @@ export default function App() {
         onRequestSms={handleRequestSms}
         onVerifyPhone={handleVerifyPhone}
         onApplePress={handleApplePress}
+        onTryGuest={handleTryGuest}
       />
     );
   } else if (!profile.onboardingDone) {
@@ -1213,6 +1315,30 @@ export default function App() {
         bookmarks={bookmarks}
         onRemove={handleRemoveBookmark}
         onBack={() => setActiveScreen('feed')}
+      />
+    );
+  } else if (activeScreen === 'account') {
+    content = (
+      <AccountScreen
+        profile={profile}
+        isGuest={isGuest}
+        linkedIdentities={linkedIdentities}
+        onBack={() => setActiveScreen('feed')}
+        onLinkPhone={() => {
+          setAuthError('');
+          setShowAuthSheet(true);
+        }}
+        onLinkApple={() => {
+          setAuthError('');
+          setShowAuthSheet(true);
+        }}
+        onLogout={() => {
+          void handleLogout();
+        }}
+        onDeleteAccount={handleDeleteAccount}
+        onEndGuestMode={() => {
+          void handleEndGuestMode();
+        }}
       />
     );
   } else if (activeScreen === 'practice') {
@@ -1269,96 +1395,90 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <View style={styles.root}>
-        {content}
+      <AppThemeProvider theme={currentTheme}>
+        <View style={[styles.root, currentTheme === 'light' && styles.rootLight]}>
+          {content}
 
-        {isAuthenticated && !booting ? (
-          <>
-            <SlideMenu
-              visible={menuOpen}
-              profile={profile}
-              dominantHand={settings.dominantHand}
-              activeScreen={activeScreen}
-              linkedIdentities={linkedIdentities}
-              bookmarksCount={bookmarks.length}
-              practiceCount={practiceCount}
-              vocabCount={vocabList.length}
-              clipsPlayed={clipsPlayed}
-              onClose={() => setMenuOpen(false)}
-              onNavigate={screen => {
-                setActiveScreen(screen);
-                setMenuOpen(false);
-              }}
-              onToggleHand={handleToggleHand}
-              onLinkPhone={() => {
-                setMenuOpen(false);
-                setAuthError('');
-                setShowAuthSheet(true);
-              }}
-              onLinkApple={() => {
-                setMenuOpen(false);
-                setAuthError('');
-                setShowAuthSheet(true);
-              }}
-              onLogout={() => {
-                setMenuOpen(false);
-                void handleLogout();
-              }}
-              onResetOnboarding={() => {
-                setMenuOpen(false);
-                void handleResetProfile();
-              }}
-            />
+          {canAccessApp && !booting ? (
+            <>
+              <SlideMenu
+                visible={menuOpen}
+                profile={profile}
+                isGuest={isGuest}
+                dominantHand={settings.dominantHand}
+                activeScreen={activeScreen}
+                linkedIdentities={linkedIdentities}
+                bookmarksCount={bookmarks.length}
+                practiceCount={practiceCount}
+                vocabCount={vocabList.length}
+                clipsPlayed={clipsPlayed}
+                onClose={() => setMenuOpen(false)}
+                onNavigate={screen => {
+                  setActiveScreen(screen);
+                  setMenuOpen(false);
+                }}
+                onToggleHand={handleToggleHand}
+                onToggleTheme={() => {
+                  setMenuOpen(false);
+                  void handleToggleTheme();
+                }}
+                onResetOnboarding={() => {
+                  setMenuOpen(false);
+                  void handleResetProfile();
+                }}
+              />
 
-            <LoginScreen
-              visible={showAuthSheet}
-              mode="link"
-              linkedIdentities={linkedIdentities}
-              loading={authBusy}
-              errorMessage={authError}
-              onRequestSms={handleRequestSms}
-              onVerifyPhone={handleVerifyPhone}
-              onApplePress={handleApplePress}
-              onCancel={() => {
-                setShowAuthSheet(false);
-                setAuthError('');
-              }}
-            />
+              <LoginScreen
+                visible={showAuthSheet}
+                mode={isAuthenticated ? 'link' : 'sign-in'}
+                presentation="modal"
+                linkedIdentities={linkedIdentities}
+                loading={authBusy}
+                errorMessage={authError}
+                onRequestSms={handleRequestSms}
+                onVerifyPhone={handleVerifyPhone}
+                onApplePress={handleApplePress}
+                onCancel={() => {
+                  setShowAuthSheet(false);
+                  setAuthError('');
+                }}
+              />
 
-            <PracticeSessionModal
-              visible={Boolean(practiceClipKey && practiceClip)}
-              clip={practiceClip}
-              clipIndex={practiceClipIndex}
-              vocabWords={vocabWords}
-              knownWords={knownWords}
-              onSaveVocab={handleSaveVocab}
-              onMarkKnown={handleMarkKnown}
-              onRecordWordLookup={handleRecordWordLookup}
-              onComplete={handlePracticeComplete}
-              onDismiss={handleClosePractice}
-              onReturnFeed={handleReturnFeed}
-              onPracticeAgain={handlePracticeAgain}
-            />
+              <PracticeSessionModal
+                visible={Boolean(practiceClipKey && practiceClip)}
+                clip={practiceClip}
+                clipIndex={practiceClipIndex}
+                vocabWords={vocabWords}
+                knownWords={knownWords}
+                onSaveVocab={handleSaveVocab}
+                onMarkKnown={handleMarkKnown}
+                onRecordWordLookup={handleRecordWordLookup}
+                onComplete={handlePracticeComplete}
+                onDismiss={handleClosePractice}
+                onReturnFeed={handleReturnFeed}
+                onPracticeAgain={handlePracticeAgain}
+              />
 
-            <CalibrationToast
-              visible={Boolean(calibrationSuggestion)}
-              message={calibrationSuggestion?.message || ''}
-              acceptLabel={calibrationSuggestion?.direction === 'up' ? '升级' : '调整'}
-              dismissLabel={calibrationSuggestion?.direction === 'up' ? '暂不' : '保持'}
-              onAccept={() => {
-                triggerUiFeedback('success');
-                void handleAcceptCalibration();
-              }}
-              onDismiss={() => {
-                triggerUiFeedback('menu');
-                void handleDismissCalibration();
-              }}
-            />
+              <CalibrationToast
+                visible={Boolean(calibrationSuggestion)}
+                message={calibrationSuggestion?.message || ''}
+                acceptLabel={calibrationSuggestion?.direction === 'up' ? '升级' : '调整'}
+                dismissLabel={calibrationSuggestion?.direction === 'up' ? '暂不' : '保持'}
+                onAccept={() => {
+                  triggerUiFeedback('success');
+                  void handleAcceptCalibration();
+                }}
+                onDismiss={() => {
+                  triggerUiFeedback('menu');
+                  void handleDismissCalibration();
+                }}
+              />
 
-            <AppToast message={toastMessage} visible={toastVisible} />
-          </>
-        ) : null}
-      </View>
+              <AppToast message={toastMessage} visible={toastVisible} />
+            </>
+          ) : null}
+        </View>
+      </AppThemeProvider>
     </SafeAreaProvider>
   );
 }
@@ -1367,6 +1487,9 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#09090B',
+  },
+  rootLight: {
+    backgroundColor: '#F2F2F7',
   },
   centered: {
     flex: 1,

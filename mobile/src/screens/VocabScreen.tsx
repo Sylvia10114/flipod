@@ -1,8 +1,9 @@
 import React from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { EmptyState, GlassCard, PillButton, ScreenHeader, ScreenSurface } from '../components/AppChrome';
-import { colors, spacing, typography } from '../design';
+import { spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
+import { useAppTheme } from '../theme';
 import type { VocabEntry } from '../types';
 
 type Props = {
@@ -11,6 +12,8 @@ type Props = {
 };
 
 export function VocabScreen({ vocabList, onBack }: Props) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   return (
     <ScreenSurface>
       <ScreenHeader
@@ -62,7 +65,8 @@ export function VocabScreen({ vocabList, onBack }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
+  return StyleSheet.create({
   count: {
     color: colors.textSecondary,
     fontSize: typography.body,
@@ -108,7 +112,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    backgroundColor: 'rgba(196,169,110,0.16)',
+    backgroundColor: `${colors.accentGold}29`,
   },
   badgeText: {
     color: colors.accentGold,
@@ -129,4 +133,5 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     fontSize: typography.micro,
   },
-});
+  });
+}

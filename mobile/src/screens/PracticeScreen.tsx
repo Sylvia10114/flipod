@@ -8,7 +8,7 @@ import {
   ScreenHeader,
   ScreenSurface,
 } from '../components/AppChrome';
-import { colors, spacing, typography } from '../design';
+import { spacing, typography } from '../design';
 import {
   buildClipKey,
   findClipIndexByKey,
@@ -16,6 +16,7 @@ import {
   getSourceLabel,
 } from '../clip-utils';
 import { triggerUiFeedback } from '../feedback';
+import { useAppTheme } from '../theme';
 import type { Bookmark, Clip, PracticeMap, Profile, VocabEntry } from '../types';
 
 function getWordLevelWeight(level?: string) {
@@ -52,6 +53,8 @@ export function PracticeScreen({
   onBackToFeed,
   onStartPractice,
 }: Props) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const unpracticedCount = useMemo(() => {
     return bookmarks.filter(item => !practiceData[item.clipKey]?.done).length;
   }, [bookmarks, practiceData]);
@@ -250,7 +253,8 @@ export function PracticeScreen({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
+  return StyleSheet.create({
   count: {
     color: colors.textSecondary,
     fontSize: typography.body,
@@ -327,7 +331,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   statusFresh: {
-    backgroundColor: 'rgba(168,85,247,0.14)',
+    backgroundColor: `${colors.accentPractice}24`,
   },
   statusDone: {
     backgroundColor: colors.bgSurface2,
@@ -347,4 +351,5 @@ const styles = StyleSheet.create({
     fontSize: typography.caption,
     fontWeight: '700',
   },
-});
+  });
+}

@@ -1,7 +1,8 @@
 import React, { type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, layout, radii, spacing, typography } from '../design';
+import { layout, radii, spacing, typography } from '../design';
+import { useAppTheme } from '../theme';
 
 type ScreenSurfaceProps = {
   children: ReactNode;
@@ -9,6 +10,8 @@ type ScreenSurfaceProps = {
 };
 
 export function ScreenSurface({ children, style }: ScreenSurfaceProps) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   return <SafeAreaView style={[styles.surface, style]}>{children}</SafeAreaView>;
 }
 
@@ -21,6 +24,8 @@ type ScreenHeaderProps = {
 };
 
 export function ScreenHeader({ leading, trailing, title, subtitle, style }: ScreenHeaderProps) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={[styles.header, style]}>
       <View style={styles.headerSlot}>{leading}</View>
@@ -43,6 +48,8 @@ type PillButtonProps = {
 };
 
 export function PillButton({ label, onPress, active = false, subtle = false, style, textStyle }: PillButtonProps) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   return (
     <Pressable
       onPress={onPress}
@@ -73,6 +80,8 @@ export function ActionButton({
   variant = 'primary',
   style,
 }: ActionButtonProps) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   return (
     <Pressable
       disabled={disabled}
@@ -106,6 +115,8 @@ type GlassCardProps = {
 };
 
 export function GlassCard({ children, style, tone = 'default' }: GlassCardProps) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   return (
     <View
       style={[
@@ -126,7 +137,10 @@ type StepDotsProps = {
   accent?: string;
 };
 
-export function StepDots({ count = 4, active, accent = colors.accentPractice }: StepDotsProps) {
+export function StepDots({ count = 4, active, accent }: StepDotsProps) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
+  const resolvedAccent = accent || colors.accentPractice;
   return (
     <View style={styles.stepDots}>
       {Array.from({ length: count }).map((_, index) => {
@@ -136,8 +150,8 @@ export function StepDots({ count = 4, active, accent = colors.accentPractice }: 
             key={`dot-${dotIndex}`}
             style={[
               styles.stepDot,
-              dotIndex === active && { backgroundColor: accent, width: 14, height: 14 },
-              dotIndex !== active && dotIndex < active && { backgroundColor: `${accent}88` },
+              dotIndex === active && { backgroundColor: resolvedAccent, width: 14, height: 14 },
+              dotIndex !== active && dotIndex < active && { backgroundColor: `${resolvedAccent}88` },
             ]}
           />
         );
@@ -155,6 +169,8 @@ type PlayerLayoutProps = {
 };
 
 export function PlayerLayout({ header, children, controls, overlays, style }: PlayerLayoutProps) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={[styles.playerLayout, style]}>
       <View style={styles.playerHeader}>{header}</View>
@@ -171,10 +187,13 @@ type StatBlockProps = {
   accent?: string;
 };
 
-export function StatBlock({ value, label, accent = colors.textPrimary }: StatBlockProps) {
+export function StatBlock({ value, label, accent }: StatBlockProps) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
+  const resolvedAccent = accent || colors.textPrimary;
   return (
     <View style={styles.statBlock}>
-      <Text style={[styles.statValue, { color: accent }]}>{value}</Text>
+      <Text style={[styles.statValue, { color: resolvedAccent }]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
@@ -186,6 +205,8 @@ type EmptyStateProps = {
 };
 
 export function EmptyState({ title, body }: EmptyStateProps) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.emptyState}>
       <Text style={styles.emptyTitle}>{title}</Text>
@@ -194,7 +215,8 @@ export function EmptyState({ title, body }: EmptyStateProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
+return StyleSheet.create({
   surface: {
     flex: 1,
     backgroundColor: colors.bgApp,
@@ -370,3 +392,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+}

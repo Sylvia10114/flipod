@@ -1,8 +1,9 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ActionButton, GlassCard } from './AppChrome';
-import { colors, spacing, typography } from '../design';
+import { spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
+import { useAppTheme } from '../theme';
 import type { VocabEntry } from '../types';
 
 type ReviewCardProps = {
@@ -12,6 +13,8 @@ type ReviewCardProps = {
 };
 
 export function ReviewCard({ entry, onRemember, onForgot }: ReviewCardProps) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   return (
     <GlassCard tone="feed" style={styles.card}>
       <Text style={styles.kicker}>QUICK REVIEW</Text>
@@ -50,6 +53,8 @@ export function ProgressCard({
   cefrSegments,
   onDismiss,
 }: ProgressCardProps) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const total = cefrSegments.reduce((sum, item) => sum + item.value, 0);
   return (
     <View style={styles.progressWrap}>
@@ -89,7 +94,8 @@ export function ProgressCard({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
+  return StyleSheet.create({
   card: {
     gap: spacing.md,
   },
@@ -217,4 +223,5 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     minHeight: 50,
   },
-});
+  });
+}

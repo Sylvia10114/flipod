@@ -3,8 +3,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Ionicons } from '@expo/vector-icons';
 import { formatTime } from '../clip-utils';
-import { colors, radii, spacing, typography } from '../design';
+import { radii, spacing, typography } from '../design';
 import { triggerMediumHaptic } from '../feedback';
+import { useAppTheme } from '../theme';
 import type { DominantHand } from '../types';
 
 const SPEED_OPTIONS = [0.75, 1, 1.25, 1.5, 2] as const;
@@ -34,6 +35,8 @@ type TransportButtonProps = {
 };
 
 function TransportButton({ icon, onPress, primary = false }: TransportButtonProps) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const content = (() => {
     if (icon === 'play') {
       return (
@@ -82,6 +85,8 @@ export function PlayerControls({
   onToggleZh,
   onToggleMask,
 }: Props) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const nextRate = () => {
     const idx = SPEED_OPTIONS.indexOf(playbackRate as typeof SPEED_OPTIONS[number]);
     const next = SPEED_OPTIONS[(idx + 1) % SPEED_OPTIONS.length];
@@ -124,20 +129,20 @@ export function PlayerControls({
         <Pressable
           onPress={() => {
             triggerMediumHaptic();
-            onToggleZh();
-          }}
-          style={[styles.utilityButton, showZh && styles.utilityButtonActive]}
-        >
-          <Feather name="eye" size={18} color={showZh ? colors.textPrimary : colors.textTertiary} />
-        </Pressable>
-        <Pressable
-          onPress={() => {
-            triggerMediumHaptic();
             onToggleMask();
           }}
           style={[styles.utilityButton, masked && styles.utilityButtonActive]}
         >
-          <Text style={[styles.utilityButtonText, masked && styles.utilityButtonTextActive]}>A</Text>
+          <Feather name={masked ? 'eye-off' : 'eye'} size={18} color={masked ? colors.textPrimary : colors.textTertiary} />
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            triggerMediumHaptic();
+            onToggleZh();
+          }}
+          style={[styles.utilityButton, showZh && styles.utilityButtonActive]}
+        >
+          <Text style={[styles.utilityButtonText, showZh && styles.utilityButtonTextActive]}>A</Text>
         </Pressable>
         <Pressable
           onPress={() => {
@@ -155,7 +160,8 @@ export function PlayerControls({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
+  return StyleSheet.create({
   container: {
     width: '100%',
     gap: spacing.md,
@@ -230,4 +236,5 @@ const styles = StyleSheet.create({
   utilityButtonTextActive: {
     color: colors.textPrimary,
   },
-});
+  });
+}

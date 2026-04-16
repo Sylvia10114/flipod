@@ -1,8 +1,9 @@
 import React from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { EmptyState, GlassCard, PillButton, ScreenHeader, ScreenSurface } from '../components/AppChrome';
-import { colors, spacing, typography } from '../design';
+import { spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
+import { useAppTheme } from '../theme';
 import type { Bookmark } from '../types';
 
 type Props = {
@@ -12,6 +13,8 @@ type Props = {
 };
 
 export function LibraryScreen({ bookmarks, onRemove, onBack }: Props) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   return (
     <ScreenSurface>
       <ScreenHeader
@@ -56,7 +59,8 @@ export function LibraryScreen({ bookmarks, onRemove, onBack }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
+  return StyleSheet.create({
   count: {
     color: colors.textSecondary,
     fontSize: typography.body,
@@ -101,4 +105,5 @@ const styles = StyleSheet.create({
     fontSize: typography.caption,
     fontWeight: '700',
   },
-});
+  });
+}

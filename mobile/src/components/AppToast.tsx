@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useAppTheme } from '../theme';
 
 type Props = {
   message: string;
@@ -7,6 +8,8 @@ type Props = {
 };
 
 export function AppToast({ message, visible }: Props) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   if (!visible || !message) return null;
 
   return (
@@ -18,7 +21,8 @@ export function AppToast({ message, visible }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
+  return StyleSheet.create({
   wrap: {
     position: 'absolute',
     left: 20,
@@ -32,14 +36,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 16,
-    backgroundColor: 'rgba(18,18,28,0.96)',
+    backgroundColor: colors.bgOverlay,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.strokeStrong,
   },
   text: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 13,
     lineHeight: 18,
     textAlign: 'center',
   },
-});
+  });
+}

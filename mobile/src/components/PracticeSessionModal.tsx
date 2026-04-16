@@ -12,8 +12,8 @@ import {
   resolveClipAudioSource,
 } from '../clip-utils';
 import { CircularProgressPlayButton } from './CircularProgressPlayButton';
-import { colors } from '../design';
 import { triggerMediumHaptic, triggerUiFeedback } from '../feedback';
+import { useAppTheme } from '../theme';
 import type { Clip, ClipLineWord, PracticeRecord, VocabEntry } from '../types';
 import { ProgressBar } from './ProgressBar';
 import { WordLine } from './WordLine';
@@ -78,6 +78,8 @@ export function PracticeSessionModal({
   onReturnFeed,
   onPracticeAgain,
 }: Props) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -891,7 +893,8 @@ export function PracticeSessionModal({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.bgApp,
@@ -1344,4 +1347,5 @@ const styles = StyleSheet.create({
   summaryButtonTextPrimary: {
     color: colors.textPrimary,
   },
-});
+  });
+}

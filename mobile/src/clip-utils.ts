@@ -51,8 +51,7 @@ export function resolveDataUrl() {
 
 function normalizeContentPath(raw: string) {
   return raw
-    .replace(/^\//, '')
-    .replace(/^clips\//, '');
+    .replace(/^\//, '');
 }
 
 export function findLineAtTime(clip: Clip, time: number) {

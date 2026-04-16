@@ -31,9 +31,10 @@ import { PlayerControls } from '../components/PlayerControls';
 import { ProgressBar } from '../components/ProgressBar';
 import { WordLine } from '../components/WordLine';
 import { WordPopup } from '../components/WordPopup';
-import { colors, layout, radii, spacing, typography } from '../design';
+import { layout, radii, spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
 import { useFeedPlayer } from '../hooks/useFeedPlayer';
+import { useAppTheme } from '../theme';
 import type {
   Clip,
   ClipLine,
@@ -138,6 +139,8 @@ export function FeedScreen({
   onClipCompleted,
   onClipSkipped,
 }: Props) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const data = useMemo(() => clips.slice(0, visibleClipCount), [clips, visibleClipCount]);
   const pageHeight = Math.max(480, SCREEN_HEIGHT - insets.top - insets.bottom);
@@ -248,9 +251,9 @@ export function FeedScreen({
       }
     });
     return [
-      { label: 'A1/A2', value: buckets.a12, color: '#7AAFC4', labelColor: colors.textPrimary },
-      { label: 'B1', value: buckets.b1, color: '#C4A96E', labelColor: '#7AAFC4' },
-      { label: 'B2+', value: buckets.b2plus, color: '#C47A6E', labelColor: '#C4A96E' },
+      { label: 'A1/A2', value: buckets.a12, color: colors.cefrB1, labelColor: colors.textPrimary },
+      { label: 'B1', value: buckets.b1, color: colors.cefrB2, labelColor: colors.cefrB1 },
+      { label: 'B2+', value: buckets.b2plus, color: colors.cefrC1, labelColor: colors.cefrB2 },
     ];
   }, [vocabEntries]);
 
@@ -579,7 +582,8 @@ export function FeedScreen({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
+return StyleSheet.create({
   page: {
     justifyContent: 'space-between',
   },
@@ -737,3 +741,4 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
+}
