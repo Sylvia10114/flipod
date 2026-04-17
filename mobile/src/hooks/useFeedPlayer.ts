@@ -11,6 +11,7 @@ import {
   resolveClipAudioSource,
   sourceToClipRelativeSeconds,
 } from '../clip-utils';
+import { useUiI18n } from '../i18n';
 import type { Clip, PlaybackPhase } from '../types';
 
 type PendingPlaybackStart = {
@@ -50,6 +51,7 @@ const initialState: PlayerState = {
 };
 
 export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
+  const { t } = useUiI18n();
   const soundRef = useRef<Audio.Sound | null>(null);
   const clipsRef = useRef<Clip[]>(clips);
   const activeIndexRef = useRef(0);
@@ -126,7 +128,7 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
         ...prev,
         playbackPhase: status.error ? 'error' : prev.playbackPhase,
         pendingClipIndex: null,
-        errorMessage: status.error ? '音频暂时不可用' : prev.errorMessage,
+        errorMessage: status.error ? t('feed.audioUnavailable') : prev.errorMessage,
       }));
       return;
     }
@@ -204,7 +206,7 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
         errorMessage: playbackPhase === 'error' ? prev.errorMessage : null,
       };
     });
-  }, [clearPendingPlaybackStart]);
+  }, [clearPendingPlaybackStart, t]);
 
   const startPlayback = useCallback(async (clipIndex: number, publicRequestId?: number) => {
     const clip = clipsRef.current[clipIndex];
@@ -263,7 +265,7 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
           playbackPhase: 'error',
           currentRequestId: requestId,
           pendingClipIndex: null,
-          errorMessage: '音频加载失败，请稍后重试',
+          errorMessage: t('practiceSession.loadError'),
         }));
         return;
       }
@@ -281,7 +283,7 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
         positionMillis: 0,
         durationMillis: 0,
         activeLineIndex: 0,
-        errorMessage: '当前片段没有可播放音频',
+        errorMessage: t('practiceSession.noAudio'),
       }));
       return;
     }
@@ -372,13 +374,14 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
         positionMillis: 0,
         durationMillis: 0,
         activeLineIndex: 0,
-        errorMessage: '音频加载失败，请稍后重试',
+        errorMessage: t('practiceSession.loadError'),
       }));
     }
   }, [
     clearPendingPlaybackStart,
     createManualRequestId,
     handleStatus,
+    t,
     unloadCurrent,
     waitForMinimumLoadingFeedback,
   ]);

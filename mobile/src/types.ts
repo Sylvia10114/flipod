@@ -57,6 +57,7 @@ export type LocalizedClipContent = {
   locale: NativeLanguage;
   contentKey: string;
   contentHash: string;
+  title?: string;
   lines: LocalizedClipLine[];
   questions: LocalizedClipQuestion[];
   generatedAt?: string | null;

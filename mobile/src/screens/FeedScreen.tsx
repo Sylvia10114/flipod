@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
   FlatList,
   Linking,
   Modal,
@@ -34,10 +33,12 @@ import { PlayerControls } from '../components/PlayerControls';
 import { ProgressBar } from '../components/ProgressBar';
 import { WordLine } from '../components/WordLine';
 import { WordPopup } from '../components/WordPopup';
-import { layout, radii, spacing, typography } from '../design';
+import { radii, spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
 import { useFeedPlayer } from '../hooks/useFeedPlayer';
 import { useUiI18n } from '../i18n';
+import { getLocalizedTopicLabel } from '../i18n/helpers';
+import { useResponsiveLayout } from '../responsive';
 import { useAppTheme } from '../theme';
 import type {
   Clip,
@@ -50,7 +51,6 @@ import type {
   VocabEntry,
 } from '../types';
 
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 const ONE_DAY = 24 * 60 * 60 * 1000;
 const AUTOPLAY_DEBOUNCE_MS = 180;
 
@@ -153,10 +153,11 @@ export function FeedScreen({
 }: Props) {
   const { colors } = useAppTheme();
   const { t } = useUiI18n();
+  const metrics = useResponsiveLayout();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const data = useMemo(() => clips.slice(0, visibleClipCount), [clips, visibleClipCount]);
-  const pageHeight = Math.max(480, SCREEN_HEIGHT - insets.top - insets.bottom);
+  const pageHeight = Math.max(480, metrics.windowHeight - insets.top - insets.bottom);
   const [showZh, setShowZh] = useState(false);
   const [masked, setMasked] = useState(false);
   const [popup, setPopup] = useState<PopupState>(null);
@@ -305,6 +306,11 @@ export function FeedScreen({
       { label: 'B2+', value: buckets.b2plus, color: colors.cefrC1, labelColor: colors.cefrB2 },
     ];
   }, [vocabEntries]);
+  const playerWidth = metrics.playerContentWidth;
+  const lineWrapWidth = Math.min(
+    Math.max(playerWidth - (metrics.isTablet ? 120 : 72), 240),
+    metrics.isTablet ? 560 : 320
+  );
 
   const finalizeSession = useCallback(() => {
     const session = sessionRef.current;
@@ -467,7 +473,16 @@ export function FeedScreen({
         renderItem={({ item }: ListRenderItemInfo<FeedPage>) => {
           if (item.type === 'review') {
             return (
-              <View style={[styles.cardPage, { minHeight: pageHeight, paddingBottom: 18 + insets.bottom }]}>
+              <View
+                style={[
+                  styles.cardPage,
+                  {
+                    minHeight: pageHeight,
+                    paddingBottom: 18 + insets.bottom,
+                    paddingHorizontal: metrics.pageHorizontalPadding,
+                  },
+                ]}
+              >
                 <ReviewCard
                   entry={item.entry}
                   onForgot={() => {
@@ -485,7 +500,16 @@ export function FeedScreen({
 
           if (item.type === 'progress') {
             return (
-              <View style={[styles.cardPage, { minHeight: pageHeight, paddingBottom: 18 + insets.bottom }]}>
+              <View
+                style={[
+                  styles.cardPage,
+                  {
+                    minHeight: pageHeight,
+                    paddingBottom: 18 + insets.bottom,
+                    paddingHorizontal: metrics.pageHorizontalPadding,
+                  },
+                ]}
+              >
                 <ProgressCard
                   clipsPlayed={clipsPlayed}
                   minutesListened={minutesListened}
@@ -517,7 +541,7 @@ export function FeedScreen({
             <View style={[styles.page, { minHeight: pageHeight, paddingBottom: 18 + insets.bottom }]}>
               <PlayerLayout
                 header={
-                  <View style={styles.headerBlock}>
+                  <View style={[styles.headerBlock, { width: playerWidth }]}>
                     <View style={styles.headerActions}>
                       <Pressable onPress={() => {
                         triggerUiFeedback('menu');
@@ -546,14 +570,17 @@ export function FeedScreen({
                           setTranscriptIndex(index);
                         }}
                       >
-                        <Text style={styles.clipSource}>{getSourceLabel(clip.source)}{clip.tag ? ` · ${clip.tag}` : ''}</Text>
+                        <Text style={styles.clipSource}>
+                          {getSourceLabel(clip.source)}
+                          {clip.tag ? ` · ${getLocalizedTopicLabel(clip.tag, t)}` : ''}
+                        </Text>
                       </Pressable>
                       {clip._aiReason ? <Text style={styles.clipReason}>{clip._aiReason}</Text> : null}
                     </View>
                   </View>
                 }
                 controls={
-                  <View style={styles.controlsWrap}>
+                  <View style={[styles.controlsWrap, { width: playerWidth }]}>
                     <PlayerControls
                       playbackPhase={isActive ? playbackPhase : 'idle'}
                       disabled={isActive && playbackPhase === 'loading'}
@@ -613,7 +640,7 @@ export function FeedScreen({
                   </View>
                 }
               >
-                <View style={styles.contentStage}>
+                <View style={[styles.contentStage, { width: playerWidth }]}>
                   {showLoadingOverlay ? (
                     <View style={styles.loadingOverlay}>
                       <View style={styles.loadingOverlayCard}>
@@ -642,7 +669,7 @@ export function FeedScreen({
                     </Pressable>
                   </View>
 
-                  <View style={styles.lineWrap}>
+                  <View style={[styles.lineWrap, { width: lineWrapWidth }]}>
                     {line ? (
                       <WordLine
                         line={line}
@@ -712,17 +739,29 @@ export function FeedScreen({
         onRequestClose={() => setTranscriptIndex(null)}
       >
         <SafeAreaView style={styles.transcriptSafeArea}>
-          <View style={styles.transcriptHeader}>
-            <View style={styles.transcriptHeaderCopy}>
-              <Text style={styles.transcriptTitle}>{transcriptClip?.title}</Text>
-              <Text style={styles.transcriptMeta}>
-                {transcriptClip ? getSourceLabel(transcriptClip.source) : ''}
-              </Text>
+          <View style={[styles.transcriptHeader, { paddingHorizontal: metrics.pageHorizontalPadding }]}>
+            <View style={[styles.transcriptHeaderInner, { maxWidth: metrics.modalMaxWidth }]}>
+              <View style={styles.transcriptHeaderCopy}>
+                <Text style={styles.transcriptTitle}>{transcriptClip?.title}</Text>
+                <Text style={styles.transcriptMeta}>
+                  {transcriptClip ? getSourceLabel(transcriptClip.source) : ''}
+                </Text>
+              </View>
+              <PillButton label={t('common.close')} onPress={() => setTranscriptIndex(null)} />
             </View>
-            <PillButton label="close" onPress={() => setTranscriptIndex(null)} />
           </View>
 
-          <ScrollView contentContainerStyle={styles.transcriptBody}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.transcriptBody,
+              {
+                paddingHorizontal: metrics.pageHorizontalPadding,
+                maxWidth: metrics.modalMaxWidth,
+                alignSelf: 'center',
+                width: '100%',
+              },
+            ]}
+          >
             {(transcriptClip?.lines || []).map((entry, idx) => (
               <GlassCard key={`${idx}-${entry.start}`} style={styles.transcriptLine}>
                 <Text
@@ -762,7 +801,6 @@ return StyleSheet.create({
     paddingHorizontal: spacing.page,
   },
   headerBlock: {
-    width: layout.playerContentWidth,
     gap: spacing.sm,
   },
   headerActions: {
@@ -803,11 +841,9 @@ return StyleSheet.create({
     maxWidth: 260,
   },
   controlsWrap: {
-    width: layout.playerContentWidth,
     gap: spacing.md,
   },
   contentStage: {
-    width: layout.playerContentWidth,
     minHeight: 260,
     justifyContent: 'center',
     alignItems: 'center',
@@ -857,7 +893,6 @@ return StyleSheet.create({
     justifyContent: 'center',
   },
   lineWrap: {
-    width: 280,
     alignItems: 'center',
     gap: 12,
   },
@@ -878,9 +913,12 @@ return StyleSheet.create({
     backgroundColor: colors.bgApp,
   },
   transcriptHeader: {
-    paddingHorizontal: spacing.page,
     paddingTop: 12,
     paddingBottom: 12,
+    alignItems: 'center',
+  },
+  transcriptHeaderInner: {
+    width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -900,7 +938,6 @@ return StyleSheet.create({
     fontSize: typography.caption,
   },
   transcriptBody: {
-    paddingHorizontal: spacing.page,
     paddingBottom: 32,
     gap: spacing.sm,
   },

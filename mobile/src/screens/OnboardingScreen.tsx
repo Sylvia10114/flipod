@@ -1,12 +1,14 @@
 import { Audio, type AVPlaybackStatus } from 'expo-av';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ActionButton, GlassCard, ScreenSurface, StepDots } from '../components/AppChrome';
+import { LanguageSelectionList } from '../components/LanguageSelectionList';
 import { getDevicePreferredNativeLanguage } from '../content-localization';
 import { radii, spacing, typography } from '../design';
 import { INTERESTS, LEVELS } from '../constants';
 import { triggerUiFeedback } from '../feedback';
-import { createUiI18n, getNativeLanguageOptions } from '../i18n';
+import { createUiI18n } from '../i18n';
+import { useResponsiveLayout } from '../responsive';
 import { useAppTheme } from '../theme';
 import type { Level, NativeLanguage, Profile } from '../types';
 
@@ -59,6 +61,7 @@ const MIN_LOADING_FEEDBACK_MS = 320;
 
 export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
   const { colors } = useAppTheme();
+  const metrics = useResponsiveLayout();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [selectedLevel, setSelectedLevel] = useState<Level | null>(initialProfile?.level || null);
@@ -79,7 +82,6 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
   const playbackRequestRef = useRef(0);
 
   const ui = useMemo(() => createUiI18n(selectedNativeLanguage), [selectedNativeLanguage]);
-  const languageOptions = useMemo(() => getNativeLanguageOptions(), []);
   const currentStaircase = STAIRCASE[staircaseIndex];
   const levelCopy = useMemo<Record<Level, string>>(() => ({
     'A1-A2': ui.t('onboarding.levelA1A2'),
@@ -302,51 +304,32 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
     setStep(3);
   };
 
-  const renderLanguagePicker = () => (
-    <View style={styles.languageSection}>
-      <Text style={styles.languageTitle}>{ui.t('onboarding.nativeLanguageTitle')}</Text>
-      <View style={styles.languageWrap}>
-        {languageOptions.map(option => {
-          const active = option.code === selectedNativeLanguage;
-          return (
-            <Pressable
-              key={option.code}
-              onPress={() => {
-                triggerUiFeedback('card');
-                setSelectedNativeLanguage(option.code);
-              }}
-              style={[styles.languageChip, active && styles.languageChipActive]}
-            >
-              <Text style={[styles.languageChipText, active && styles.languageChipTextActive]}>{option.selfLabel}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-
   const renderLanguageStep = () => (
-    <>
-      <View style={styles.topBlock}>
+    <ScrollView
+      style={styles.languageScroll}
+      contentContainerStyle={[
+        styles.languageScrollContent,
+        { maxWidth: metrics.contentMaxWidth, alignSelf: 'center', width: '100%' },
+      ]}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={[styles.topBlock, styles.languageTopBlock]}>
         <StepDots count={3} active={1} accent={colors.accentFeed} />
         <Text style={styles.title}>{ui.t('onboarding.nativeLanguageTitle')}</Text>
         <Text style={styles.subtitle}>{ui.t('onboarding.languagePageSubtitle')}</Text>
       </View>
 
-      <View style={styles.languageStepWrap}>
-        {renderLanguagePicker()}
-      </View>
-
-      <Text style={styles.hint}>{ui.t('onboarding.languagePageHint')}</Text>
-      <ActionButton
-        label={ui.t('common.continue')}
-        onPress={() => {
+      <LanguageSelectionList
+        selectedLanguage={selectedNativeLanguage}
+        onSelect={language => {
           triggerUiFeedback('onboarding');
+          setSelectedNativeLanguage(language);
           setStep(2);
         }}
-        style={styles.primaryAction}
       />
-    </>
+
+      <Text style={[styles.hint, styles.languageHint]}>{ui.t('onboarding.languagePageHint')}</Text>
+    </ScrollView>
   );
 
   const renderManualLevelFallback = () => (
@@ -531,7 +514,17 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
 
   return (
     <ScreenSurface>
-      <View style={styles.container}>
+      <View
+        style={[
+          styles.container,
+          {
+            paddingHorizontal: metrics.pageHorizontalPadding,
+            width: '100%',
+            maxWidth: metrics.contentMaxWidth,
+            alignSelf: 'center',
+          },
+        ]}
+      >
         {step === 1 ? renderLanguageStep() : null}
 
         {step === 2 ? (manualLevelFallback ? renderManualLevelFallback() : renderStaircase()) : null}
@@ -610,48 +603,16 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       gap: spacing.md,
       marginBottom: 28,
     },
-    languageSection: {
-      width: '100%',
-      gap: spacing.sm,
-      alignItems: 'center',
-    },
-    languageStepWrap: {
+    languageScroll: {
       flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
       width: '100%',
     },
-    languageTitle: {
-      color: colors.textSecondary,
-      fontSize: typography.caption,
-      fontWeight: '600',
+    languageScrollContent: {
+      flexGrow: 1,
+      paddingBottom: spacing.xl,
     },
-    languageWrap: {
-      width: '100%',
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      justifyContent: 'center',
-      gap: spacing.sm,
-    },
-    languageChip: {
-      paddingHorizontal: 12,
-      paddingVertical: 7,
-      borderRadius: radii.pill,
-      borderWidth: 1,
-      borderColor: colors.strokeStrong,
-      backgroundColor: colors.bgSurface1,
-    },
-    languageChipActive: {
-      backgroundColor: `${colors.accentFeed}1f`,
-      borderColor: colors.accentFeed,
-    },
-    languageChipText: {
-      color: colors.textSecondary,
-      fontSize: typography.caption,
-      fontWeight: '600',
-    },
-    languageChipTextActive: {
-      color: colors.accentFeed,
+    languageTopBlock: {
+      marginBottom: spacing.xl,
     },
     title: {
       color: colors.textPrimary,
@@ -665,6 +626,9 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       lineHeight: 22,
       textAlign: 'center',
       paddingHorizontal: 18,
+    },
+    languageHint: {
+      marginTop: spacing.lg,
     },
     staircaseWrap: {
       flex: 1,

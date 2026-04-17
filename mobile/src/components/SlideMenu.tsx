@@ -4,6 +4,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ActionButton, GlassCard } from './AppChrome';
 import { radii, spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
+import { useUiI18n } from '../i18n';
+import { joinLocalizedTopics } from '../i18n/helpers';
+import { useResponsiveLayout } from '../responsive';
 import { useAppTheme } from '../theme';
 import type { DominantHand, LinkedIdentity, Profile } from '../types';
 
@@ -63,9 +66,16 @@ export function SlideMenu({
   onResetOnboarding,
 }: Props) {
   const { colors, theme } = useAppTheme();
+  const { t } = useUiI18n();
+  const metrics = useResponsiveLayout();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const interestText = profile.interests.length > 0 ? profile.interests.join(', ') : '未设置兴趣';
+  const interestText = profile.interests.length > 0
+    ? joinLocalizedTopics(profile.interests, t)
+    : t('menu.noInterests');
+  const linkedIdentityLabels = linkedIdentities.map(item => (
+    item.provider === 'phone' ? item.displayValue : t('account.appleProvider')
+  ));
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
@@ -75,17 +85,18 @@ export function SlideMenu({
           style={[
             styles.sheetWrap,
             dominantHand === 'left' ? styles.sheetWrapRight : styles.sheetWrapLeft,
+            { width: metrics.menuWidth, maxWidth: metrics.menuWidth },
             { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 20) },
           ]}
         >
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, { paddingHorizontal: metrics.isTablet ? spacing.xl : spacing.lg }]}>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
               <View style={styles.header}>
                 <View style={styles.headerCopy}>
-                  <Text style={styles.greeting}>
-                    Hi, Learner
+                  <Text style={styles.greeting}>{t('menu.greeting')}</Text>
+                  <Text style={styles.meta}>
+                    {profile.level || 'B1'} · {t('menu.listenedCount', { count: clipsPlayed })}
                   </Text>
-                  <Text style={styles.meta}>{profile.level || 'B1'} · 已听 {clipsPlayed} 个片段</Text>
                 </View>
                 <Pressable
                   onPress={() => {
@@ -100,7 +111,7 @@ export function SlideMenu({
 
               <View style={styles.menuList}>
                 <MenuItem
-                  label="继续听"
+                  label={t('menu.continueListening')}
                   active={activeScreen === 'feed'}
                   onPress={() => {
                     triggerUiFeedback('menu');
@@ -108,7 +119,7 @@ export function SlideMenu({
                   }}
                 />
                 <MenuItem
-                  label="我的收藏"
+                  label={t('menu.savedClips')}
                   count={bookmarksCount}
                   active={activeScreen === 'library'}
                   onPress={() => {
@@ -117,7 +128,7 @@ export function SlideMenu({
                   }}
                 />
                 <MenuItem
-                  label="听力练习"
+                  label={t('menu.practice')}
                   count={practiceCount}
                   active={activeScreen === 'practice'}
                   onPress={() => {
@@ -126,7 +137,7 @@ export function SlideMenu({
                   }}
                 />
                 <MenuItem
-                  label="词汇本"
+                  label={t('menu.vocab')}
                   count={vocabCount}
                   active={activeScreen === 'vocab'}
                   onPress={() => {
@@ -137,7 +148,7 @@ export function SlideMenu({
               </View>
 
               <GlassCard style={styles.profileCard}>
-                <Text style={styles.cardLabel}>学习偏好</Text>
+                <Text style={styles.cardLabel}>{t('menu.learningPreferences')}</Text>
                 <Text style={styles.cardValue}>CEFR: {profile.level || 'B1'}</Text>
                 <Text style={styles.cardMeta}>{interestText}</Text>
               </GlassCard>
@@ -151,24 +162,24 @@ export function SlideMenu({
                 <GlassCard style={styles.accountCard}>
                   <View style={styles.accountCardTop}>
                     <View style={styles.accountCardCopy}>
-                      <Text style={styles.cardLabel}>账号</Text>
-                      <Text style={styles.cardValue}>进入账号页</Text>
+                      <Text style={styles.cardLabel}>{t('menu.account')}</Text>
+                      <Text style={styles.cardValue}>{t('menu.openAccount')}</Text>
                     </View>
                     <Text style={styles.accountChevron}>›</Text>
                   </View>
                   <Text style={styles.cardMeta}>
                     {isGuest
-                      ? '当前为 Guest，可随时登录把本机进度保存到云端'
+                      ? t('menu.accountGuestBody')
                       : linkedIdentities.length > 0
-                      ? linkedIdentities.map(item => item.provider === 'phone' ? item.displayValue : 'Apple').join(' · ')
-                      : '查看绑定方式、退出登录和注销账号'}
+                        ? linkedIdentityLabels.join(' · ')
+                        : t('menu.accountManageBody')}
                   </Text>
                 </GlassCard>
               </Pressable>
 
               <View style={styles.footer}>
                 <ActionButton
-                  label={theme === 'light' ? '切换深色' : '切换浅色'}
+                  label={theme === 'light' ? t('menu.switchToDarkMode') : t('menu.switchToLightMode')}
                   variant="secondary"
                   onPress={() => {
                     triggerUiFeedback('menu');
@@ -176,7 +187,7 @@ export function SlideMenu({
                   }}
                 />
                 <ActionButton
-                  label={dominantHand === 'left' ? '切回右手模式' : '左手模式'}
+                  label={dominantHand === 'left' ? t('menu.switchToRightHanded') : t('menu.switchToLeftHanded')}
                   variant="secondary"
                   onPress={() => {
                     triggerUiFeedback('menu');
@@ -184,7 +195,7 @@ export function SlideMenu({
                   }}
                 />
                 <ActionButton
-                  label="重置引导"
+                  label={t('menu.resetOnboarding')}
                   variant="secondary"
                   onPress={() => {
                     triggerUiFeedback('menu');
@@ -211,7 +222,6 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
   },
   sheetWrap: {
     flex: 1,
-    maxWidth: 320,
   },
   sheetWrapLeft: {
     alignSelf: 'flex-start',
@@ -250,8 +260,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
     fontSize: typography.caption,
   },
   closeButton: {
-    width: 30,
-    height: 30,
+    width: 44,
+    height: 44,
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',

@@ -79,6 +79,8 @@ const TOPIC_ADJACENCY: Record<Topic, Topic[]> = {
 };
 
 type FeedBucket = 'primary' | 'adjacent' | 'probe' | 'other';
+type RecommendationKind = 'probe' | 'interest' | 'adjacent' | 'default' | 'level_match';
+type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
 
 type RankedCandidate = ClipManifestEntry & {
   bucket: FeedBucket;
@@ -89,6 +91,31 @@ type RankedCandidate = ClipManifestEntry & {
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
+}
+
+function interpolate(template: string, params?: Record<string, string | number>) {
+  if (!params) return template;
+  return template.replace(/\{(\w+)\}/g, (_, key: string) => String(params[key] ?? `{${key}}`));
+}
+
+const DEFAULT_REASON_COPY: Record<RecommendationKind, string> = {
+  probe: 'This clip is closest to your current {level} range to calibrate the next recommendations.',
+  interest: 'Starting with {topic} because you picked it and it fits {level}.',
+  adjacent: 'Here is a nearby {topic} direction so the feed can widen without jumping too far.',
+  default: 'Here is a new direction with manageable difficulty so the feed does not get too repetitive.',
+  level_match: 'This clip is a close fit for your current {level} level.',
+};
+
+function fallbackTranslate(key: string, params?: Record<string, string | number>) {
+  if (key.startsWith('topics.')) {
+    return key.split('.').pop() || key;
+  }
+  const normalized = key.replace(/^recommendation\./, '') as RecommendationKind;
+  return interpolate(DEFAULT_REASON_COPY[normalized] || key, params);
+}
+
+function getLocalizedTopicLabel(topic: Topic, translate: TranslateFn) {
+  return translate(`topics.${topic}`);
 }
 
 function allocateClipId(preferredId: number | undefined, index: number, clipCount: number, usedIds: Set<number>) {
@@ -243,6 +270,50 @@ function getAdjacentTopics(interests: Topic[]) {
   return adjacent;
 }
 
+function getRecommendationKind(
+  topic: Topic,
+  interests: Set<Topic>,
+  adjacentTopics: Set<Topic>,
+  preferredBucket?: FeedBucket | null
+): RecommendationKind {
+  if (preferredBucket === 'probe') {
+    return 'probe';
+  }
+  if (interests.has(topic)) {
+    return 'interest';
+  }
+  if (adjacentTopics.has(topic)) {
+    return 'adjacent';
+  }
+  return 'default';
+}
+
+export function buildLocalizedRecommendationReason(
+  clip: Pick<ClipManifestEntry, 'topic'> | Pick<Clip, 'topic' | 'tag'>,
+  level: Level,
+  interests: string[],
+  translate: TranslateFn = fallbackTranslate,
+  preferredBucket?: FeedBucket | null
+) {
+  const normalizedTopic = normalizeTopic(String(clip.topic || ('tag' in clip ? clip.tag : '') || 'story'));
+  const interestTopics = interests.map(item => normalizeTopic(item));
+  const interestSet = new Set<Topic>(interestTopics);
+  const adjacentTopics = getAdjacentTopics(interestTopics);
+  const topicLabel = getLocalizedTopicLabel(normalizedTopic, translate);
+  const kind = getRecommendationKind(normalizedTopic, interestSet, adjacentTopics, preferredBucket);
+
+  if (kind === 'probe') {
+    return translate('recommendation.probe', { level });
+  }
+  if (kind === 'interest') {
+    return translate('recommendation.interest', { topic: topicLabel, level });
+  }
+  if (kind === 'adjacent') {
+    return translate('recommendation.adjacent', { topic: topicLabel });
+  }
+  return translate('recommendation.default', { level });
+}
+
 function getPattern(maxItems: number) {
   if (maxItems <= STARTER_PATTERN.length) {
     return STARTER_PATTERN.slice(0, maxItems);
@@ -283,21 +354,22 @@ function buildReason(
   level: Level,
   bucket: FeedBucket,
   interests: Set<Topic>,
-  adjacentTopics: Set<Topic>
+  adjacentTopics: Set<Topic>,
+  translate: TranslateFn = fallbackTranslate
 ) {
-  if (bucket === 'probe') {
-    return `这条难度最贴近你当前的 ${level} 区间，先用来校准后面的推荐。`;
-  }
+  const kind = getRecommendationKind(clip.topic, interests, adjacentTopics, bucket);
+  const topicLabel = getLocalizedTopicLabel(clip.topic, translate);
 
-  if (interests.has(clip.topic)) {
-    return `先从你选过的 ${clip.topic} 开始，难度也更贴近 ${level}。`;
+  if (kind === 'probe') {
+    return translate('recommendation.probe', { level });
   }
-
-  if (adjacentTopics.has(clip.topic)) {
-    return `插一条相邻的 ${clip.topic}，换个方向但不跳太远。`;
+  if (kind === 'interest') {
+    return translate('recommendation.interest', { topic: topicLabel, level });
   }
-
-  return `先给你一条难度可控的新方向，避免 feed 太单一。`;
+  if (kind === 'adjacent') {
+    return translate('recommendation.adjacent', { topic: topicLabel });
+  }
+  return translate('recommendation.default', { level });
 }
 
 function isAllowedCandidate(
@@ -394,7 +466,11 @@ export function collectClipIdsByKeys(clips: Clip[], clipKeys: string[], getClipK
   return ids;
 }
 
-export function buildLocalStarterFeedFallback(manifest: ClipManifestEntry[], request: RankRequest): RankedFeedItem[] {
+export function buildLocalStarterFeedFallback(
+  manifest: ClipManifestEntry[],
+  request: RankRequest,
+  translate: TranslateFn = fallbackTranslate
+): RankedFeedItem[] {
   const maxItems = Math.max(1, request.maxItems || 10);
   const level = request.level || 'B1';
   const targetCenter = getTargetCenter(level);
@@ -449,17 +525,21 @@ export function buildLocalStarterFeedFallback(manifest: ClipManifestEntry[], req
     usedSources.add(next.candidate.source);
     reasons.set(
       next.candidate.id,
-      buildReason(next.candidate, level, next.bucket, interestSet, adjacentTopics)
+      buildReason(next.candidate, level, next.bucket, interestSet, adjacentTopics, translate)
     );
   }
 
   return result.map(item => ({
     id: item.id,
-    reason: reasons.get(item.id) || `这条内容的难度更贴近你当前的 ${level}。`,
+    reason: reasons.get(item.id) || translate('recommendation.level_match', { level }),
   }));
 }
 
-export function applyRankedFeedOrder(clips: Clip[], feed: RankedFeedItem[]) {
+export function applyRankedFeedOrder(
+  clips: Clip[],
+  feed: RankedFeedItem[],
+  resolveReason?: (clip: Clip, item: RankedFeedItem, index: number) => string
+) {
   const byId = new Map<number, Clip>();
   clips.forEach(clip => {
     if (typeof clip.id === 'number') {
@@ -468,12 +548,12 @@ export function applyRankedFeedOrder(clips: Clip[], feed: RankedFeedItem[]) {
   });
 
   return feed
-    .map(item => {
+    .map((item, index) => {
       const clip = byId.get(item.id);
       if (!clip) return null;
       return {
         ...clip,
-        _aiReason: item.reason,
+        _aiReason: resolveReason ? resolveReason(clip, item, index) : item.reason,
       };
     })
     .filter(Boolean) as Clip[];

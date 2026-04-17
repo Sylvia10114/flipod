@@ -27,6 +27,7 @@ import { type MenuScreen, SlideMenu } from './src/components/SlideMenu';
 import { demoClips } from './src/demo-clips';
 import {
   applyRankedFeedOrder,
+  buildLocalizedRecommendationReason,
   buildClipManifest,
   buildLocalStarterFeedFallback,
   collectClipIdsByKeys,
@@ -362,7 +363,12 @@ export default function App() {
     const items = targetClips.reduce<Array<ReturnType<typeof buildContentTranslationRequestItem>>>((acc, entry) => {
       const item = buildContentTranslationRequestItem(entry.clip, entry.index);
       const cacheKey = buildContentTranslationCacheKey(item.contentKey, locale, item.contentHash);
-      if (contentTranslations[cacheKey] || inflightContentTranslationsRef.current.has(cacheKey)) {
+      const cachedTranslation = contentTranslations[cacheKey];
+      const cacheMissingTitle = !String(cachedTranslation?.title || '').trim();
+      if (
+        (cachedTranslation && !cacheMissingTitle)
+        || inflightContentTranslationsRef.current.has(cacheKey)
+      ) {
         return acc;
       }
       inflightContentTranslationsRef.current.add(cacheKey);
@@ -708,20 +714,28 @@ export default function App() {
       reason: feedReasons[id] || '',
     }));
   }, [feedOrderIds, feedReasons]);
+  const resolveRankReason = useCallback((clip: Clip) => {
+    return buildLocalizedRecommendationReason(
+      clip,
+      normalizeLevel(profile.level),
+      profile.interests,
+      ui.t
+    );
+  }, [profile.interests, profile.level, ui]);
   const currentRawClips = useMemo(() => {
-    const rankedClips = applyRankedFeedOrder(clipsData, rankedFeed);
+    const rankedClips = applyRankedFeedOrder(clipsData, rankedFeed, clip => resolveRankReason(clip));
     if (rankedClips.length > 0) {
       return rankedClips;
     }
     return clipsData;
-  }, [clipsData, rankedFeed]);
+  }, [clipsData, rankedFeed, resolveRankReason]);
   const currentClips = useMemo(() => {
-    const rankedClips = applyRankedFeedOrder(localizedClipsData, rankedFeed);
+    const rankedClips = applyRankedFeedOrder(localizedClipsData, rankedFeed, clip => resolveRankReason(clip));
     if (rankedClips.length > 0) {
       return rankedClips;
     }
     return localizedClipsData;
-  }, [localizedClipsData, rankedFeed]);
+  }, [localizedClipsData, rankedFeed, resolveRankReason]);
   const visibleFeedClips = useMemo(() => {
     return currentClips.slice(0, visibleFeedCount);
   }, [currentClips, visibleFeedCount]);
@@ -823,7 +837,7 @@ export default function App() {
     } = {}
   ) => {
     const request = buildRankRequestForProfile(nextProfile, options.mode || 'starter');
-    const fallbackFeed = buildLocalStarterFeedFallback(rankContextRef.current.manifest, request);
+    const fallbackFeed = buildLocalStarterFeedFallback(rankContextRef.current.manifest, request, ui.t);
 
     if (options.pendingState) {
       setFeedState(options.pendingState);
@@ -861,7 +875,7 @@ export default function App() {
       applySignature();
       return fallbackFeed;
     }
-  }, [applyFeedItems, authToken, buildRankRequestForProfile]);
+  }, [applyFeedItems, authToken, buildRankRequestForProfile, ui]);
 
   useEffect(() => {
     if (!authToken || !clipsLoaded || !profile.onboardingDone) return;
@@ -1656,6 +1670,7 @@ export default function App() {
     content = (
       <LibraryScreen
         bookmarks={bookmarks}
+        clips={localizedClipsData}
         onRemove={handleRemoveBookmark}
         onBack={() => setActiveScreen('feed')}
       />
@@ -1691,7 +1706,7 @@ export default function App() {
     content = (
       <PracticeScreen
         bookmarks={bookmarks}
-        clips={clipsData}
+        clips={localizedClipsData}
         profile={profile}
         vocabList={vocabList}
         practiceData={practiceData}

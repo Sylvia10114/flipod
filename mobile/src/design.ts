@@ -52,8 +52,24 @@ export const typography = {
 };
 
 export const layout = {
+  compactPhoneBreakpoint: 380,
+  tabletBreakpoint: 768,
+  pagePaddingCompact: 16,
   pagePadding: 20,
+  pagePaddingTablet: 32,
+  contentMaxWidthTablet: 760,
+  contentMaxWidthLandscape: 920,
+  modalMaxWidthTablet: 760,
+  modalMaxWidthLandscape: 860,
+  menuMaxWidthPhone: 320,
+  menuMaxWidthTablet: 380,
   playerHeaderHeight: 120,
+  playerHeaderHeightTablet: 132,
   playerControlsHeight: 180,
-  playerContentWidth: 335,
+  playerControlsHeightTablet: 196,
+  playerContentMinWidth: 280,
+  playerContentMaxWidthPhone: 420,
+  playerContentMaxWidthTablet: 620,
+  playerContentMaxWidthLandscape: 720,
+  minTouchTarget: 44,
 };

@@ -1,18 +1,20 @@
 import React, { type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { layout, radii, spacing, typography } from '../design';
+import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
+import { radii, spacing, typography } from '../design';
+import { useResponsiveLayout } from '../responsive';
 import { useAppTheme } from '../theme';
 
 type ScreenSurfaceProps = {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
+  edges?: Edge[];
 };
 
-export function ScreenSurface({ children, style }: ScreenSurfaceProps) {
+export function ScreenSurface({ children, style, edges }: ScreenSurfaceProps) {
   const { colors } = useAppTheme();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
-  return <SafeAreaView style={[styles.surface, style]}>{children}</SafeAreaView>;
+  return <SafeAreaView edges={edges} style={[styles.surface, style]}>{children}</SafeAreaView>;
 }
 
 type ScreenHeaderProps = {
@@ -25,15 +27,37 @@ type ScreenHeaderProps = {
 
 export function ScreenHeader({ leading, trailing, title, subtitle, style }: ScreenHeaderProps) {
   const { colors } = useAppTheme();
+  const metrics = useResponsiveLayout();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   return (
-    <View style={[styles.header, style]}>
-      <View style={styles.headerSlot}>{leading}</View>
-      <View style={styles.headerCenter}>
-        <Text style={styles.headerTitle}>{title}</Text>
-        {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}
+    <View style={[styles.headerOuter, style]}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingHorizontal: metrics.pageHorizontalPadding,
+            minHeight: metrics.touchTarget + 14,
+            maxWidth: metrics.contentMaxWidth,
+          },
+        ]}
+      >
+        <View style={[styles.headerSlot, { minWidth: metrics.touchTarget + 8, minHeight: metrics.touchTarget }]}>
+          {leading}
+        </View>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>{title}</Text>
+          {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}
+        </View>
+        <View
+          style={[
+            styles.headerSlot,
+            styles.headerSlotEnd,
+            { minWidth: metrics.touchTarget + 8, minHeight: metrics.touchTarget },
+          ]}
+        >
+          {trailing}
+        </View>
       </View>
-      <View style={[styles.headerSlot, styles.headerSlotEnd]}>{trailing}</View>
     </View>
   );
 }
@@ -49,12 +73,15 @@ type PillButtonProps = {
 
 export function PillButton({ label, onPress, active = false, subtle = false, style, textStyle }: PillButtonProps) {
   const { colors } = useAppTheme();
+  const metrics = useResponsiveLayout();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   return (
     <Pressable
       onPress={onPress}
+      hitSlop={8}
       style={[
         styles.pillButton,
+        { minHeight: metrics.touchTarget, paddingHorizontal: metrics.isTablet ? 16 : 14 },
         subtle && styles.pillButtonSubtle,
         active && styles.pillButtonActive,
         style,
@@ -81,13 +108,16 @@ export function ActionButton({
   style,
 }: ActionButtonProps) {
   const { colors } = useAppTheme();
+  const metrics = useResponsiveLayout();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   return (
     <Pressable
       disabled={disabled}
       onPress={onPress}
+      hitSlop={6}
       style={[
         styles.actionButton,
+        { minHeight: metrics.isTablet ? 52 : 48 },
         variant === 'secondary' && styles.actionButtonSecondary,
         variant === 'success' && styles.actionButtonSuccess,
         variant === 'danger' && styles.actionButtonDanger,
@@ -170,12 +200,24 @@ type PlayerLayoutProps = {
 
 export function PlayerLayout({ header, children, controls, overlays, style }: PlayerLayoutProps) {
   const { colors } = useAppTheme();
+  const metrics = useResponsiveLayout();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   return (
-    <View style={[styles.playerLayout, style]}>
-      <View style={styles.playerHeader}>{header}</View>
+    <View
+      style={[
+        styles.playerLayout,
+        {
+          paddingHorizontal: metrics.pageHorizontalPadding,
+          width: '100%',
+          maxWidth: metrics.contentMaxWidth,
+          alignSelf: 'center',
+        },
+        style,
+      ]}
+    >
+      <View style={[styles.playerHeader, { minHeight: metrics.playerHeaderHeight }]}>{header}</View>
       <View style={styles.playerContent}>{children}</View>
-      <View style={styles.playerControls}>{controls}</View>
+      <View style={[styles.playerControls, { minHeight: metrics.playerControlsHeight }]}>{controls}</View>
       {overlays}
     </View>
   );
@@ -221,16 +263,20 @@ return StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bgApp,
   },
+  headerOuter: {
+    width: '100%',
+    alignItems: 'center',
+  },
   header: {
-    paddingHorizontal: layout.pagePadding,
-    paddingTop: 12,
+    width: '100%',
+    paddingTop: 8,
     paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
   },
   headerSlot: {
-    minWidth: 52,
+    justifyContent: 'center',
   },
   headerSlotEnd: {
     alignItems: 'flex-end',
@@ -251,9 +297,7 @@ return StyleSheet.create({
     textAlign: 'center',
   },
   pillButton: {
-    minHeight: 36,
     borderRadius: radii.pill,
-    paddingHorizontal: 14,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.bgSurface2,
@@ -277,7 +321,6 @@ return StyleSheet.create({
   },
   actionButton: {
     borderRadius: radii.md,
-    minHeight: 48,
     paddingHorizontal: spacing.xl,
     justifyContent: 'center',
     alignItems: 'center',
@@ -342,10 +385,8 @@ return StyleSheet.create({
   },
   playerLayout: {
     flex: 1,
-    paddingHorizontal: layout.pagePadding,
   },
   playerHeader: {
-    height: layout.playerHeaderHeight,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -355,7 +396,6 @@ return StyleSheet.create({
     alignItems: 'center',
   },
   playerControls: {
-    height: layout.playerControlsHeight,
     justifyContent: 'center',
     alignItems: 'center',
     gap: spacing.md,

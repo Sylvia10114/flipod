@@ -1,9 +1,11 @@
 import React from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ActionButton, GlassCard, PillButton, ScreenHeader, ScreenSurface } from '../components/AppChrome';
+import { LanguageSelectionList } from '../components/LanguageSelectionList';
 import { spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
 import { getNativeLanguageOptions, useUiI18n } from '../i18n';
+import { useResponsiveLayout } from '../responsive';
 import { useAppTheme } from '../theme';
 import type { LinkedIdentity, NativeLanguage, Profile } from '../types';
 
@@ -20,8 +22,8 @@ type Props = {
   onChangeNativeLanguage: (nativeLanguage: NativeLanguage) => void;
 };
 
-function getIdentityLabel(identity: LinkedIdentity) {
-  return identity.provider === 'phone' ? '手机号' : 'Apple';
+function getIdentityLabel(identity: LinkedIdentity, t: (key: string) => string) {
+  return identity.provider === 'phone' ? t('account.phoneProvider') : t('account.appleProvider');
 }
 
 export function AccountScreen({
@@ -38,16 +40,22 @@ export function AccountScreen({
 }: Props) {
   const { colors } = useAppTheme();
   const { t } = useUiI18n();
+  const metrics = useResponsiveLayout();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const hasPhone = linkedIdentities.some(item => item.provider === 'phone');
   const hasApple = linkedIdentities.some(item => item.provider === 'apple');
   const languageOptions = React.useMemo(() => getNativeLanguageOptions(), []);
+  const [languagePickerVisible, setLanguagePickerVisible] = React.useState(false);
+  const currentLanguageOption = React.useMemo(
+    () => languageOptions.find(option => option.code === profile.nativeLanguage) ?? languageOptions[0],
+    [languageOptions, profile.nativeLanguage]
+  );
 
   const confirmLogout = React.useCallback(() => {
-    Alert.alert('退出登录', '会退出当前账号，但不会删除云端资料。', [
-      { text: '取消', style: 'cancel' },
+    Alert.alert(t('account.alertLogoutTitle'), t('account.alertLogoutBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: '退出登录',
+        text: t('account.logout'),
         style: 'destructive',
         onPress: () => {
           triggerUiFeedback('error');
@@ -55,13 +63,13 @@ export function AccountScreen({
         },
       },
     ]);
-  }, [onLogout]);
+  }, [onLogout, t]);
 
   const confirmDeleteAccount = React.useCallback(() => {
-    Alert.alert('注销账号', '会删除当前账号及云端学习资料，这个操作无法恢复。', [
-      { text: '取消', style: 'cancel' },
+    Alert.alert(t('account.alertDeleteTitle'), t('account.alertDeleteBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: '注销账号',
+        text: t('account.deleteAccount'),
         style: 'destructive',
         onPress: () => {
           triggerUiFeedback('error');
@@ -69,13 +77,13 @@ export function AccountScreen({
         },
       },
     ]);
-  }, [onDeleteAccount]);
+  }, [onDeleteAccount, t]);
 
   const confirmEndGuestMode = React.useCallback(() => {
-    Alert.alert('返回登录页', '会退出当前 Guest 会话并回到登录页，本机数据会暂时保留。', [
-      { text: '取消', style: 'cancel' },
+    Alert.alert(t('account.alertEndGuestTitle'), t('account.alertEndGuestBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: '返回登录页',
+        text: t('account.returnToLogin'),
         style: 'destructive',
         onPress: () => {
           triggerUiFeedback('menu');
@@ -83,129 +91,203 @@ export function AccountScreen({
         },
       },
     ]);
-  }, [onEndGuestMode]);
+  }, [onEndGuestMode, t]);
+
+  const closeLanguagePicker = React.useCallback(() => {
+    triggerUiFeedback('menu');
+    setLanguagePickerVisible(false);
+  }, []);
+
+  const openLanguagePicker = React.useCallback(() => {
+    triggerUiFeedback('menu');
+    setLanguagePickerVisible(true);
+  }, []);
+
+  const handleLanguageSelect = React.useCallback((nativeLanguage: NativeLanguage) => {
+    triggerUiFeedback('menu');
+    if (nativeLanguage !== profile.nativeLanguage) {
+      onChangeNativeLanguage(nativeLanguage);
+    }
+    setLanguagePickerVisible(false);
+  }, [onChangeNativeLanguage, profile.nativeLanguage]);
 
   return (
-    <ScreenSurface>
-      <ScreenHeader
-        leading={<PillButton label="返回" onPress={() => {
-          triggerUiFeedback('menu');
-          onBack();
-        }} />}
-        title="账号"
-        subtitle={isGuest ? '当前是 Guest 模式，可随时登录保存到云端' : '管理登录方式、主题偏好和账号动作'}
-      />
+    <>
+      <ScreenSurface>
+        <ScreenHeader
+          leading={<PillButton label={t('common.back')} onPress={() => {
+            triggerUiFeedback('menu');
+            onBack();
+          }} />}
+          title={t('account.title')}
+          subtitle={isGuest ? t('account.subtitleGuest') : t('account.subtitleAccount')}
+        />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <GlassCard style={styles.heroCard}>
-          <Text style={styles.heroTitle}>{isGuest ? 'Guest' : 'Hi, Learner'}</Text>
-          <Text style={styles.heroBody}>
-            {isGuest
-              ? `当前等级 ${profile.level || 'B1'} · 收藏、词汇和练习会先保存在本机`
-              : `当前等级 ${profile.level || 'B1'} · 已绑定 ${linkedIdentities.length} 种登录方式`}
-          </Text>
-        </GlassCard>
-
-        <GlassCard style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>{t('account.languageSectionTitle')}</Text>
-          <Text style={styles.sectionBody}>{t('account.languageSectionBody')}</Text>
-          <View style={styles.languageWrap}>
-            {languageOptions.map(option => {
-              const selected = profile.nativeLanguage === option.code;
-              return (
-                <PillButton
-                  key={option.code}
-                  label={option.selfLabel}
-                  subtle={!selected}
-                  onPress={() => {
-                    triggerUiFeedback('menu');
-                    onChangeNativeLanguage(option.code);
-                  }}
-                />
-              );
-            })}
-          </View>
-        </GlassCard>
-
-        <GlassCard style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>{isGuest ? '当前身份' : '已绑定登录方式'}</Text>
-          {!isGuest && linkedIdentities.length > 0 ? (
-            <View style={styles.identityList}>
-              {linkedIdentities.map(identity => (
-                <View key={`${identity.provider}-${identity.providerUserId}`} style={styles.identityRow}>
-                  <View style={styles.identityCopy}>
-                    <Text style={styles.identityLabel}>{getIdentityLabel(identity)}</Text>
-                    <Text style={styles.identityValue}>{identity.displayValue}</Text>
-                  </View>
-                  <Text style={styles.identityStatus}>已绑定</Text>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingHorizontal: metrics.pageHorizontalPadding,
+              maxWidth: metrics.contentMaxWidth,
+              alignSelf: 'center',
+              width: '100%',
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          <GlassCard style={styles.summaryCard}>
+            <View style={styles.summaryTopRow}>
+              <Text style={styles.summaryEyebrow}>{isGuest ? t('account.guestLabel') : t('account.title')}</Text>
+              {profile.level ? (
+                <View style={styles.levelBadge}>
+                  <Text style={styles.levelBadgeText}>{profile.level}</Text>
                 </View>
-              ))}
+              ) : null}
             </View>
-          ) : (
+            <Text style={styles.summaryTitle}>
+              {isGuest ? t('account.heroGuest', { level: profile.level || 'B1' }) : t('account.heroAccount', { level: profile.level || 'B1', count: linkedIdentities.length })}
+            </Text>
+            <Text style={styles.summaryBody}>
+              {isGuest ? t('account.subtitleGuest') : t('menu.accountManageBody')}
+            </Text>
+          </GlassCard>
+
+          <GlassCard style={styles.sectionCard}>
+            <Text style={styles.sectionLabel}>{t('menu.learningPreferences')}</Text>
+            <Text style={styles.sectionBody}>{t('account.languageSectionBody')}</Text>
+            <Pressable onPress={openLanguagePicker} style={styles.settingRow}>
+              <Text style={styles.settingTitle}>{t('account.languageSectionTitle')}</Text>
+              <View style={styles.settingMeta}>
+                <Text style={styles.settingValue}>{currentLanguageOption.selfLabel}</Text>
+                <Text style={styles.settingChevron}>›</Text>
+              </View>
+            </Pressable>
+          </GlassCard>
+
+          <GlassCard style={styles.sectionCard}>
+            <Text style={styles.sectionLabel}>{isGuest ? t('account.currentIdentity') : t('account.linkedMethods')}</Text>
             <Text style={styles.sectionBody}>
               {isGuest
-                ? '你现在以 Guest 身份使用 Flipod。登录后可以把当前本机进度并入正式账号。'
-                : '当前还没有绑定额外登录方式。'}
+                ? t('account.guestIdentityBody')
+                : linkedIdentities.length > 0
+                  ? t('menu.accountManageBody')
+                  : t('account.noExtraMethods')}
             </Text>
-          )}
-        </GlassCard>
 
-        <GlassCard style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>{isGuest ? '升级为正式账号' : '绑定新的方式'}</Text>
-          <Text style={styles.sectionBody}>
-            {isGuest
-              ? '用手机号或 Apple 登录后，当前本机收藏、词汇和练习进度会并入账号。'
-              : '绑定后，换设备登录会更稳，也更容易找回账号。'}
-          </Text>
-          <View style={styles.actionGroup}>
-            {!hasPhone ? (
-              <ActionButton
-                label={isGuest ? 'Phone Login' : '绑定手机号'}
-                variant="secondary"
-                onPress={() => {
-                  triggerUiFeedback('menu');
-                  onLinkPhone();
-                }}
-              />
+            {!isGuest && linkedIdentities.length > 0 ? (
+              <View style={styles.identityList}>
+                {linkedIdentities.map(identity => (
+                  <View key={`${identity.provider}-${identity.providerUserId}`} style={styles.identityRow}>
+                    <View style={styles.identityCopy}>
+                      <Text style={styles.identityLabel}>{getIdentityLabel(identity, t)}</Text>
+                      <Text style={styles.identityValue}>{identity.displayValue}</Text>
+                    </View>
+                    <Text style={styles.identityStatus}>{t('account.linkedStatus')}</Text>
+                  </View>
+                ))}
+              </View>
             ) : null}
-            {!hasApple ? (
-              <ActionButton
-                label={isGuest ? 'Apple Login' : '绑定 Apple'}
-                variant="secondary"
-                onPress={() => {
-                  triggerUiFeedback('menu');
-                  onLinkApple();
-                }}
-              />
-            ) : null}
-            {hasPhone && hasApple ? (
-              <Text style={styles.allBoundText}>
-                {isGuest ? '当前设备已经准备好升级登录。' : '手机号和 Apple 都已经绑定好了。'}
-              </Text>
-            ) : null}
-          </View>
-        </GlassCard>
+          </GlassCard>
 
-        <GlassCard style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>账号操作</Text>
-          <View style={styles.actionGroup}>
-            {isGuest ? (
-              <ActionButton label="返回登录页" variant="secondary" onPress={confirmEndGuestMode} />
-            ) : (
-              <>
-                <ActionButton label="退出登录" variant="secondary" onPress={confirmLogout} />
-                <ActionButton label="注销账号" variant="danger" onPress={confirmDeleteAccount} />
-              </>
-            )}
+          <GlassCard style={styles.sectionCard}>
+            <Text style={styles.sectionLabel}>{isGuest ? t('account.upgradeGuest') : t('account.linkNewMethod')}</Text>
+            <Text style={styles.sectionBody}>
+              {isGuest
+                ? t('account.upgradeGuestBody')
+                : t('account.linkNewMethodBody')}
+            </Text>
+            <View style={styles.actionGroup}>
+              {!hasPhone ? (
+                <ActionButton
+                  label={isGuest ? t('login.phoneLogin') : t('account.linkPhone')}
+                  variant="secondary"
+                  onPress={() => {
+                    triggerUiFeedback('menu');
+                    onLinkPhone();
+                  }}
+                />
+              ) : null}
+              {!hasApple ? (
+                <ActionButton
+                  label={isGuest ? t('account.appleProvider') : t('account.linkApple')}
+                  variant="secondary"
+                  onPress={() => {
+                    triggerUiFeedback('menu');
+                    onLinkApple();
+                  }}
+                />
+              ) : null}
+              {hasPhone && hasApple ? (
+                <Text style={styles.allBoundText}>
+                  {isGuest ? t('account.readyToUpgrade') : t('account.allMethodsLinked')}
+                </Text>
+              ) : null}
+            </View>
+          </GlassCard>
+
+          <GlassCard style={[styles.sectionCard, styles.dangerCard]}>
+            <Text style={styles.sectionLabel}>{t('account.actions')}</Text>
+            <View style={styles.actionGroup}>
+              {isGuest ? (
+                <ActionButton label={t('account.returnToLogin')} variant="secondary" onPress={confirmEndGuestMode} />
+              ) : (
+                <>
+                  <ActionButton label={t('account.logout')} variant="secondary" onPress={confirmLogout} />
+                  <ActionButton label={t('account.deleteAccount')} variant="danger" onPress={confirmDeleteAccount} />
+                </>
+              )}
+            </View>
+            <Text style={styles.warningText}>
+              {isGuest
+                ? t('account.warningGuest')
+                : t('account.warningDelete')}
+            </Text>
+          </GlassCard>
+        </ScrollView>
+      </ScreenSurface>
+
+      <Modal
+        visible={languagePickerVisible}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={closeLanguagePicker}
+      >
+        <ScreenSurface edges={['bottom']}>
+          <View style={[styles.languageModalSurface, { paddingTop: Math.max(metrics.insets.top + 6, 18) }]}>
+            <ScreenHeader
+              leading={<PillButton label={t('common.back')} onPress={closeLanguagePicker} />}
+              title={t('account.languageSectionTitle')}
+            />
+
+            <ScrollView
+              contentContainerStyle={[
+                styles.languageModalContent,
+                {
+                  paddingHorizontal: metrics.pageHorizontalPadding,
+                  maxWidth: metrics.modalMaxWidth,
+                  alignSelf: 'center',
+                  width: '100%',
+                },
+              ]}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.languageModalIntro}>
+                <Text style={styles.languageModalTitle}>{t('onboarding.nativeLanguageTitle')}</Text>
+                <Text style={styles.languageModalSubtitle}>{t('onboarding.languagePageSubtitle')}</Text>
+              </View>
+
+              <LanguageSelectionList
+                selectedLanguage={profile.nativeLanguage}
+                trailingMode="check"
+                onSelect={handleLanguageSelect}
+              />
+
+              <Text style={styles.languageModalHint}>{t('onboarding.languagePageHint')}</Text>
+            </ScrollView>
           </View>
-          <Text style={styles.warningText}>
-            {isGuest
-              ? 'Guest 模式下的数据会先保存在本机；登录后可以并入正式账号。'
-              : '注销后会删除当前账号及云端学习记录，请谨慎操作。'}
-          </Text>
-        </GlassCard>
-      </ScrollView>
-    </ScreenSurface>
+        </ScreenSurface>
+      </Modal>
+    </>
   );
 }
 
@@ -214,23 +296,44 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
     content: {
       paddingHorizontal: spacing.page,
       paddingBottom: 40,
+      gap: spacing.lg,
+    },
+    summaryCard: {
+      gap: spacing.md,
+      paddingTop: spacing.xl,
+      paddingBottom: spacing.xl,
+    },
+    summaryTopRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
       gap: spacing.md,
     },
-    heroCard: {
-      gap: spacing.sm,
-    },
-    heroTitle: {
-      color: colors.textPrimary,
-      fontSize: 24,
+    summaryEyebrow: {
+      color: colors.textTertiary,
+      fontSize: typography.micro,
       fontWeight: '700',
+      letterSpacing: 1.1,
+      textTransform: 'uppercase',
     },
-    heroBody: {
+    summaryTitle: {
+      color: colors.textPrimary,
+      fontSize: 22,
+      fontWeight: '700',
+      lineHeight: 30,
+    },
+    summaryBody: {
       color: colors.textSecondary,
       fontSize: typography.body,
       lineHeight: 20,
     },
     sectionCard: {
       gap: spacing.md,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.lg,
+    },
+    dangerCard: {
+      borderColor: `${colors.accentError}22`,
     },
     sectionLabel: {
       color: colors.textTertiary,
@@ -243,17 +346,59 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: typography.body,
       lineHeight: 20,
     },
-    identityList: {
+    settingRow: {
+      minHeight: 60,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.strokeStrong,
+      backgroundColor: colors.bgSurface1,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.md,
+    },
+    settingTitle: {
+      flex: 1,
+      color: colors.textPrimary,
+      fontSize: typography.bodyLg,
+      fontWeight: '700',
+    },
+    settingMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
       gap: spacing.sm,
+      flexShrink: 1,
+      maxWidth: '48%',
+    },
+    settingValue: {
+      color: colors.textSecondary,
+      fontSize: typography.body,
+      fontWeight: '600',
+      flexShrink: 1,
+      textAlign: 'right',
+    },
+    settingChevron: {
+      color: colors.textTertiary,
+      fontSize: 24,
+      fontWeight: '500',
+      marginTop: -1,
+    },
+    identityList: {
+      gap: spacing.md,
     },
     identityRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: spacing.md,
-      paddingVertical: spacing.sm,
-      borderTopWidth: 1,
-      borderTopColor: colors.stroke,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.strokeStrong,
+      backgroundColor: colors.bgSurface1,
     },
     identityCopy: {
       flex: 1,
@@ -277,11 +422,6 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
     actionGroup: {
       gap: spacing.sm,
     },
-    languageWrap: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-    },
     allBoundText: {
       color: colors.textSecondary,
       fontSize: typography.caption,
@@ -290,6 +430,53 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       color: colors.textTertiary,
       fontSize: typography.caption,
       lineHeight: 18,
+    },
+    levelBadge: {
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      backgroundColor: `${colors.accentFeed}18`,
+      borderWidth: 1,
+      borderColor: `${colors.accentFeed}42`,
+    },
+    levelBadgeText: {
+      color: colors.accentFeed,
+      fontSize: typography.caption,
+      fontWeight: '700',
+    },
+    languageModalContent: {
+      flexGrow: 1,
+      paddingHorizontal: spacing.page,
+      paddingTop: spacing.md,
+      paddingBottom: 40,
+    },
+    languageModalSurface: {
+      flex: 1,
+    },
+    languageModalIntro: {
+      alignItems: 'center',
+      gap: spacing.md,
+      marginBottom: spacing.xl,
+    },
+    languageModalTitle: {
+      color: colors.textPrimary,
+      fontSize: 24,
+      fontWeight: '700',
+      textAlign: 'center',
+    },
+    languageModalSubtitle: {
+      color: colors.textSecondary,
+      fontSize: typography.bodyLg,
+      lineHeight: 22,
+      textAlign: 'center',
+      paddingHorizontal: 18,
+    },
+    languageModalHint: {
+      marginTop: spacing.lg,
+      color: colors.textSecondary,
+      fontSize: typography.caption,
+      lineHeight: 18,
+      textAlign: 'center',
     },
   });
 }

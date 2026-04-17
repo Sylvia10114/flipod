@@ -16,6 +16,10 @@ import {
   getSourceLabel,
 } from '../clip-utils';
 import { triggerUiFeedback } from '../feedback';
+import { buildLocalizedRecommendationReason } from '../feed-ranking';
+import { useUiI18n } from '../i18n';
+import { getLocalizedTopicLabel } from '../i18n/helpers';
+import { useResponsiveLayout } from '../responsive';
 import { useAppTheme } from '../theme';
 import type { Bookmark, Clip, PracticeMap, Profile, VocabEntry } from '../types';
 
@@ -54,6 +58,8 @@ export function PracticeScreen({
   onStartPractice,
 }: Props) {
   const { colors } = useAppTheme();
+  const { t } = useUiI18n();
+  const metrics = useResponsiveLayout();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const unpracticedCount = useMemo(() => {
     return bookmarks.filter(item => !practiceData[item.clipKey]?.done).length;
@@ -83,13 +89,23 @@ export function PracticeScreen({
         if (bookmarkKeys.has(clipKey) || practicedKeys.has(clipKey)) return null;
 
         let score = 0;
-        let reason = '难度适合你当前的水平';
+        let reason = buildLocalizedRecommendationReason(
+          clip,
+          profile.level || 'B1',
+          profile.interests,
+          t
+        );
         const matchedWords: string[] = [];
 
         const tag = (clip.tag || '').toLowerCase();
         if (tag && interestSet.has(tag)) {
           score += 3;
-          reason = `你最近更常点开 ${clip.tag} 方向`;
+          reason = buildLocalizedRecommendationReason(
+            clip,
+            profile.level || 'B1',
+            profile.interests,
+            t
+          );
         }
 
         for (const line of clip.lines || []) {
@@ -103,7 +119,7 @@ export function PracticeScreen({
 
         if (matchedWords.length > 0) {
           score += 5 + matchedWords.length;
-          reason = `包含你查过的 ${matchedWords.slice(0, 2).join(' / ')}`;
+          reason = t('practice.reasonLookedUpWords', { words: matchedWords.slice(0, 2).join(' / ') });
         }
 
         let cefrWords = 0;
@@ -140,29 +156,35 @@ export function PracticeScreen({
   return (
     <ScreenSurface>
       <ScreenHeader
-        leading={<PillButton label="返回" onPress={() => {
+        leading={<PillButton label={t('common.back')} onPress={() => {
           triggerUiFeedback('menu');
           onBackToFeed();
         }} />}
-        title="听力练习"
-        subtitle="先盲听，再精听，再回到整段"
+        title={t('practice.title')}
+        subtitle={t('practice.subtitle')}
         trailing={<Text style={styles.count}>{unpracticedCount || bookmarks.length}</Text>}
       />
 
       <FlatList
         data={bookmarks}
         keyExtractor={item => item.clipKey}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingHorizontal: metrics.pageHorizontalPadding,
+            maxWidth: metrics.contentMaxWidth,
+            alignSelf: 'center',
+            width: '100%',
+          },
+        ]}
         ListHeaderComponent={
           <View style={styles.headerContent}>
             {showIntro ? (
               <GlassCard tone="practice" style={styles.introCard}>
-                <Text style={styles.introTitle}>你的练习区</Text>
-                <Text style={styles.introBody}>
-                  好的练习不是把整篇稿子看完，而是把真正卡住的几句掰开来听。
-                </Text>
+                <Text style={styles.introTitle}>{t('practice.introTitle')}</Text>
+                <Text style={styles.introBody}>{t('practice.introBody')}</Text>
                 <ActionButton
-                  label="知道了"
+                  label={t('practice.introAcknowledge')}
                   onPress={() => {
                     triggerUiFeedback('onboarding');
                     onDismissIntro();
@@ -174,7 +196,7 @@ export function PracticeScreen({
             ) : null}
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>AI 推荐练习</Text>
+              <Text style={styles.sectionTitle}>{t('practice.recommended')}</Text>
               {recommended.length > 0 ? (
                 recommended.map(item => {
                   const duration = getClipDurationSeconds(item.clip);
@@ -187,12 +209,12 @@ export function PracticeScreen({
                       <Text style={styles.cardTitle}>{item.clip.title}</Text>
                       <Text style={styles.cardMeta}>
                         {getSourceLabel(item.clip.source)}
-                        {item.clip.tag ? ` · ${item.clip.tag}` : ''}
+                        {item.clip.tag ? ` · ${getLocalizedTopicLabel(item.clip.tag, t)}` : ''}
                         {durationLabel ? ` · ${durationLabel}` : ''}
                       </Text>
                       <Text style={styles.reason}>{item.reason}</Text>
                       <ActionButton
-                        label="开始这一段"
+                        label={t('practice.startThisClip')}
                         onPress={() => {
                           triggerUiFeedback('primary');
                           onStartPractice(item.clipIndex);
@@ -203,16 +225,16 @@ export function PracticeScreen({
                 })
               ) : (
                 <GlassCard style={styles.recoCard}>
-                  <Text style={styles.reason}>所有内容都练过了，新内容正在路上。</Text>
+                  <Text style={styles.reason}>{t('practice.allDone')}</Text>
                 </GlassCard>
               )}
             </View>
 
-            <Text style={styles.sectionTitle}>收藏里的练习素材</Text>
+            <Text style={styles.sectionTitle}>{t('practice.savedMaterials')}</Text>
           </View>
         }
         ListEmptyComponent={
-          <EmptyState title="这里还没有可练的内容" body="先在 Feed 里收藏片段，它们会在这里等你慢慢精听。" />
+          <EmptyState title={t('practice.emptyTitle')} body={t('practice.emptyBody')} />
         }
         renderItem={({ item }) => {
           const clipIndex = (() => {
@@ -234,15 +256,20 @@ export function PracticeScreen({
               }}
             >
               <GlassCard style={[styles.savedCard, clipIndex < 0 && styles.savedCardDisabled]}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardMeta}>{item.source} · {item.tag}</Text>
+                <Text style={styles.cardTitle}>{clipIndex >= 0 ? clips[clipIndex].title : item.title}</Text>
+                <Text style={styles.cardMeta}>
+                  {item.source}
+                  {item.tag ? ` · ${getLocalizedTopicLabel(item.tag, t)}` : ''}
+                </Text>
                 <View style={styles.footer}>
                   <View style={[styles.statusBadge, done ? styles.statusDone : styles.statusFresh]}>
                     <Text style={[styles.statusText, done ? styles.statusTextDone : styles.statusTextFresh]}>
-                      {done ? `已练过 · 查了 ${record?.words || 0} 个词` : '未练习'}
+                      {done
+                        ? t('practice.statusPracticed', { words: record?.words || 0 })
+                        : t('practice.statusFresh')}
                     </Text>
                   </View>
-                  <Text style={styles.cta}>{clipIndex >= 0 ? '开始' : '未找到音频'}</Text>
+                  <Text style={styles.cta}>{clipIndex >= 0 ? t('practice.startCta') : t('practice.audioMissing')}</Text>
                 </View>
               </GlassCard>
             </Pressable>

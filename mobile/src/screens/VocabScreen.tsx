@@ -3,6 +3,8 @@ import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { EmptyState, GlassCard, PillButton, ScreenHeader, ScreenSurface } from '../components/AppChrome';
 import { spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
+import { useUiI18n } from '../i18n';
+import { useResponsiveLayout } from '../responsive';
 import { useAppTheme } from '../theme';
 import type { Clip, VocabEntry } from '../types';
 
@@ -14,6 +16,8 @@ type Props = {
 
 export function VocabScreen({ vocabList, clips, onBack }: Props) {
   const { colors } = useAppTheme();
+  const { t } = useUiI18n();
+  const metrics = useResponsiveLayout();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const clipByContentKey = React.useMemo(() => {
     const map = new Map<string, Clip>();
@@ -26,29 +30,37 @@ export function VocabScreen({ vocabList, clips, onBack }: Props) {
   return (
     <ScreenSurface>
       <ScreenHeader
-        leading={<PillButton label="返回" onPress={() => {
+        leading={<PillButton label={t('common.back')} onPress={() => {
           triggerUiFeedback('menu');
           onBack();
         }} />}
-        title="词汇本"
-        subtitle="Feed 点词和 Practice 查词都会沉淀在这里"
+        title={t('vocab.title')}
+        subtitle={t('vocab.subtitle')}
         trailing={<Text style={styles.count}>{vocabList.length}</Text>}
       />
 
       <FlatList
         data={vocabList}
         keyExtractor={item => item.word}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingHorizontal: metrics.pageHorizontalPadding,
+            maxWidth: metrics.contentMaxWidth,
+            alignSelf: 'center',
+            width: '100%',
+          },
+        ]}
         ListHeaderComponent={
           vocabList.length > 0 ? (
             <GlassCard style={styles.heroCard} tone="feed">
-              <Text style={styles.heroTitle}>已经记下 {vocabList.length} 个词</Text>
-              <Text style={styles.heroBody}>这里更像你的词汇沉淀区，不是打卡面板。后续复习卡会从这里挑。</Text>
+              <Text style={styles.heroTitle}>{t('vocab.heroTitle', { count: vocabList.length })}</Text>
+              <Text style={styles.heroBody}>{t('vocab.heroBody')}</Text>
             </GlassCard>
           ) : null
         }
         ListEmptyComponent={
-          <EmptyState title="还没有保存任何词" body="在字幕里点词后，词义、例句和来源都会自动出现在这里。" />
+          <EmptyState title={t('vocab.emptyTitle')} body={t('vocab.emptyBody')} />
         }
         renderItem={({ item }) => {
           const lineTranslation = item.contentKey && Number.isInteger(item.lineIndex)
@@ -69,9 +81,9 @@ export function VocabScreen({ vocabList, clips, onBack }: Props) {
               {item.context ? <Text style={styles.contextEn}>{item.context}</Text> : null}
               {localizedContext ? <Text style={styles.contextZh}>{localizedContext}</Text> : null}
               <Text style={styles.meta}>
-                {item.sourceType === 'practice' ? '听力练习' : 'Feed 浏览'}
-                {item.practiced ? ' · 精听过' : ''}
-                {item.known ? ' · 已认识' : ''}
+                {item.sourceType === 'practice' ? t('vocab.sourcePractice') : t('vocab.sourceFeed')}
+                {item.practiced ? ` · ${t('vocab.metaPracticed')}` : ''}
+                {item.known ? ` · ${t('vocab.metaKnown')}` : ''}
               </Text>
             </GlassCard>
           );

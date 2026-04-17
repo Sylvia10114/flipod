@@ -167,7 +167,7 @@ export function buildContentTranslationRequestItem(clip: Clip, index = 0): Conte
 }
 
 export function shouldRequestRemoteTranslations(nativeLanguage: NativeLanguage) {
-  return nativeLanguage !== 'simplified_chinese' && nativeLanguage !== 'english';
+  return nativeLanguage !== 'english';
 }
 
 export function buildLocalizedClip(
@@ -210,6 +210,7 @@ export function buildLocalizedClip(
 
   return {
     ...normalized,
+    title: normalizeText(overlay?.title) || normalized.title,
     lines,
     questions,
   };

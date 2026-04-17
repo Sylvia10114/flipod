@@ -2,6 +2,8 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { triggerUiFeedback } from '../feedback';
+import { useUiI18n } from '../i18n';
+import { useResponsiveLayout } from '../responsive';
 
 type Props = {
   preparing?: boolean;
@@ -9,15 +11,21 @@ type Props = {
 };
 
 export function StartScreen({ preparing = false, onBegin }: Props) {
+  const { t } = useUiI18n();
+  const metrics = useResponsiveLayout();
+  const contentWidth = Math.min(metrics.contentMaxWidth, metrics.windowWidth - metrics.pageHorizontalPadding * 2);
+
   if (preparing) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={[styles.container, styles.centered]}>
-          <Text style={styles.transitionText}>正在为你准备内容...</Text>
-          <View style={styles.dotsRow}>
-            <View style={styles.dot} />
-            <View style={styles.dot} />
-            <View style={styles.dot} />
+        <View style={[styles.container, styles.centered, { paddingHorizontal: metrics.pageHorizontalPadding }]}>
+          <View style={[styles.contentWrap, { maxWidth: contentWidth }]}>
+            <Text style={styles.transitionText}>{t('startScreen.preparingContent')}</Text>
+            <View style={styles.dotsRow}>
+              <View style={styles.dot} />
+              <View style={styles.dot} />
+              <View style={styles.dot} />
+            </View>
           </View>
         </View>
       </SafeAreaView>
@@ -27,17 +35,21 @@ export function StartScreen({ preparing = false, onBegin }: Props) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <Pressable
-        style={[styles.container, styles.centered]}
+        style={[styles.container, styles.centered, { paddingHorizontal: metrics.pageHorizontalPadding }]}
         onPress={() => {
           triggerUiFeedback('primary');
           onBegin?.();
         }}
       >
-        <View style={styles.ambient} />
-        <Text style={styles.title}>先听这一条</Text>
-        <Text style={styles.subtitle}>我挑了几段适合现在开始的内容</Text>
-        <View style={styles.divider} />
-        <Text style={styles.tapHint}>Tap to begin</Text>
+        <View style={[styles.contentWrap, { maxWidth: contentWidth }]}>
+          <View style={styles.ambient} />
+          <Text style={styles.title}>{t('startScreen.title')}</Text>
+          <Text style={styles.subtitle}>{t('startScreen.subtitle')}</Text>
+          <View style={styles.divider} />
+        </View>
+        <Text style={[styles.tapHint, { bottom: Math.max(metrics.insets.bottom + 28, 56) }]}>
+          {t('startScreen.tapHint')}
+        </Text>
       </Pressable>
     </SafeAreaView>
   );
@@ -50,10 +62,13 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 28,
   },
   centered: {
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  contentWrap: {
+    width: '100%',
     alignItems: 'center',
   },
   ambient: {

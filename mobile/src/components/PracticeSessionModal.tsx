@@ -17,6 +17,8 @@ import {
 import { CircularProgressPlayButton } from './CircularProgressPlayButton';
 import { triggerMediumHaptic, triggerUiFeedback } from '../feedback';
 import { useUiI18n } from '../i18n';
+import { getLocalizedTopicLabel } from '../i18n/helpers';
+import { useResponsiveLayout } from '../responsive';
 import { useAppTheme } from '../theme';
 import type { Clip, ClipLineWord, PracticeRecord, VocabEntry } from '../types';
 import { ProgressBar } from './ProgressBar';
@@ -52,12 +54,12 @@ type Props = {
   onPracticeAgain: () => void;
 };
 
-function stepLabel(step: Step) {
-  if (step === 1) return 'STEP 1 · 盲听';
-  if (step === 2) return 'STEP 2 · 逐句精听';
-  if (step === 3) return 'STEP 3 · 难句闪卡';
-  if (step === 4) return 'STEP 4 · 复听';
-  return '练习完成';
+function stepLabel(step: Step, t: (key: string, params?: Record<string, string | number>) => string) {
+  if (step === 1) return t('practiceSession.stepBlindListen');
+  if (step === 2) return t('practiceSession.stepSentence');
+  if (step === 3) return t('practiceSession.stepFlashcards');
+  if (step === 4) return t('practiceSession.stepReplay');
+  return t('practiceSession.stepComplete');
 }
 
 function getHardWords(lineWords: ClipLineWord[] = []) {
@@ -85,6 +87,7 @@ export function PracticeSessionModal({
 }: Props) {
   const { colors } = useAppTheme();
   const { t } = useUiI18n();
+  const metrics = useResponsiveLayout();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView | null>(null);
@@ -173,7 +176,7 @@ export function PracticeSessionModal({
         ...prev,
         isLoading: false,
         isPlaying: false,
-        errorMessage: nextStatus.error ? '音频加载失败，请稍后重试' : prev.errorMessage,
+        errorMessage: nextStatus.error ? t('practiceSession.loadError') : prev.errorMessage,
       }));
       return;
     }
@@ -242,7 +245,7 @@ export function PracticeSessionModal({
         isLoading: false,
         positionMillis: 0,
         durationMillis: Math.floor(getClipDurationSeconds(clip) * 1000),
-        errorMessage: '当前片段没有可播放音频',
+        errorMessage: t('practiceSession.noAudio'),
       });
       setBlindFinished(true);
       return;
@@ -282,10 +285,10 @@ export function PracticeSessionModal({
         isLoading: false,
         positionMillis: 0,
         durationMillis: Math.floor(getClipDurationSeconds(clip) * 1000),
-        errorMessage: '音频加载失败，请稍后重试',
+        errorMessage: t('practiceSession.loadError'),
       }));
     }
-  }, [clip, handleStatus, unloadSound, visible]);
+  }, [clip, handleStatus, t, unloadSound, visible]);
 
   const playWholeClip = useCallback(async (fromMillis = 0) => {
     if (!soundRef.current || !clip) return;
@@ -482,32 +485,47 @@ export function PracticeSessionModal({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onDismiss}>
-      <SafeAreaView edges={['bottom']} style={styles.safeArea}>
-        <View style={[styles.header, { paddingTop: Math.max(insets.top + 10, 26) }]}>
-          <Pressable onPress={() => {
-            triggerUiFeedback('menu');
-            onDismiss();
-          }} style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>关闭</Text>
-          </Pressable>
-          <Text style={styles.stepLabel}>{stepLabel(step)}</Text>
-          <View style={styles.stepDots}>
-            {[1, 2, 3, 4].map(item => (
-              <View
-                key={item}
-                style={[
-                  styles.stepDot,
-                  step === item && styles.stepDotActive,
-                  step > item && styles.stepDotDone,
-                ]}
-              />
-            ))}
+      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
+        <View style={[styles.header, { paddingHorizontal: metrics.pageHorizontalPadding }]}>
+          <View style={[styles.headerInner, { maxWidth: metrics.modalMaxWidth }]}>
+            <Pressable
+              onPress={() => {
+                triggerUiFeedback('menu');
+                onDismiss();
+              }}
+              style={styles.closeButton}
+              hitSlop={8}
+            >
+              <Text style={styles.closeButtonText}>{t('common.close')}</Text>
+            </Pressable>
+            <Text style={styles.stepLabel}>{stepLabel(step, t)}</Text>
+            <View style={styles.stepDots}>
+              {[1, 2, 3, 4].map(item => (
+                <View
+                  key={item}
+                  style={[
+                    styles.stepDot,
+                    step === item && styles.stepDotActive,
+                    step > item && styles.stepDotDone,
+                  ]}
+                />
+              ))}
+            </View>
           </View>
         </View>
 
         <ScrollView
           ref={scrollRef}
-          contentContainerStyle={[styles.body, { paddingBottom: Math.max(insets.bottom + 40, 40) }]}
+          contentContainerStyle={[
+            styles.body,
+            {
+              paddingHorizontal: metrics.pageHorizontalPadding,
+              paddingBottom: Math.max(insets.bottom + 40, 40),
+              maxWidth: metrics.modalMaxWidth,
+              alignSelf: 'center',
+              width: '100%',
+            },
+          ]}
         >
           {step === 1 ? (
             <View style={styles.centerBlock}>
@@ -515,16 +533,16 @@ export function PracticeSessionModal({
                 <Text style={styles.sourceTitle}>{clip.title}</Text>
                 <Text style={styles.sourceMeta}>
                   {getSourceLabel(clip.source)}
-                  {clip.tag ? ` · ${clip.tag}` : ''}
+                  {clip.tag ? ` · ${getLocalizedTopicLabel(clip.tag, t)}` : ''}
                 </Text>
               </View>
 
               <Text style={styles.hintText}>
                 {blindFinished
                   ? questions.length > 0
-                    ? '听完了，看看你抓住了多少'
-                    : '听完了，判断一下自己掌握得怎么样'
-                  : '先完整听一遍，不用急着逐句分析'}
+                    ? t('practiceSession.afterListenQuiz')
+                    : t('practiceSession.afterListenCheck')
+                  : t('practiceSession.beforeBlindListen')}
               </Text>
               {status.errorMessage ? <Text style={styles.practiceErrorText}>{status.errorMessage}</Text> : null}
 
@@ -568,13 +586,13 @@ export function PracticeSessionModal({
                     triggerUiFeedback('correct');
                     setStep(4);
                   }} style={[styles.choiceButton, styles.choiceButtonPrimary]}>
-                    <Text style={styles.choiceButtonPrimaryText}>大部分听懂了</Text>
+                    <Text style={styles.choiceButtonPrimaryText}>{t('practiceSession.mostlyUnderstood')}</Text>
                   </Pressable>
                   <Pressable onPress={() => {
                     triggerUiFeedback('primary');
                     setStep(2);
                   }} style={styles.choiceButton}>
-                    <Text style={styles.choiceButtonText}>有些没听清</Text>
+                    <Text style={styles.choiceButtonText}>{t('practiceSession.missedSome')}</Text>
                   </Pressable>
                 </View>
               ) : null}
@@ -584,13 +602,13 @@ export function PracticeSessionModal({
                   triggerUiFeedback('primary');
                   setQuizStarted(true);
                 }} style={[styles.choiceButton, styles.choiceButtonPrimary, styles.quizStartButton]}>
-                  <Text style={styles.choiceButtonPrimaryText}>开始答题</Text>
+                  <Text style={styles.choiceButtonPrimaryText}>{t('practiceSession.startQuiz')}</Text>
                 </Pressable>
               ) : null}
 
               {blindFinished && questions.length > 0 && quizStarted && !showQuizResult && currentQuestion ? (
                 <View style={styles.quizCard}>
-                  <Text style={styles.compLabel}>COMPREHENSION · {quizIndex + 1}/{questions.length}</Text>
+                  <Text style={styles.compLabel}>{t('practiceSession.quizLabel', { current: quizIndex + 1, total: questions.length })}</Text>
                   <Text style={styles.compQuestion}>{currentQuestion.question}</Text>
                   <View style={styles.compOptions}>
                     {currentQuestion.options.map(option => {
@@ -637,7 +655,9 @@ export function PracticeSessionModal({
                         }
                       }} style={styles.compNextButton}>
                         <Text style={styles.compNextButtonText}>
-                          {quizIndex >= questions.length - 1 ? '查看结果 →' : '下一题 →'}
+                          {quizIndex >= questions.length - 1
+                            ? t('practiceSession.viewResults')
+                            : t('practiceSession.nextQuestion')}
                         </Text>
                       </Pressable>
                     </>
@@ -650,10 +670,10 @@ export function PracticeSessionModal({
                   <Text style={styles.compResultSub}>{quizCorrectCount}/{questions.length}</Text>
                   <Text style={styles.compResultMsg}>
                     {quizCorrectCount === questions.length
-                      ? '完全听懂了'
+                      ? t('practiceSession.resultPerfect')
                       : quizCorrectCount >= 1
-                        ? '核心意思抓到了，细节再听听'
-                        : '没关系，我们一句句来'}
+                        ? t('practiceSession.resultOkay')
+                        : t('practiceSession.resultRetry')}
                   </Text>
                   <Pressable onPress={() => {
                     triggerUiFeedback('primary');
@@ -662,13 +682,15 @@ export function PracticeSessionModal({
                     } else {
                       setStep(2);
                     }
-                  }} style={styles.compNextButton}>
+                    }} style={styles.compNextButton}>
                     <Text style={styles.compNextButtonText}>
-                      {quizCorrectCount === questions.length ? '跳到复听 →' : '逐句精听 →'}
+                      {quizCorrectCount === questions.length
+                        ? t('practiceSession.jumpToReplay')
+                        : t('practiceSession.jumpToSentenceDrill')}
                     </Text>
                   </Pressable>
                   <Pressable onPress={retryQuiz}>
-                    <Text style={styles.compRetryText}>从头再听一遍</Text>
+                    <Text style={styles.compRetryText}>{t('practiceSession.retryFromStart')}</Text>
                   </Pressable>
                 </View>
               ) : null}
@@ -677,7 +699,7 @@ export function PracticeSessionModal({
 
           {step === 2 && sentenceLine ? (
             <View style={styles.centerBlock}>
-              <Text style={styles.progressText}>第 {sentenceIndex + 1} / {lineCount} 句</Text>
+              <Text style={styles.progressText}>{t('practiceSession.sentenceProgress', { current: sentenceIndex + 1, total: lineCount })}</Text>
               <View style={styles.practiceLineWrap}>
                 <WordLine
                   line={sentenceLine}
@@ -703,13 +725,13 @@ export function PracticeSessionModal({
                   triggerMediumHaptic();
                   void playSentence(sentenceIndex);
                 }} style={styles.secondaryCircle}>
-                  <Text style={styles.secondaryCircleText}>重播</Text>
+                  <Text style={styles.secondaryCircleText}>{t('common.replay')}</Text>
                 </Pressable>
                 <Pressable onPress={() => {
                   triggerMediumHaptic();
                   void togglePlay();
                 }} style={styles.secondaryCircle}>
-                  <Text style={styles.secondaryCircleText}>{status.isPlaying ? '暂停' : '播放'}</Text>
+                  <Text style={styles.secondaryCircleText}>{status.isPlaying ? t('common.pause') : t('common.play')}</Text>
                 </Pressable>
               </View>
 
@@ -722,7 +744,7 @@ export function PracticeSessionModal({
                   }}
                   style={[styles.actionButton, styles.actionButtonEasy]}
                 >
-                  <Text style={[styles.actionButtonText, styles.actionButtonTextEasy]}>✓ 没问题</Text>
+                  <Text style={[styles.actionButtonText, styles.actionButtonTextEasy]}>{t('practiceSession.easy')}</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => {
@@ -749,7 +771,7 @@ export function PracticeSessionModal({
                   }}
                   style={[styles.actionButton, styles.actionButtonHard]}
                 >
-                  <Text style={[styles.actionButtonText, styles.actionButtonTextHard]}>✗ 有难度</Text>
+                  <Text style={[styles.actionButtonText, styles.actionButtonTextHard]}>{t('practiceSession.hard')}</Text>
                 </Pressable>
               </View>
             </View>
@@ -761,7 +783,7 @@ export function PracticeSessionModal({
                 triggerUiFeedback('card');
                 setFlashRevealed(true);
               }} style={styles.flashCard}>
-                <Text style={styles.flashLabel}>难句 {flashCursor + 1} / {flashQueue.length}</Text>
+                <Text style={styles.flashLabel}>{t('practiceSession.hardSentence', { current: flashCursor + 1, total: flashQueue.length })}</Text>
                 <Text style={styles.flashEn}>{flashLine.en}</Text>
                 {!flashRevealed ? (
                   <>
@@ -773,9 +795,9 @@ export function PracticeSessionModal({
                       }}
                       style={styles.flashPlayButton}
                     >
-                      <Text style={styles.flashPlayButtonText}>再听一遍</Text>
+                      <Text style={styles.flashPlayButtonText}>{t('common.replay')}</Text>
                     </Pressable>
-                    <Text style={styles.flashHint}>点开卡片查看翻译和难词</Text>
+                    <Text style={styles.flashHint}>{t('practiceSession.tapForTranslation')}</Text>
                   </>
                 ) : (
                   <>
@@ -790,7 +812,7 @@ export function PracticeSessionModal({
                           </View>
                         ))
                       ) : (
-                        <Text style={styles.flashMeta}>这一句主要是句法难，词汇不算太难。</Text>
+                        <Text style={styles.flashMeta}>{t('practiceSession.syntaxNote')}</Text>
                       )}
                     </View>
                   </>
@@ -811,7 +833,7 @@ export function PracticeSessionModal({
                     }}
                     style={[styles.actionButton, styles.actionButtonEasy]}
                   >
-                    <Text style={[styles.actionButtonText, styles.actionButtonTextEasy]}>搞懂了</Text>
+                    <Text style={[styles.actionButtonText, styles.actionButtonTextEasy]}>{t('practiceSession.gotIt')}</Text>
                   </Pressable>
                   <Pressable
                     onPress={() => {
@@ -825,7 +847,7 @@ export function PracticeSessionModal({
                     }}
                     style={[styles.actionButton, styles.actionButtonHard]}
                   >
-                    <Text style={[styles.actionButtonText, styles.actionButtonTextHard]}>还是不太清楚</Text>
+                    <Text style={[styles.actionButtonText, styles.actionButtonTextHard]}>{t('practiceSession.stillUnsure')}</Text>
                   </Pressable>
                 </View>
               ) : null}
@@ -846,7 +868,7 @@ export function PracticeSessionModal({
                     onWordTap={(word, line) => handleWordTap(word, line.en, line.zh || '', currentLineIndex)}
                   />
                 ) : (
-                  <Text style={styles.hintText}>准备开始复听…</Text>
+                  <Text style={styles.hintText}>{t('practiceSession.replayPreparing')}</Text>
                 )}
               </View>
               {status.errorMessage ? <Text style={styles.practiceErrorText}>{status.errorMessage}</Text> : null}
@@ -872,7 +894,7 @@ export function PracticeSessionModal({
                   triggerMediumHaptic();
                   void togglePlay();
                 }} style={styles.secondaryCircle}>
-                  <Text style={styles.secondaryCircleText}>{status.isPlaying ? '暂停' : '播放'}</Text>
+                  <Text style={styles.secondaryCircleText}>{status.isPlaying ? t('common.pause') : t('common.play')}</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => {
@@ -882,7 +904,7 @@ export function PracticeSessionModal({
                   }}
                   style={styles.secondaryCircle}
                 >
-                  <Text style={styles.secondaryCircleText}>跳过</Text>
+                  <Text style={styles.secondaryCircleText}>{t('common.skip')}</Text>
                 </Pressable>
               </View>
             </View>
@@ -891,19 +913,19 @@ export function PracticeSessionModal({
           {step === 5 ? (
             <View style={styles.summaryScreen}>
               <View style={styles.summaryCenter}>
-                <Text style={styles.summaryTitle}>这段练完了</Text>
+                <Text style={styles.summaryTitle}>{t('practiceSession.summaryTitle')}</Text>
                 <View style={styles.summaryRows}>
                   <View style={styles.summaryRow}>
                     <Text style={styles.summaryValue}>{wordsLooked}</Text>
-                    <Text style={styles.summaryLabel}>个词查了释义</Text>
+                    <Text style={styles.summaryLabel}>{t('practiceSession.summaryWords')}</Text>
                   </View>
                   <View style={styles.summaryRow}>
                     <Text style={styles.summaryValue}>{lineCount}</Text>
-                    <Text style={styles.summaryLabel}>句精听</Text>
+                    <Text style={styles.summaryLabel}>{t('practiceSession.summarySentences')}</Text>
                   </View>
                   <View style={styles.summaryRow}>
                     <Text style={[styles.summaryValue, styles.summaryValueHard]}>{hardSentences.length}</Text>
-                    <Text style={styles.summaryLabel}>句觉得难</Text>
+                    <Text style={styles.summaryLabel}>{t('practiceSession.summaryHard')}</Text>
                   </View>
                 </View>
               </View>
@@ -912,13 +934,13 @@ export function PracticeSessionModal({
                   triggerUiFeedback('primary');
                   onPracticeAgain();
                 }} style={[styles.summaryButton, styles.summaryButtonPrimary]}>
-                  <Text style={[styles.summaryButtonText, styles.summaryButtonTextPrimary]}>再练一段</Text>
+                  <Text style={[styles.summaryButtonText, styles.summaryButtonTextPrimary]}>{t('practiceSession.practiceAnother')}</Text>
                 </Pressable>
                 <Pressable onPress={() => {
                   triggerUiFeedback('menu');
                   onReturnFeed();
                 }} style={styles.summaryButton}>
-                  <Text style={styles.summaryButtonText}>回到 Feed</Text>
+                  <Text style={styles.summaryButtonText}>{t('practiceSession.backToFeed')}</Text>
                 </Pressable>
               </View>
             </View>
@@ -962,17 +984,24 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
     backgroundColor: colors.bgApp,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 8,
     paddingBottom: 8,
+    alignItems: 'center',
+  },
+  headerInner: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   closeButton: {
     borderRadius: 999,
+    minWidth: 44,
+    minHeight: 44,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.bgSurface2,
   },
   closeButtonText: {
@@ -1005,7 +1034,6 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
   },
   body: {
     flexGrow: 1,
-    paddingHorizontal: 24,
     paddingBottom: 40,
     justifyContent: 'center',
   },

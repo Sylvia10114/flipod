@@ -1,59 +1,79 @@
 import React from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { findClipIndexByKey } from '../clip-utils';
 import { EmptyState, GlassCard, PillButton, ScreenHeader, ScreenSurface } from '../components/AppChrome';
 import { spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
+import { useUiI18n } from '../i18n';
+import { getLocalizedTopicLabel } from '../i18n/helpers';
+import { useResponsiveLayout } from '../responsive';
 import { useAppTheme } from '../theme';
-import type { Bookmark } from '../types';
+import type { Bookmark, Clip } from '../types';
 
 type Props = {
   bookmarks: Bookmark[];
+  clips: Clip[];
   onRemove: (clipKey: string) => void;
   onBack: () => void;
 };
 
-export function LibraryScreen({ bookmarks, onRemove, onBack }: Props) {
+export function LibraryScreen({ bookmarks, clips, onRemove, onBack }: Props) {
   const { colors } = useAppTheme();
+  const { t } = useUiI18n();
+  const metrics = useResponsiveLayout();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   return (
     <ScreenSurface>
       <ScreenHeader
-        leading={<PillButton label="返回" onPress={() => {
+        leading={<PillButton label={t('common.back')} onPress={() => {
           triggerUiFeedback('menu');
           onBack();
         }} />}
-        title="我的收藏"
-        subtitle="留给反复听和后面精听的片段"
+        title={t('library.title')}
+        subtitle={t('library.subtitle')}
         trailing={<Text style={styles.count}>{bookmarks.length}</Text>}
       />
 
       <FlatList
         data={bookmarks}
         keyExtractor={item => item.clipKey}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingHorizontal: metrics.pageHorizontalPadding,
+            maxWidth: metrics.contentMaxWidth,
+            alignSelf: 'center',
+            width: '100%',
+          },
+        ]}
         ListEmptyComponent={
-          <EmptyState title="还没有收藏内容" body="在 Feed 里点一下 bookmark，想回听的片段都会沉淀在这里。" />
+          <EmptyState title={t('library.emptyTitle')} body={t('library.emptyBody')} />
         }
-        renderItem={({ item }) => (
-          <GlassCard style={styles.card}>
-            <View style={styles.cardMain}>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.cardMeta}>
-                {item.source}
-                {item.tag ? ` · ${item.tag}` : ''}
-              </Text>
-            </View>
-            <Pressable
-              onPress={() => {
-                triggerUiFeedback('bookmark');
-                onRemove(item.clipKey);
-              }}
-              style={styles.removeButton}
-            >
-              <Text style={styles.removeButtonText}>移除</Text>
-            </Pressable>
-          </GlassCard>
-        )}
+        renderItem={({ item }) => {
+          const clipIndex = findClipIndexByKey(clips, item.clipKey);
+          const localizedClip = clipIndex >= 0 ? clips[clipIndex] : null;
+
+          return (
+            <GlassCard style={styles.card}>
+              <View style={styles.cardMain}>
+                <Text style={styles.cardTitle}>{localizedClip?.title || item.title}</Text>
+                <Text style={styles.cardMeta}>
+                  {item.source}
+                  {item.tag ? ` · ${getLocalizedTopicLabel(item.tag, t)}` : ''}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  triggerUiFeedback('bookmark');
+                  onRemove(item.clipKey);
+                }}
+                style={styles.removeButton}
+              >
+                <Text style={styles.removeButtonText}>{t('library.remove')}</Text>
+              </Pressable>
+            </GlassCard>
+          );
+        }}
       />
     </ScreenSurface>
   );

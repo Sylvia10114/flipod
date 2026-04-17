@@ -3,6 +3,7 @@ import path from 'node:path';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const COPY_PATH = path.join(ROOT, 'src/i18n/ui-copy.json');
+const SRC_ROOT = path.join(ROOT, 'src');
 const EXPECTED_LOCALES = [
   'english',
   'simplified_chinese',
@@ -38,6 +39,18 @@ function fail(messages) {
     console.error(`- ${message}`);
   }
   process.exit(1);
+}
+
+function walkFiles(dir, files = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const nextPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      walkFiles(nextPath, files);
+      continue;
+    }
+    files.push(nextPath);
+  }
+  return files;
 }
 
 const payload = JSON.parse(fs.readFileSync(COPY_PATH, 'utf8'));
@@ -90,6 +103,26 @@ for (const locale of EXPECTED_LOCALES) {
     if (!baseKeys.includes(key)) {
       errors.push(`${locale}: unexpected key "${key}"`);
     }
+  }
+}
+
+if (errors.length > 0) {
+  fail(errors);
+}
+
+const HARD_CODED_COPY_ALLOWLIST = new Set([
+  path.join(SRC_ROOT, 'i18n/ui-copy.json'),
+  path.join(SRC_ROOT, 'demo-data.json'),
+  path.join(SRC_ROOT, 'i18n/index.tsx'),
+  path.join(SRC_ROOT, 'components/PlayerControls.tsx'),
+]);
+
+const sourceFiles = walkFiles(SRC_ROOT).filter(filePath => /\.(ts|tsx|js|jsx|json)$/.test(filePath));
+for (const filePath of sourceFiles) {
+  if (HARD_CODED_COPY_ALLOWLIST.has(filePath)) continue;
+  const content = fs.readFileSync(filePath, 'utf8');
+  if (/[\u4e00-\u9fff]/.test(content)) {
+    errors.push(`unexpected hardcoded CJK copy in "${path.relative(ROOT, filePath)}"`);
   }
 }
 

@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { triggerUiFeedback } from '../feedback';
 import { useUiI18n } from '../i18n';
+import { useResponsiveLayout } from '../responsive';
 import type { LinkedIdentity } from '../types';
 
 const LOGIN_BG = require('../../assets/login.png');
@@ -76,6 +77,7 @@ function LoginContent({
   onCancel,
 }: Omit<Props, 'visible'>) {
   const { t } = useUiI18n();
+  const metrics = useResponsiveLayout();
   const [stage, setStage] = useState<LoginStage>('landing');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [code, setCode] = useState('');
@@ -107,6 +109,7 @@ function LoginContent({
     ? t('login.subtitleSignIn')
     : t('login.subtitleLink');
   const showGuestEntry = mode === 'sign-in' && presentation === 'screen' && typeof onTryGuest === 'function';
+  const contentWidth = Math.min(metrics.modalMaxWidth, metrics.windowWidth - metrics.pageHorizontalPadding * 2);
 
   const resetPhoneFlow = () => {
     setStage('landing');
@@ -168,11 +171,21 @@ function LoginContent({
   };
 
   const landing = (
-    <View style={styles.landingContent}>
+    <View
+      style={[
+        styles.landingContent,
+        {
+          paddingHorizontal: metrics.pageHorizontalPadding,
+          maxWidth: contentWidth,
+          alignSelf: 'center',
+          width: '100%',
+        },
+      ]}
+    >
       {showGuestEntry ? (
         <View style={styles.landingTopBar}>
           <Pressable
-            style={styles.guestButton}
+          style={styles.guestButton}
             onPress={() => {
               triggerUiFeedback('menu');
               onTryGuest?.();
@@ -260,7 +273,17 @@ function LoginContent({
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.phonePage}>
+          <View
+            style={[
+              styles.phonePage,
+              {
+                paddingHorizontal: metrics.pageHorizontalPadding,
+                maxWidth: contentWidth,
+                alignSelf: 'center',
+                width: '100%',
+              },
+            ]}
+          >
             <View style={styles.phoneHeader}>
               <Pressable style={styles.backButton} onPress={handleBack}>
                 <Text style={styles.backButtonText}>{t('common.back')}</Text>
@@ -388,13 +411,25 @@ export function LoginScreen({
   visible = true,
   ...props
 }: Props) {
+  const metrics = useResponsiveLayout();
+  const modalWidth = Math.min(metrics.modalMaxWidth, metrics.windowWidth - metrics.pageHorizontalPadding * 2);
+
   if (!visible) return null;
 
   if (props.presentation === 'modal' || props.mode === 'link') {
     return (
       <Modal visible transparent animationType="slide" onRequestClose={props.onCancel}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                width: '100%',
+                maxWidth: props.mode === 'link' ? Math.min(560, Math.max(420, modalWidth)) : modalWidth,
+                alignSelf: 'center',
+              },
+            ]}
+          >
             <LoginContent {...props} />
           </View>
         </View>
@@ -453,7 +488,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   guestButton: {
-    minHeight: 34,
+    minHeight: 44,
     borderRadius: 999,
     paddingHorizontal: 14,
     alignItems: 'center',
@@ -582,7 +617,7 @@ const styles = StyleSheet.create({
   backButton: {
     borderRadius: 999,
     paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingVertical: 11,
     backgroundColor: 'rgba(8,10,16,0.58)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
@@ -706,6 +741,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)',
     padding: 14,
     justifyContent: 'flex-end',
+    alignItems: 'center',
   },
   modalCard: {
     minHeight: '72%',
