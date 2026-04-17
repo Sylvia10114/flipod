@@ -6,14 +6,19 @@ import { LanguageSelectionList } from '../components/LanguageSelectionList';
 import { spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
 import { getNativeLanguageOptions, useUiI18n } from '../i18n';
+import { joinLocalizedTopics } from '../i18n/helpers';
 import { useResponsiveLayout } from '../responsive';
 import { useAppTheme } from '../theme';
-import type { LinkedIdentity, NativeLanguage, Profile } from '../types';
+import type { DominantHand, LinkedIdentity, NativeLanguage, Profile } from '../types';
 
 type Props = {
   profile: Profile;
   isGuest: boolean;
   linkedIdentities: LinkedIdentity[];
+  bookmarksCount: number;
+  vocabCount: number;
+  practiceCount: number;
+  dominantHand: DominantHand;
   onBack: () => void;
   onLinkPhone: () => void;
   onLinkApple: () => void;
@@ -27,6 +32,10 @@ export function AccountScreen({
   profile,
   isGuest,
   linkedIdentities,
+  bookmarksCount,
+  vocabCount,
+  practiceCount,
+  dominantHand,
   onBack,
   onLinkPhone,
   onLinkApple,
@@ -56,6 +65,14 @@ export function AccountScreen({
     [linkedIdentities]
   );
   const linkedMethodCount = linkedIdentities.length;
+  const topicsValue = profile.interests.length > 0
+    ? joinLocalizedTopics(profile.interests, t)
+    : t('account.noTopicsSelected');
+  const dominantHandValue = dominantHand === 'left'
+    ? t('account.handPreferenceLeft')
+    : t('account.handPreferenceRight');
+  const heroEyebrow = isGuest ? t('account.statusLabelGuest') : t('account.statusLabelRecovery');
+  const heroBadge = isGuest ? (profile.level || 'B1') : `${linkedMethodCount} / 2`;
   const summaryTitle = isGuest
     ? t('account.heroGuest', { level: profile.level || 'B1' })
     : t('account.heroAccount', { count: linkedMethodCount, level: profile.level || 'B1' });
@@ -81,6 +98,7 @@ export function AccountScreen({
     ],
     [linkedApple, linkedPhone, t]
   );
+  const primaryLinkAction = !hasPhone ? 'phone' : !hasApple ? 'apple' : null;
 
   const confirmLogout = React.useCallback(() => {
     Alert.alert(t('account.alertLogoutTitle'), t('account.alertLogoutBody'), [
@@ -199,14 +217,12 @@ export function AccountScreen({
           ]}
           showsVerticalScrollIndicator={false}
         >
-          <GlassCard style={styles.summaryCard}>
+          <GlassCard style={[styles.summaryCard, isGuest ? styles.summaryCardGuest : styles.summaryCardSignedIn]}>
             <View style={styles.summaryTopRow}>
-              <Text style={styles.summaryEyebrow}>{isGuest ? t('account.guestLabel') : t('account.title')}</Text>
-              {profile.level ? (
-                <View style={styles.levelBadge}>
-                  <Text style={styles.levelBadgeText}>{profile.level}</Text>
-                </View>
-              ) : null}
+              <Text style={styles.summaryEyebrow}>{heroEyebrow}</Text>
+              <View style={styles.levelBadge}>
+                <Text style={styles.levelBadgeText}>{heroBadge}</Text>
+              </View>
             </View>
 
             <View style={styles.summaryCopy}>
@@ -229,54 +245,47 @@ export function AccountScreen({
                   ) : null}
                   {!hasApple ? renderAppleAction('sign-in') : null}
                 </>
-              ) : (
-                <>
-                  {!hasPhone ? (
-                    <ActionButton
-                      label={t('account.linkPhone')}
-                      style={styles.primaryActionButton}
-                      onPress={() => {
-                        triggerUiFeedback('menu');
-                        onLinkPhone();
-                      }}
-                    />
-                  ) : null}
-                  {!hasApple ? renderAppleAction('link') : null}
-                </>
-              )}
+              ) : primaryLinkAction === 'phone' ? (
+                <ActionButton
+                  label={t('account.linkPhone')}
+                  style={styles.primaryActionButton}
+                  onPress={() => {
+                    triggerUiFeedback('menu');
+                    onLinkPhone();
+                  }}
+                />
+              ) : primaryLinkAction === 'apple' ? (
+                renderAppleAction('link')
+              ) : null}
             </View>
           </GlassCard>
 
-          <GlassCard style={styles.sectionCard}>
-            <Text style={styles.sectionLabel}>{t('menu.learningPreferences')}</Text>
-            <Pressable
-              onPress={openLanguagePicker}
-              hitSlop={6}
-              style={({ pressed }) => [
-                styles.settingRow,
-                pressed && styles.settingRowPressed,
-              ]}
-            >
-              <View style={styles.settingCopy}>
-                <Text style={styles.settingTitle}>{t('account.languageSectionTitle')}</Text>
-                <Text style={styles.settingHint}>{t('account.languageSectionBody')}</Text>
+          {isGuest ? (
+            <GlassCard style={styles.sectionCard}>
+              <Text style={styles.sectionLabel}>{t('account.deviceSectionTitle')}</Text>
+              <View style={styles.statStack}>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>{t('account.recordBookmarks')}</Text>
+                  <Text style={styles.statValue}>{bookmarksCount}</Text>
+                </View>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>{t('account.recordVocab')}</Text>
+                  <Text style={styles.statValue}>{vocabCount}</Text>
+                </View>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>{t('account.recordPractice')}</Text>
+                  <Text style={styles.statValue}>{practiceCount}</Text>
+                </View>
               </View>
-              <View style={styles.settingMeta}>
-                <Text style={styles.settingValue}>{currentLanguageOption.selfLabel}</Text>
-                <Text style={styles.settingChevron}>›</Text>
-              </View>
-            </Pressable>
-          </GlassCard>
-
-          <GlassCard style={styles.sectionCard}>
-            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionFootnote}>{t('account.warningGuest')}</Text>
+            </GlassCard>
+          ) : (
+            <GlassCard style={styles.sectionCard}>
               <Text style={styles.sectionLabel}>{t('account.linkedMethods')}</Text>
               <Text style={styles.sectionBody}>
-                {isGuest
-                  ? t('account.upgradeGuestBody')
-                  : linkedMethodCount < 2
-                    ? t('account.linkNewMethodBody')
-                    : t('account.allMethodsLinked')}
+                {linkedMethodCount < 2
+                  ? t('account.linkNewMethodBody')
+                  : t('account.allMethodsLinked')}
               </Text>
               <View style={styles.identityList}>
                 {identityRows.map(row => (
@@ -293,74 +302,69 @@ export function AccountScreen({
                   </View>
                 ))}
               </View>
+            </GlassCard>
+          )}
 
-              {!isGuest && (!hasPhone || !hasApple) ? (
-                <View style={styles.methodActionGroup}>
-                  {!hasPhone ? (
-                    <ActionButton
-                      label={t('account.linkPhone')}
-                      variant="secondary"
-                      style={styles.secondaryActionButton}
-                      onPress={() => {
-                        triggerUiFeedback('menu');
-                        onLinkPhone();
-                      }}
-                    />
-                  ) : null}
-                  {!hasApple ? (
-                    <ActionButton
-                      label={t('account.linkApple')}
-                      variant="secondary"
-                      style={styles.secondaryActionButton}
-                      onPress={() => {
-                        triggerUiFeedback('menu');
-                        onLinkApple();
-                      }}
-                    />
-                  ) : null}
+          <GlassCard style={styles.sectionCard}>
+            <Text style={styles.sectionLabel}>{t('account.setupSectionTitle')}</Text>
+            <View style={styles.settingsList}>
+              <Pressable
+                onPress={openLanguagePicker}
+                hitSlop={6}
+                style={({ pressed }) => [
+                  styles.settingRowCompact,
+                  pressed && styles.settingRowPressed,
+                ]}
+              >
+                <Text style={styles.settingTitle}>{t('account.languageSectionTitle')}</Text>
+                <View style={styles.settingMeta}>
+                  <Text style={styles.settingValue}>{currentLanguageOption.selfLabel}</Text>
+                  <Text style={styles.settingChevron}>›</Text>
                 </View>
-              ) : null}
-            </View>
-
-            <View style={styles.sectionDivider} />
-
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionLabel}>{t('account.actions')}</Text>
-              <View style={styles.actionGroup}>
-                {isGuest ? (
-                  <ActionButton
-                    label={t('account.returnToLogin')}
-                    variant="secondary"
-                    style={styles.secondaryActionButton}
-                    onPress={confirmEndGuestMode}
-                  />
-                ) : (
-                  <ActionButton
-                    label={t('account.logout')}
-                    variant="secondary"
-                    style={styles.secondaryActionButton}
-                    onPress={confirmLogout}
-                  />
-                )}
+              </Pressable>
+              <View style={styles.settingRowCompact}>
+                <Text style={styles.settingTitle}>{t('account.setupTopics')}</Text>
+                <Text style={styles.settingValueMuted}>{topicsValue}</Text>
+              </View>
+              <View style={styles.settingRowCompact}>
+                <Text style={styles.settingTitle}>{t('account.setupDominantHand')}</Text>
+                <Text style={styles.settingValueMuted}>{dominantHandValue}</Text>
               </View>
             </View>
-
-            {!isGuest ? (
-              <>
-                <View style={styles.sectionDivider} />
-                <View style={styles.dangerZone}>
-                  <Text style={styles.dangerTitle}>{t('account.deleteAccount')}</Text>
-                  <Text style={styles.dangerBody}>{t('account.warningDelete')}</Text>
-                  <ActionButton
-                    label={t('account.deleteAccount')}
-                    variant="danger"
-                    style={styles.secondaryActionButton}
-                    onPress={confirmDeleteAccount}
-                  />
-                </View>
-              </>
-            ) : null}
           </GlassCard>
+
+          {isGuest ? (
+            <GlassCard style={styles.sectionCard}>
+              <Text style={styles.sectionLabel}>{t('account.sessionSectionTitle')}</Text>
+              <ActionButton
+                label={t('account.returnToLogin')}
+                variant="secondary"
+                style={styles.secondaryActionButton}
+                onPress={confirmEndGuestMode}
+              />
+              <Text style={styles.sectionFootnote}>{t('account.sessionBody')}</Text>
+            </GlassCard>
+          ) : (
+            <GlassCard style={styles.sectionCard}>
+              <Text style={styles.sectionLabel}>{t('account.actions')}</Text>
+              <ActionButton
+                label={t('account.logout')}
+                variant="secondary"
+                style={styles.secondaryActionButton}
+                onPress={confirmLogout}
+              />
+              <View style={styles.dangerZone}>
+                <Text style={styles.dangerTitle}>{t('account.deleteAccount')}</Text>
+                <Text style={styles.dangerBody}>{t('account.warningDelete')}</Text>
+                <ActionButton
+                  label={t('account.deleteAccount')}
+                  variant="danger"
+                  style={styles.secondaryActionButton}
+                  onPress={confirmDeleteAccount}
+                />
+              </View>
+            </GlassCard>
+          )}
         </ScrollView>
       </ScreenSurface>
 
@@ -423,6 +427,14 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       paddingTop: spacing.xl,
       paddingBottom: spacing.xl,
     },
+    summaryCardGuest: {
+      backgroundColor: `${colors.accentFeed}14`,
+      borderColor: `${colors.accentFeed}38`,
+    },
+    summaryCardSignedIn: {
+      backgroundColor: `${colors.accentFeed}14`,
+      borderColor: `${colors.accentFeed}38`,
+    },
     summaryTopRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -461,39 +473,66 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       height: 50,
     },
     sectionCard: {
-      gap: spacing.lg,
+      gap: spacing.md,
       paddingTop: spacing.lg,
       paddingBottom: spacing.lg,
-    },
-    sectionBlock: {
-      gap: spacing.md,
     },
     sectionLabel: {
       color: colors.textSecondary,
       fontSize: typography.caption,
       fontWeight: '700',
-      letterSpacing: 0.3,
+      letterSpacing: 0.8,
     },
     sectionBody: {
       color: colors.textSecondary,
       fontSize: typography.body,
       lineHeight: 20,
     },
-    sectionDivider: {
-      height: 1,
-      backgroundColor: colors.stroke,
-      marginVertical: 2,
+    sectionFootnote: {
+      color: colors.textTertiary,
+      fontSize: typography.caption,
+      lineHeight: 18,
     },
-    settingRow: {
-      minHeight: 74,
+    statStack: {
+      gap: spacing.sm,
+    },
+    statRow: {
+      minHeight: 58,
       borderRadius: 16,
       borderWidth: 1,
       borderColor: colors.strokeStrong,
       backgroundColor: colors.bgSurface1,
       paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
+      paddingVertical: 12,
       flexDirection: 'row',
-      alignItems: 'flex-start',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.md,
+    },
+    statLabel: {
+      color: colors.textPrimary,
+      fontSize: typography.bodyLg,
+      fontWeight: '600',
+      flex: 1,
+    },
+    statValue: {
+      color: colors.textSecondary,
+      fontSize: typography.bodyLg,
+      fontWeight: '700',
+    },
+    settingsList: {
+      gap: spacing.sm,
+    },
+    settingRowCompact: {
+      minHeight: 58,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.strokeStrong,
+      backgroundColor: colors.bgSurface1,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
       justifyContent: 'space-between',
       gap: spacing.md,
     },
@@ -501,19 +540,11 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       backgroundColor: colors.bgSurface2,
       borderColor: `${colors.accentFeed}55`,
     },
-    settingCopy: {
-      flex: 1,
-      gap: 4,
-    },
     settingTitle: {
       color: colors.textPrimary,
       fontSize: typography.bodyLg,
       fontWeight: '700',
-    },
-    settingHint: {
-      color: colors.textSecondary,
-      fontSize: typography.caption,
-      lineHeight: 18,
+      flex: 1,
     },
     settingMeta: {
       flexDirection: 'row',
@@ -528,6 +559,14 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       fontWeight: '600',
       flexShrink: 1,
       textAlign: 'right',
+    },
+    settingValueMuted: {
+      color: colors.textSecondary,
+      fontSize: typography.body,
+      fontWeight: '600',
+      flexShrink: 1,
+      textAlign: 'right',
+      maxWidth: '56%',
     },
     settingChevron: {
       color: colors.textTertiary,
@@ -590,12 +629,6 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
     },
     identityStatusIdle: {
       color: colors.textSecondary,
-    },
-    methodActionGroup: {
-      gap: spacing.sm,
-    },
-    actionGroup: {
-      gap: spacing.sm,
     },
     secondaryActionButton: {
       width: '100%',

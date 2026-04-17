@@ -1683,6 +1683,10 @@ export default function App() {
         profile={profile}
         isGuest={isGuest}
         linkedIdentities={linkedIdentities}
+        bookmarksCount={bookmarks.length}
+        vocabCount={vocabList.length}
+        practiceCount={Object.keys(practiceData).length}
+        dominantHand={settings.dominantHand}
         onBack={() => setActiveScreen('feed')}
         onLinkPhone={() => {
           setAuthError('');
