@@ -18,6 +18,7 @@ import {
   buildContentTranslationRequestItem,
   buildLocalizedClip,
   getDevicePreferredNativeLanguage,
+  shouldRefreshLocalizedTitle,
   shouldRequestRemoteTranslations,
 } from './src/content-localization';
 import { AppToast } from './src/components/AppToast';
@@ -365,8 +366,9 @@ export default function App() {
       const cacheKey = buildContentTranslationCacheKey(item.contentKey, locale, item.contentHash);
       const cachedTranslation = contentTranslations[cacheKey];
       const cacheMissingTitle = !String(cachedTranslation?.title || '').trim();
+      const cacheNeedsTitleRefresh = shouldRefreshLocalizedTitle(entry.clip, locale, cachedTranslation);
       if (
-        (cachedTranslation && !cacheMissingTitle)
+        (cachedTranslation && !cacheMissingTitle && !cacheNeedsTitleRefresh)
         || inflightContentTranslationsRef.current.has(cacheKey)
       ) {
         return acc;

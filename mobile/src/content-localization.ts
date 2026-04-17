@@ -38,6 +38,10 @@ function normalizeText(value: unknown) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
+export function containsCjkText(value: unknown) {
+  return /[\u3400-\u9fff]/.test(normalizeText(value));
+}
+
 function stableHash(input: string) {
   let hash = 5381;
   for (let index = 0; index < input.length; index += 1) {
@@ -214,4 +218,20 @@ export function buildLocalizedClip(
     lines,
     questions,
   };
+}
+
+export function shouldRefreshLocalizedTitle(
+  clip: Clip,
+  locale: NativeLanguage,
+  overlay: LocalizedClipContent | null | undefined
+) {
+  const overlayTitle = normalizeText(overlay?.title);
+  const sourceTitle = normalizeText(clip.title);
+
+  if (!overlayTitle) return true;
+  if (locale === 'english' || locale === 'simplified_chinese' || locale === 'traditional_chinese') {
+    return false;
+  }
+
+  return containsCjkText(sourceTitle) && overlayTitle === sourceTitle;
 }

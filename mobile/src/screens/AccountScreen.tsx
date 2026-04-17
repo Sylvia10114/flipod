@@ -1,5 +1,6 @@
+import * as AppleAuthentication from 'expo-apple-authentication';
 import React from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ActionButton, GlassCard, PillButton, ScreenHeader, ScreenSurface } from '../components/AppChrome';
 import { LanguageSelectionList } from '../components/LanguageSelectionList';
 import { spacing, typography } from '../design';
@@ -21,10 +22,6 @@ type Props = {
   onEndGuestMode: () => void;
   onChangeNativeLanguage: (nativeLanguage: NativeLanguage) => void;
 };
-
-function getIdentityLabel(identity: LinkedIdentity, t: (key: string) => string) {
-  return identity.provider === 'phone' ? t('account.phoneProvider') : t('account.appleProvider');
-}
 
 export function AccountScreen({
   profile,
@@ -49,6 +46,40 @@ export function AccountScreen({
   const currentLanguageOption = React.useMemo(
     () => languageOptions.find(option => option.code === profile.nativeLanguage) ?? languageOptions[0],
     [languageOptions, profile.nativeLanguage]
+  );
+  const linkedPhone = React.useMemo(
+    () => linkedIdentities.find(item => item.provider === 'phone') || null,
+    [linkedIdentities]
+  );
+  const linkedApple = React.useMemo(
+    () => linkedIdentities.find(item => item.provider === 'apple') || null,
+    [linkedIdentities]
+  );
+  const linkedMethodCount = linkedIdentities.length;
+  const summaryTitle = isGuest
+    ? t('account.heroGuest', { level: profile.level || 'B1' })
+    : t('account.heroAccount', { count: linkedMethodCount, level: profile.level || 'B1' });
+  const summaryBody = isGuest
+    ? t('account.upgradeGuestBody')
+    : linkedMethodCount < 2
+      ? t('account.noExtraMethods')
+      : t('account.subtitleAccount');
+  const identityRows = React.useMemo(
+    () => [
+      {
+        key: 'phone',
+        label: t('account.phoneProvider'),
+        value: linkedPhone?.displayValue || '',
+        linked: Boolean(linkedPhone),
+      },
+      {
+        key: 'apple',
+        label: t('account.appleProvider'),
+        value: linkedApple?.displayValue || '',
+        linked: Boolean(linkedApple),
+      },
+    ],
+    [linkedApple, linkedPhone, t]
   );
 
   const confirmLogout = React.useCallback(() => {
@@ -111,6 +142,39 @@ export function AccountScreen({
     setLanguagePickerVisible(false);
   }, [onChangeNativeLanguage, profile.nativeLanguage]);
 
+  const renderAppleAction = React.useCallback((mode: 'sign-in' | 'link') => {
+    if (Platform.OS === 'ios') {
+      return (
+        <AppleAuthentication.AppleAuthenticationButton
+          buttonType={
+            mode === 'sign-in'
+              ? AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
+              : AppleAuthentication.AppleAuthenticationButtonType.CONTINUE
+          }
+          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+          cornerRadius={16}
+          style={styles.appleActionButton}
+          onPress={() => {
+            triggerUiFeedback('menu');
+            onLinkApple();
+          }}
+        />
+      );
+    }
+
+    return (
+      <ActionButton
+        label={mode === 'sign-in' ? t('account.appleProvider') : t('account.linkApple')}
+        variant={mode === 'sign-in' ? 'primary' : 'secondary'}
+        style={styles.primaryActionButton}
+        onPress={() => {
+          triggerUiFeedback('menu');
+          onLinkApple();
+        }}
+      />
+    );
+  }, [onLinkApple, styles.appleActionButton, styles.primaryActionButton, t]);
+
   return (
     <>
       <ScreenSurface>
@@ -144,19 +208,59 @@ export function AccountScreen({
                 </View>
               ) : null}
             </View>
-            <Text style={styles.summaryTitle}>
-              {isGuest ? t('account.heroGuest', { level: profile.level || 'B1' }) : t('account.heroAccount', { level: profile.level || 'B1', count: linkedIdentities.length })}
-            </Text>
-            <Text style={styles.summaryBody}>
-              {isGuest ? t('account.subtitleGuest') : t('menu.accountManageBody')}
-            </Text>
+
+            <View style={styles.summaryCopy}>
+              <Text style={styles.summaryTitle}>{summaryTitle}</Text>
+              <Text style={styles.summaryBody}>{summaryBody}</Text>
+            </View>
+
+            <View style={styles.primaryActionGroup}>
+              {isGuest ? (
+                <>
+                  {!hasPhone ? (
+                    <ActionButton
+                      label={t('login.phoneLogin')}
+                      style={styles.primaryActionButton}
+                      onPress={() => {
+                        triggerUiFeedback('menu');
+                        onLinkPhone();
+                      }}
+                    />
+                  ) : null}
+                  {!hasApple ? renderAppleAction('sign-in') : null}
+                </>
+              ) : (
+                <>
+                  {!hasPhone ? (
+                    <ActionButton
+                      label={t('account.linkPhone')}
+                      style={styles.primaryActionButton}
+                      onPress={() => {
+                        triggerUiFeedback('menu');
+                        onLinkPhone();
+                      }}
+                    />
+                  ) : null}
+                  {!hasApple ? renderAppleAction('link') : null}
+                </>
+              )}
+            </View>
           </GlassCard>
 
           <GlassCard style={styles.sectionCard}>
             <Text style={styles.sectionLabel}>{t('menu.learningPreferences')}</Text>
-            <Text style={styles.sectionBody}>{t('account.languageSectionBody')}</Text>
-            <Pressable onPress={openLanguagePicker} style={styles.settingRow}>
-              <Text style={styles.settingTitle}>{t('account.languageSectionTitle')}</Text>
+            <Pressable
+              onPress={openLanguagePicker}
+              hitSlop={6}
+              style={({ pressed }) => [
+                styles.settingRow,
+                pressed && styles.settingRowPressed,
+              ]}
+            >
+              <View style={styles.settingCopy}>
+                <Text style={styles.settingTitle}>{t('account.languageSectionTitle')}</Text>
+                <Text style={styles.settingHint}>{t('account.languageSectionBody')}</Text>
+              </View>
               <View style={styles.settingMeta}>
                 <Text style={styles.settingValue}>{currentLanguageOption.selfLabel}</Text>
                 <Text style={styles.settingChevron}>›</Text>
@@ -165,127 +269,143 @@ export function AccountScreen({
           </GlassCard>
 
           <GlassCard style={styles.sectionCard}>
-            <Text style={styles.sectionLabel}>{isGuest ? t('account.currentIdentity') : t('account.linkedMethods')}</Text>
-            <Text style={styles.sectionBody}>
-              {isGuest
-                ? t('account.guestIdentityBody')
-                : linkedIdentities.length > 0
-                  ? t('menu.accountManageBody')
-                  : t('account.noExtraMethods')}
-            </Text>
-
-            {!isGuest && linkedIdentities.length > 0 ? (
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionLabel}>{t('account.linkedMethods')}</Text>
+              <Text style={styles.sectionBody}>
+                {isGuest
+                  ? t('account.upgradeGuestBody')
+                  : linkedMethodCount < 2
+                    ? t('account.linkNewMethodBody')
+                    : t('account.allMethodsLinked')}
+              </Text>
               <View style={styles.identityList}>
-                {linkedIdentities.map(identity => (
-                  <View key={`${identity.provider}-${identity.providerUserId}`} style={styles.identityRow}>
+                {identityRows.map(row => (
+                  <View key={row.key} style={styles.identityRow}>
                     <View style={styles.identityCopy}>
-                      <Text style={styles.identityLabel}>{getIdentityLabel(identity, t)}</Text>
-                      <Text style={styles.identityValue}>{identity.displayValue}</Text>
+                      <Text style={styles.identityLabel}>{row.label}</Text>
+                      {row.value ? <Text style={styles.identityValue}>{row.value}</Text> : null}
                     </View>
-                    <Text style={styles.identityStatus}>{t('account.linkedStatus')}</Text>
+                    <View style={[styles.identityStatusBadge, row.linked ? styles.identityStatusBadgeLinked : styles.identityStatusBadgeIdle]}>
+                      <Text style={[styles.identityStatus, row.linked ? styles.identityStatusLinked : styles.identityStatusIdle]}>
+                        {row.linked ? t('account.linkedStatus') : t('account.notLinked')}
+                      </Text>
+                    </View>
                   </View>
                 ))}
               </View>
+
+              {!isGuest && (!hasPhone || !hasApple) ? (
+                <View style={styles.methodActionGroup}>
+                  {!hasPhone ? (
+                    <ActionButton
+                      label={t('account.linkPhone')}
+                      variant="secondary"
+                      style={styles.secondaryActionButton}
+                      onPress={() => {
+                        triggerUiFeedback('menu');
+                        onLinkPhone();
+                      }}
+                    />
+                  ) : null}
+                  {!hasApple ? (
+                    <ActionButton
+                      label={t('account.linkApple')}
+                      variant="secondary"
+                      style={styles.secondaryActionButton}
+                      onPress={() => {
+                        triggerUiFeedback('menu');
+                        onLinkApple();
+                      }}
+                    />
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
+
+            <View style={styles.sectionDivider} />
+
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionLabel}>{t('account.actions')}</Text>
+              <View style={styles.actionGroup}>
+                {isGuest ? (
+                  <ActionButton
+                    label={t('account.returnToLogin')}
+                    variant="secondary"
+                    style={styles.secondaryActionButton}
+                    onPress={confirmEndGuestMode}
+                  />
+                ) : (
+                  <ActionButton
+                    label={t('account.logout')}
+                    variant="secondary"
+                    style={styles.secondaryActionButton}
+                    onPress={confirmLogout}
+                  />
+                )}
+              </View>
+            </View>
+
+            {!isGuest ? (
+              <>
+                <View style={styles.sectionDivider} />
+                <View style={styles.dangerZone}>
+                  <Text style={styles.dangerTitle}>{t('account.deleteAccount')}</Text>
+                  <Text style={styles.dangerBody}>{t('account.warningDelete')}</Text>
+                  <ActionButton
+                    label={t('account.deleteAccount')}
+                    variant="danger"
+                    style={styles.secondaryActionButton}
+                    onPress={confirmDeleteAccount}
+                  />
+                </View>
+              </>
             ) : null}
-          </GlassCard>
-
-          <GlassCard style={styles.sectionCard}>
-            <Text style={styles.sectionLabel}>{isGuest ? t('account.upgradeGuest') : t('account.linkNewMethod')}</Text>
-            <Text style={styles.sectionBody}>
-              {isGuest
-                ? t('account.upgradeGuestBody')
-                : t('account.linkNewMethodBody')}
-            </Text>
-            <View style={styles.actionGroup}>
-              {!hasPhone ? (
-                <ActionButton
-                  label={isGuest ? t('login.phoneLogin') : t('account.linkPhone')}
-                  variant="secondary"
-                  onPress={() => {
-                    triggerUiFeedback('menu');
-                    onLinkPhone();
-                  }}
-                />
-              ) : null}
-              {!hasApple ? (
-                <ActionButton
-                  label={isGuest ? t('account.appleProvider') : t('account.linkApple')}
-                  variant="secondary"
-                  onPress={() => {
-                    triggerUiFeedback('menu');
-                    onLinkApple();
-                  }}
-                />
-              ) : null}
-              {hasPhone && hasApple ? (
-                <Text style={styles.allBoundText}>
-                  {isGuest ? t('account.readyToUpgrade') : t('account.allMethodsLinked')}
-                </Text>
-              ) : null}
-            </View>
-          </GlassCard>
-
-          <GlassCard style={[styles.sectionCard, styles.dangerCard]}>
-            <Text style={styles.sectionLabel}>{t('account.actions')}</Text>
-            <View style={styles.actionGroup}>
-              {isGuest ? (
-                <ActionButton label={t('account.returnToLogin')} variant="secondary" onPress={confirmEndGuestMode} />
-              ) : (
-                <>
-                  <ActionButton label={t('account.logout')} variant="secondary" onPress={confirmLogout} />
-                  <ActionButton label={t('account.deleteAccount')} variant="danger" onPress={confirmDeleteAccount} />
-                </>
-              )}
-            </View>
-            <Text style={styles.warningText}>
-              {isGuest
-                ? t('account.warningGuest')
-                : t('account.warningDelete')}
-            </Text>
           </GlassCard>
         </ScrollView>
       </ScreenSurface>
 
       <Modal
         visible={languagePickerVisible}
+        transparent
         animationType="slide"
-        presentationStyle="fullScreen"
         onRequestClose={closeLanguagePicker}
       >
-        <ScreenSurface edges={['bottom']}>
-          <View style={[styles.languageModalSurface, { paddingTop: Math.max(metrics.insets.top + 6, 18) }]}>
-            <ScreenHeader
-              leading={<PillButton label={t('common.back')} onPress={closeLanguagePicker} />}
-              title={t('account.languageSectionTitle')}
-            />
-
-            <ScrollView
-              contentContainerStyle={[
-                styles.languageModalContent,
+        <View style={styles.sheetOverlay}>
+          <Pressable style={styles.sheetBackdrop} onPress={closeLanguagePicker} />
+          <View style={[styles.sheetDock, { paddingBottom: Math.max(metrics.insets.bottom + 12, 20) }]}>
+            <View
+              style={[
+                styles.sheetCard,
                 {
-                  paddingHorizontal: metrics.pageHorizontalPadding,
+                  marginHorizontal: metrics.pageHorizontalPadding,
                   maxWidth: metrics.modalMaxWidth,
-                  alignSelf: 'center',
-                  width: '100%',
+                  maxHeight: Math.min(metrics.windowHeight * 0.76, 620),
                 },
               ]}
-              showsVerticalScrollIndicator={false}
             >
-              <View style={styles.languageModalIntro}>
-                <Text style={styles.languageModalTitle}>{t('onboarding.nativeLanguageTitle')}</Text>
-                <Text style={styles.languageModalSubtitle}>{t('onboarding.languagePageSubtitle')}</Text>
+              <View style={styles.sheetHandle} />
+              <View style={styles.sheetHeaderRow}>
+                <View style={styles.sheetHeaderCopy}>
+                  <Text style={styles.sheetTitle}>{t('account.languageSectionTitle')}</Text>
+                  <Text style={styles.sheetSubtitle}>{t('account.languageSectionBody')}</Text>
+                </View>
+                <PillButton label={t('common.close')} subtle onPress={closeLanguagePicker} />
               </View>
 
-              <LanguageSelectionList
-                selectedLanguage={profile.nativeLanguage}
-                trailingMode="check"
-                onSelect={handleLanguageSelect}
-              />
-
-              <Text style={styles.languageModalHint}>{t('onboarding.languagePageHint')}</Text>
-            </ScrollView>
+              <ScrollView
+                style={styles.sheetScroll}
+                contentContainerStyle={styles.sheetScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <LanguageSelectionList
+                  selectedLanguage={profile.nativeLanguage}
+                  trailingMode="check"
+                  onSelect={handleLanguageSelect}
+                />
+              </ScrollView>
+            </View>
           </View>
-        </ScreenSurface>
+        </View>
       </Modal>
     </>
   );
@@ -299,7 +419,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       gap: spacing.lg,
     },
     summaryCard: {
-      gap: spacing.md,
+      gap: spacing.lg,
       paddingTop: spacing.xl,
       paddingBottom: spacing.xl,
     },
@@ -310,15 +430,18 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       gap: spacing.md,
     },
     summaryEyebrow: {
-      color: colors.textTertiary,
-      fontSize: typography.micro,
+      color: colors.textSecondary,
+      fontSize: typography.caption,
       fontWeight: '700',
-      letterSpacing: 1.1,
+      letterSpacing: 0.5,
       textTransform: 'uppercase',
+    },
+    summaryCopy: {
+      gap: spacing.sm,
     },
     summaryTitle: {
       color: colors.textPrimary,
-      fontSize: 22,
+      fontSize: typography.hero,
       fontWeight: '700',
       lineHeight: 30,
     },
@@ -327,27 +450,42 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: typography.body,
       lineHeight: 20,
     },
+    primaryActionGroup: {
+      gap: spacing.sm,
+    },
+    primaryActionButton: {
+      width: '100%',
+    },
+    appleActionButton: {
+      width: '100%',
+      height: 50,
+    },
     sectionCard: {
-      gap: spacing.md,
+      gap: spacing.lg,
       paddingTop: spacing.lg,
       paddingBottom: spacing.lg,
     },
-    dangerCard: {
-      borderColor: `${colors.accentError}22`,
+    sectionBlock: {
+      gap: spacing.md,
     },
     sectionLabel: {
-      color: colors.textTertiary,
-      fontSize: typography.micro,
+      color: colors.textSecondary,
+      fontSize: typography.caption,
       fontWeight: '700',
-      letterSpacing: 1.1,
+      letterSpacing: 0.3,
     },
     sectionBody: {
       color: colors.textSecondary,
       fontSize: typography.body,
       lineHeight: 20,
     },
+    sectionDivider: {
+      height: 1,
+      backgroundColor: colors.stroke,
+      marginVertical: 2,
+    },
     settingRow: {
-      minHeight: 60,
+      minHeight: 74,
       borderRadius: 16,
       borderWidth: 1,
       borderColor: colors.strokeStrong,
@@ -355,15 +493,27 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
       flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       justifyContent: 'space-between',
       gap: spacing.md,
     },
-    settingTitle: {
+    settingRowPressed: {
+      backgroundColor: colors.bgSurface2,
+      borderColor: `${colors.accentFeed}55`,
+    },
+    settingCopy: {
       flex: 1,
+      gap: 4,
+    },
+    settingTitle: {
       color: colors.textPrimary,
       fontSize: typography.bodyLg,
       fontWeight: '700',
+    },
+    settingHint: {
+      color: colors.textSecondary,
+      fontSize: typography.caption,
+      lineHeight: 18,
     },
     settingMeta: {
       flexDirection: 'row',
@@ -386,7 +536,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       marginTop: -1,
     },
     identityList: {
-      gap: spacing.md,
+      gap: spacing.sm,
     },
     identityRow: {
       flexDirection: 'row',
@@ -394,7 +544,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       justifyContent: 'space-between',
       gap: spacing.md,
       paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
+      paddingVertical: 14,
       borderRadius: 16,
       borderWidth: 1,
       borderColor: colors.strokeStrong,
@@ -414,22 +564,60 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: typography.bodyLg,
       fontWeight: '700',
     },
+    identityStatusBadge: {
+      minWidth: 84,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderWidth: 1,
+    },
+    identityStatusBadgeLinked: {
+      backgroundColor: `${colors.accentSuccess}14`,
+      borderColor: `${colors.accentSuccess}26`,
+    },
+    identityStatusBadgeIdle: {
+      backgroundColor: colors.bgSurface2,
+      borderColor: colors.strokeStrong,
+    },
     identityStatus: {
-      color: colors.accentSuccess,
       fontSize: typography.caption,
       fontWeight: '700',
+    },
+    identityStatusLinked: {
+      color: colors.accentSuccess,
+    },
+    identityStatusIdle: {
+      color: colors.textSecondary,
+    },
+    methodActionGroup: {
+      gap: spacing.sm,
     },
     actionGroup: {
       gap: spacing.sm,
     },
-    allBoundText: {
-      color: colors.textSecondary,
-      fontSize: typography.caption,
+    secondaryActionButton: {
+      width: '100%',
     },
-    warningText: {
-      color: colors.textTertiary,
-      fontSize: typography.caption,
-      lineHeight: 18,
+    dangerZone: {
+      gap: spacing.sm,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: `${colors.accentError}24`,
+      backgroundColor: `${colors.accentError}10`,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.lg,
+    },
+    dangerTitle: {
+      color: colors.textPrimary,
+      fontSize: typography.bodyLg,
+      fontWeight: '700',
+    },
+    dangerBody: {
+      color: `${colors.textPrimary}CC`,
+      fontSize: typography.body,
+      lineHeight: 20,
     },
     levelBadge: {
       borderRadius: 999,
@@ -444,39 +632,66 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: typography.caption,
       fontWeight: '700',
     },
-    languageModalContent: {
-      flexGrow: 1,
-      paddingHorizontal: spacing.page,
-      paddingTop: spacing.md,
-      paddingBottom: 40,
-    },
-    languageModalSurface: {
+    sheetOverlay: {
       flex: 1,
+      justifyContent: 'flex-end',
     },
-    languageModalIntro: {
+    sheetBackdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: colors.bgDim,
+    },
+    sheetDock: {
+      width: '100%',
+      justifyContent: 'flex-end',
       alignItems: 'center',
+    },
+    sheetCard: {
+      width: '100%',
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      backgroundColor: colors.bgOverlay,
+      borderWidth: 1,
+      borderColor: colors.strokeStrong,
+      overflow: 'hidden',
+      paddingTop: spacing.md,
+    },
+    sheetHandle: {
+      alignSelf: 'center',
+      width: 44,
+      height: 5,
+      borderRadius: 999,
+      backgroundColor: colors.textFaint,
+      marginBottom: spacing.md,
+    },
+    sheetHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
       gap: spacing.md,
-      marginBottom: spacing.xl,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.md,
     },
-    languageModalTitle: {
+    sheetHeaderCopy: {
+      flex: 1,
+      gap: 6,
+      paddingTop: 2,
+    },
+    sheetTitle: {
       color: colors.textPrimary,
-      fontSize: 24,
+      fontSize: typography.hero,
       fontWeight: '700',
-      textAlign: 'center',
     },
-    languageModalSubtitle: {
+    sheetSubtitle: {
       color: colors.textSecondary,
-      fontSize: typography.bodyLg,
-      lineHeight: 22,
-      textAlign: 'center',
-      paddingHorizontal: 18,
+      fontSize: typography.body,
+      lineHeight: 20,
     },
-    languageModalHint: {
-      marginTop: spacing.lg,
-      color: colors.textSecondary,
-      fontSize: typography.caption,
-      lineHeight: 18,
-      textAlign: 'center',
+    sheetScroll: {
+      flexGrow: 0,
+    },
+    sheetScrollContent: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.md,
     },
   });
 }

@@ -79,11 +79,13 @@ export function PillButton({ label, onPress, active = false, subtle = false, sty
     <Pressable
       onPress={onPress}
       hitSlop={8}
-      style={[
+      style={({ pressed }) => [
         styles.pillButton,
         { minHeight: metrics.touchTarget, paddingHorizontal: metrics.isTablet ? 16 : 14 },
         subtle && styles.pillButtonSubtle,
         active && styles.pillButtonActive,
+        pressed && !active && styles.pillButtonPressed,
+        pressed && active && styles.pillButtonActivePressed,
         style,
       ]}
     >
@@ -115,12 +117,16 @@ export function ActionButton({
       disabled={disabled}
       onPress={onPress}
       hitSlop={6}
-      style={[
+      style={({ pressed }) => [
         styles.actionButton,
         { minHeight: metrics.isTablet ? 52 : 48 },
         variant === 'secondary' && styles.actionButtonSecondary,
         variant === 'success' && styles.actionButtonSuccess,
         variant === 'danger' && styles.actionButtonDanger,
+        pressed && !disabled && styles.actionButtonPressed,
+        pressed && variant === 'secondary' && styles.actionButtonSecondaryPressed,
+        pressed && variant === 'success' && styles.actionButtonSuccessPressed,
+        pressed && variant === 'danger' && styles.actionButtonDangerPressed,
         disabled && styles.actionButtonDisabled,
         style,
       ]}
@@ -311,6 +317,14 @@ return StyleSheet.create({
     backgroundColor: colors.accentFeed,
     borderColor: colors.accentFeed,
   },
+  pillButtonPressed: {
+    backgroundColor: colors.bgSurface3,
+    borderColor: colors.strokeStrong,
+  },
+  pillButtonActivePressed: {
+    backgroundColor: '#7A8AF0',
+    borderColor: '#7A8AF0',
+  },
   pillButtonText: {
     color: colors.textPrimary,
     fontSize: typography.caption,
@@ -340,6 +354,22 @@ return StyleSheet.create({
     backgroundColor: 'rgba(239,68,68,0.14)',
     borderWidth: 1,
     borderColor: 'rgba(239,68,68,0.26)',
+  },
+  actionButtonPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.99 }],
+  },
+  actionButtonSecondaryPressed: {
+    backgroundColor: colors.bgSurface2,
+    borderColor: colors.accentFeed,
+  },
+  actionButtonSuccessPressed: {
+    backgroundColor: 'rgba(34,197,94,0.24)',
+    borderColor: 'rgba(34,197,94,0.34)',
+  },
+  actionButtonDangerPressed: {
+    backgroundColor: 'rgba(239,68,68,0.22)',
+    borderColor: 'rgba(239,68,68,0.34)',
   },
   actionButtonDisabled: {
     opacity: 0.4,

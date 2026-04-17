@@ -30,7 +30,7 @@ export function LanguageSelectionList({
           <Pressable
             key={option.code}
             onPress={() => onSelect(option.code)}
-            style={[
+            style={({ pressed }) => [
               styles.row,
               {
                 minHeight: metrics.isTablet ? 80 : 72,
@@ -38,6 +38,7 @@ export function LanguageSelectionList({
                 paddingVertical: metrics.isTablet ? 18 : 16,
               },
               isSelected && styles.rowSelected,
+              pressed && styles.rowPressed,
             ]}
             hitSlop={6}
           >
@@ -86,6 +87,10 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
     rowSelected: {
       borderColor: `${colors.accentFeed}88`,
       backgroundColor: `${colors.accentFeed}12`,
+    },
+    rowPressed: {
+      backgroundColor: colors.bgSurface2,
+      borderColor: `${colors.accentFeed}55`,
     },
     copy: {
       flex: 1,
