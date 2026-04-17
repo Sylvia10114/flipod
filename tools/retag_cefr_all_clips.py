@@ -2,10 +2,11 @@
 """Re-tag CEFR levels on all existing clips in data.json.
 
 修复逻辑（按优先级）：
-  1. cefr_wordlist.json 查表
-  2. hardcoded 补丁表（~200 高频基础词，强制覆盖 LLM 错标）
-  3. 专有名词检测（句中大写开头 + 不在词表/补丁表 → "PN"）
-  4. 剩余未命中 → null
+  1. cefr_overrides.json （Flipod 内部手工 override，修 CEFR-J 高估）
+  2. cefr_wordlist.json 查表 (CEFR-J + Octanove)
+  3. hardcoded 补丁表（~200 高频基础词，强制覆盖 LLM 错标）
+  4. 专有名词检测（句中大写开头 + 不在词表/补丁表 → "PN"）
+  5. 剩余未命中 → null
 
 用法:
     python3 tools/retag_cefr_all_clips.py
@@ -328,6 +329,21 @@ def normalize_word(raw: str) -> str:
     return re.sub(r"[^a-zA-Z']", "", raw).lower()
 
 
+def load_overrides(overrides_path: Path) -> dict[str, str]:
+    """加载 cefr_overrides.json。返回 {clean_word: level}。
+    缺失文件时静默返回空 dict（向后兼容）。
+    """
+    if not overrides_path.exists():
+        return {}
+    try:
+        data = json.load(open(overrides_path))
+        raw = data.get("overrides", {}) or {}
+        return {normalize_word(k): v for k, v in raw.items() if v in {"A1", "A2", "B1", "B2", "C1", "C2"}}
+    except Exception as e:
+        print(f"⚠️  overrides 加载失败 ({overrides_path}): {e}")
+        return {}
+
+
 def is_proper_noun(word: str, word_index: int, line_en: str) -> bool:
     """检测是否为专有名词。
     规则：词在原文中大写开头，且不是句首词。
@@ -347,6 +363,7 @@ def resolve_cefr(
     word_index: int,
     line_en: str,
     wordlist: dict[str, str],
+    overrides: dict[str, str],
 ) -> tuple[str | None, str]:
     """返回 (cefr_level, source)。source 用于统计。"""
     raw = word_obj.get("word", "")
@@ -359,29 +376,67 @@ def resolve_cefr(
     if not re.search(r"[a-zA-Z]", raw):
         return None, "number"
 
-    # 1. cefr_wordlist.json 查表
+    # 1. overrides（最高优先级）
+    ov_level = overrides.get(clean)
+    if ov_level:
+        return ov_level, "override"
+
+    # 2. cefr_wordlist.json 查表
     wl_level = wordlist.get(clean)
     if wl_level and wl_level in {"A1", "A2", "B1", "B2", "C1", "C2"}:
         return wl_level, "wordlist"
 
-    # 2. hardcoded 补丁表
+    # 3. hardcoded 补丁表
     patch_level = PATCH_TABLE.get(clean)
     if patch_level:
         return patch_level, "patch"
 
-    # 3. 专有名词检测
+    # 4. 专有名词检测
     if is_proper_noun(raw, word_index, line_en):
         return "PN", "proper_noun"
 
-    # 4. 未命中 → null
+    # 5. 未命中 → null
     return None, "fallback_null"
+
+
+def _infer_clip_difficulty(clip: dict) -> str:
+    """复用 scripts/agent/cefr.py::infer_difficulty 的阈值算法。
+    Returns one of: 'B1', 'B1+', 'B2', 'B2+', 'C1'.
+    """
+    counts = {"A1": 0, "A2": 0, "B1": 0, "B2": 0, "C1": 0, "C2": 0}
+    total = 0
+    for line in clip.get("lines", []):
+        for w in line.get("words", []):
+            level = w.get("cefr")
+            if level in counts:
+                counts[level] += 1
+                total += 1
+    if total == 0:
+        return "B1+"
+    pct_b2 = counts["B2"] / total * 100
+    pct_c1_plus = (counts["C1"] + counts["C2"]) / total * 100
+    pct_advanced = (counts["B2"] + counts["C1"] + counts["C2"]) / total * 100
+    if pct_c1_plus >= 8:
+        return "C1"
+    if pct_c1_plus >= 4 or pct_b2 >= 30:
+        return "B2+"
+    if pct_c1_plus >= 2 or pct_b2 >= 20:
+        return "B2"
+    if pct_b2 >= 12 or pct_advanced >= 35:
+        return "B1+"
+    return "B1"
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--data", type=Path, default=Path("data.json"))
     ap.add_argument("--wordlist", type=Path, default=Path("scripts/cefr_wordlist.json"))
+    ap.add_argument("--overrides", type=Path, default=Path("cefr_overrides.json"))
     ap.add_argument("--dry-run", action="store_true", help="只打印 diff,不改 data.json")
+    ap.add_argument("--update-difficulty", action="store_true",
+                    help="同时重算并写回 clip.difficulty。默认只更新词级 cefr，"
+                         "因为现有 infer_difficulty 阈值算法可能与历史 difficulty "
+                         "标注方式不同，整体左移容易引起误判。先看 dry-run 直方图再决定。")
     args = ap.parse_args()
 
     if not args.data.exists():
@@ -390,7 +445,9 @@ def main() -> None:
         raise SystemExit(f"找不到 {args.wordlist}")
 
     wordlist = json.load(open(args.wordlist))
+    overrides = load_overrides(args.overrides)
     print(f"词表加载: {len(wordlist)} 词")
+    print(f"Overrides 加载: {len(overrides)} 词 ({args.overrides})")
     print(f"补丁表: {len(PATCH_TABLE)} 词")
 
     data = json.load(open(args.data))
@@ -402,17 +459,28 @@ def main() -> None:
     source_counter = Counter()     # source -> count
     changed = Counter()            # (old_level, new_level) -> count
     patch_fixes = Counter()        # word -> count (被补丁表修正的词)
+    override_fixes = Counter()     # word -> count (被 overrides 修正的词)
     pn_detected = Counter()        # word -> count (被标为 PN 的词)
     unchanged = 0
 
+    # 难度直方图统计（用于 PR 描述）
+    difficulty_before = Counter()
+    difficulty_after = Counter()
+
+    def _diff_label(d):
+        if isinstance(d, dict):
+            return d.get("level") or "unknown"
+        return d or "unknown"
+
     for clip in clips:
+        difficulty_before[_diff_label(clip.get("difficulty"))] += 1
         for line in clip.get("lines", []):
             line_en = line.get("en", "")
             words = line.get("words", [])
             for wi, w in enumerate(words):
                 total_words += 1
                 old_level = w.get("cefr")
-                new_level, source = resolve_cefr(w, wi, line_en, wordlist)
+                new_level, source = resolve_cefr(w, wi, line_en, wordlist, overrides)
                 source_counter[source] += 1
 
                 # 规范化 old_level
@@ -425,11 +493,26 @@ def main() -> None:
                     changed[(old_level, new_level)] += 1
                     if source == "patch" and old_level != new_level:
                         patch_fixes[normalize_word(w.get("word", ""))] += 1
+                    if source == "override" and old_level != new_level:
+                        override_fixes[normalize_word(w.get("word", ""))] += 1
                     if source == "proper_noun":
                         pn_detected[w.get("word", "")] += 1
 
                 if not args.dry_run:
                     w["cefr"] = new_level
+
+        # 重算 clip-level difficulty（保留原算法：基于词级 CEFR 分布）
+        # 复用 scripts/agent/cefr.py::infer_difficulty 的阈值
+        new_diff = _infer_clip_difficulty(clip)
+        difficulty_after[new_diff] += 1
+        if not args.dry_run and args.update_difficulty:
+            old = clip.get("difficulty")
+            if isinstance(old, dict):
+                # 保留 dict 形态，仅更新 level 字段
+                if old.get("level") != new_diff:
+                    old["level"] = new_diff
+            elif old != new_diff:
+                clip["difficulty"] = new_diff
 
     total_changed = sum(changed.values())
     print(f"\nRetag 结果 ({'预览' if args.dry_run else '已应用'}):")
@@ -446,10 +529,29 @@ def main() -> None:
         for (old, new), count in changed.most_common(15):
             print(f"  {old} -> {new}: {count}")
 
+    if override_fixes:
+        print(f"\nOverrides 修正 ({sum(override_fixes.values())} 次, {len(override_fixes)} 个词):")
+        for word, cnt in override_fixes.most_common(60):
+            print(f"  {word}: {cnt}")
+
     if patch_fixes:
         print(f"\n补丁表修正 ({sum(patch_fixes.values())} 次, {len(patch_fixes)} 个词):")
         for word, cnt in patch_fixes.most_common(30):
             print(f"  {word}: {cnt}")
+
+    # Clip-level difficulty 直方图
+    levels_order = ["B1", "B1+", "B2", "B2+", "C1", "unknown"]
+    write_status = "已写回" if (not args.dry_run and args.update_difficulty) else "预览(未写回)"
+    print(f"\nClip-level difficulty 直方图 (before → after, {write_status}):")
+    print(f"  {'level':<10} {'before':>8} {'after':>8} {'delta':>8}")
+    keys = sorted(set(list(difficulty_before.keys()) + list(difficulty_after.keys())),
+                  key=lambda k: levels_order.index(k) if k in levels_order else 99)
+    for k in keys:
+        b = difficulty_before.get(k, 0)
+        a = difficulty_after.get(k, 0)
+        delta = a - b
+        sign = "+" if delta > 0 else ""
+        print(f"  {k:<10} {b:>8} {a:>8} {sign}{delta:>7}")
 
     if pn_detected:
         print(f"\n专有名词检测 ({sum(pn_detected.values())} 次, {len(pn_detected)} 个词):")
@@ -458,7 +560,9 @@ def main() -> None:
 
     if not args.dry_run:
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup = args.data.parent / f"{args.data.stem}.backup-{ts}{args.data.suffix}"
+        backup_dir = Path("output/backups")
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        backup = backup_dir / f"{args.data.stem}.bak-{ts}{args.data.suffix}"
         shutil.copy2(args.data, backup)
         print(f"\n原文件已备份: {backup}")
 

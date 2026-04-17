@@ -275,7 +275,7 @@
               "word": "pretty",
               "start": 13.82,
               "end": 14.22,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "snazzy",
@@ -1601,7 +1601,23 @@
             }
           ]
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "karaoke",
+            "zh": "卡拉OK",
+            "cefr": "B2"
+          },
+          {
+            "word": "retrieve",
+            "zh": "取回",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412471092
+      }
     },
     {
       "title": "她用鼻子诊断了一种病",
@@ -1824,7 +1840,7 @@
               "word": "However",
               "start": 12.66,
               "end": 12.9,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "when",
@@ -2648,7 +2664,28 @@
             }
           ]
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "dominant",
+            "zh": "主要的",
+            "cefr": "C1"
+          },
+          {
+            "word": "sensitive",
+            "zh": "敏感的",
+            "cefr": "B2"
+          },
+          {
+            "word": "scent",
+            "zh": "气味",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412474229
+      }
     },
     {
       "title": "第一支烟和最后一支烟",
@@ -3779,7 +3816,23 @@
             }
           ]
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "huddle",
+            "zh": "蜷缩",
+            "cefr": "C2"
+          },
+          {
+            "word": "flick",
+            "zh": "弹",
+            "cefr": "C1"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412478667
+      }
     },
     {
       "title": "被债务淹没的体面人生",
@@ -4226,7 +4279,7 @@
               "word": "rather",
               "start": 26.7,
               "end": 26.94,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "than",
@@ -4982,7 +5035,7 @@
               "word": "yet",
               "start": 74.3,
               "end": 74.72,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "hundreds",
@@ -5546,6 +5599,22 @@
             }
           ]
         }
+      },
+      "priming": {
+        "words": [
+          {
+            "word": "loan",
+            "zh": "贷款",
+            "cefr": "B2"
+          },
+          {
+            "word": "pandemic",
+            "zh": "疫情",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.2-postfix",
+        "generatedAt": 1776412481883
       }
     },
     {
@@ -7289,7 +7358,23 @@
             }
           ]
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "retrieve",
+            "zh": "取回",
+            "cefr": "B2"
+          },
+          {
+            "word": "investigate",
+            "zh": "调查",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412485029
+      }
     },
     {
       "id": 6,
@@ -8140,7 +8225,7 @@
               "word": "still",
               "start": 57.58,
               "end": 57.92,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "survives",
@@ -8269,7 +8354,8 @@
           "end": 63.98,
           "zh": "当镜头扫过人群时，你可以看到观众在欢呼、挥舞帽子，还纷纷探身向前。"
         }
-      ]
+      ],
+      "priming": null
     },
     {
       "id": 7,
@@ -10124,7 +10210,23 @@
           "end": 81.38,
           "zh": "帕比·范·温克尔是由萨泽拉克控制的二十多个波本威士忌品牌之一。"
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "economist",
+            "zh": "经济学家",
+            "cefr": "B2"
+          },
+          {
+            "word": "bourbon",
+            "zh": "波本威士忌",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412488450
+      }
     },
     {
       "id": 9,
@@ -10498,7 +10600,7 @@
               "word": "still",
               "start": 14.68,
               "end": 14.84,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "just",
@@ -10906,7 +11008,7 @@
               "word": "mostly",
               "start": 31.84,
               "end": 32.6,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "my",
@@ -11678,7 +11780,7 @@
               "word": "suddenly",
               "start": 83.78,
               "end": 84.02,
-              "cefr": "B1"
+              "cefr": "A2"
             },
             {
               "word": "the",
@@ -11971,7 +12073,28 @@
           "end": 96.06,
           "zh": "我是家里最小的孩子，你知道，平时算是那个逗爸妈开心的人，可这时却来了这么一个陌生人，他一下子就……"
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "flit",
+            "zh": "轻快走动",
+            "cefr": "C2"
+          },
+          {
+            "word": "merit",
+            "zh": "值得",
+            "cefr": "C2"
+          },
+          {
+            "word": "stepfather",
+            "zh": "继父",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412492102
+      }
     },
     {
       "id": 10,
@@ -12023,7 +12146,7 @@
               "word": "pretty",
               "start": 2.24,
               "end": 2.64,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "much",
@@ -13181,7 +13304,7 @@
               "word": "though",
               "start": 70.28,
               "end": 70.44,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "not",
@@ -13588,7 +13711,28 @@
           "end": 93.38,
           "zh": "这一点你确实得承认。"
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "investment",
+            "zh": "投资",
+            "cefr": "B2"
+          },
+          {
+            "word": "manufacture",
+            "zh": "生产",
+            "cefr": "B2"
+          },
+          {
+            "word": "bourbon",
+            "zh": "波本威士忌",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412495263
+      }
     },
     {
       "id": 11,
@@ -13727,7 +13871,7 @@
               "word": "certainly",
               "start": 5.8,
               "end": 6,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "is",
@@ -13837,7 +13981,7 @@
               "word": "certainly",
               "start": 12,
               "end": 12.3,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "that's",
@@ -15275,7 +15419,28 @@
             }
           ]
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "scenario",
+            "zh": "情境",
+            "cefr": "C1"
+          },
+          {
+            "word": "phase",
+            "zh": "阶段",
+            "cefr": "B2"
+          },
+          {
+            "word": "bio",
+            "zh": "简介",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412498243
+      }
     },
     {
       "id": 12,
@@ -15896,7 +16061,7 @@
               "word": "pretty",
               "start": 27.12,
               "end": 27.76,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "up",
@@ -17384,7 +17549,7 @@
               "word": "still",
               "start": 94.1,
               "end": 94.3,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "not",
@@ -17780,7 +17945,28 @@
             }
           ]
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "revenue",
+            "zh": "收入",
+            "cefr": "B2"
+          },
+          {
+            "word": "proponent",
+            "zh": "支持者",
+            "cefr": "B2"
+          },
+          {
+            "word": "prompt",
+            "zh": "指令",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412501435
+      }
     },
     {
       "id": 13,
@@ -18869,7 +19055,7 @@
               "word": "truly",
               "start": 59.36,
               "end": 59.74,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "American",
@@ -19399,7 +19585,28 @@
             }
           ]
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "vortex",
+            "zh": "旋涡",
+            "cefr": "C2"
+          },
+          {
+            "word": "meticulously",
+            "zh": "精心",
+            "cefr": "C2"
+          },
+          {
+            "word": "originally",
+            "zh": "最初",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412506367
+      }
     },
     {
       "id": 14,
@@ -21490,7 +21697,7 @@
               "word": "basically",
               "start": 91.26,
               "end": 91.62,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "buy",
@@ -21866,7 +22073,23 @@
             }
           ]
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "estate",
+            "zh": "遗产",
+            "cefr": "B2"
+          },
+          {
+            "word": "cherry",
+            "zh": "精挑",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412509221
+      }
     },
     {
       "id": 15,
@@ -22815,7 +23038,7 @@
               "word": "already",
               "start": 56.02,
               "end": 56.5,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "using",
@@ -23425,7 +23648,28 @@
             }
           ]
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "hook",
+            "zh": "连接",
+            "cefr": "B2"
+          },
+          {
+            "word": "cursor",
+            "zh": "Cursor工具",
+            "cefr": "B2"
+          },
+          {
+            "word": "literally",
+            "zh": "确实",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412512211
+      }
     },
     {
       "title": "检察官为什么和黑帮头目一起吃早餐？",
@@ -24427,7 +24671,7 @@
               "word": "already",
               "start": 52.64,
               "end": 53.06,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "occupied",
@@ -25243,7 +25487,28 @@
             }
           ]
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "oversee",
+            "zh": "监督",
+            "cefr": "C1"
+          },
+          {
+            "word": "booth",
+            "zh": "摊位",
+            "cefr": "B2"
+          },
+          {
+            "word": "odd",
+            "zh": "古怪",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412515075
+      }
     },
     {
       "title": "新抗生素上市了，公司却还是失败了？",
@@ -26367,7 +26632,28 @@
             }
           ]
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "pad",
+            "zh": "跳板",
+            "cefr": "B2"
+          },
+          {
+            "word": "upgrade",
+            "zh": "改进",
+            "cefr": "B2"
+          },
+          {
+            "word": "version",
+            "zh": "变体",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412518087
+      }
     },
     {
       "title": "美军“靴子落地”伊朗？他们先聊了一条突发消息",
@@ -27085,7 +27371,7 @@
               "word": "though",
               "start": 43.72,
               "end": 44.16,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "very",
@@ -27883,7 +28169,28 @@
             }
           ]
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "rhetorically",
+            "zh": "言语上",
+            "cefr": "C2"
+          },
+          {
+            "word": "correspondence",
+            "zh": "来信",
+            "cefr": "B2"
+          },
+          {
+            "word": "feedback",
+            "zh": "意见",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412521065
+      }
     },
     {
       "title": "你最爱的怪物，竟引出炼金术真相？",
@@ -29681,7 +29988,28 @@
             }
           ]
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "secular",
+            "zh": "世俗",
+            "cefr": "C2"
+          },
+          {
+            "word": "ingenuity",
+            "zh": "巧思",
+            "cefr": "C1"
+          },
+          {
+            "word": "legend",
+            "zh": "传说",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412524164
+      }
     },
     {
       "title": "大型强子对撞机，真的把铅变成了金？",
@@ -30627,7 +30955,7 @@
               "word": "pretty",
               "start": 52.2,
               "end": 52.7,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "bizarre",
@@ -31157,7 +31485,28 @@
             }
           ]
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "secular",
+            "zh": "世俗",
+            "cefr": "C2"
+          },
+          {
+            "word": "proposition",
+            "zh": "主张",
+            "cefr": "C2"
+          },
+          {
+            "word": "ingenuity",
+            "zh": "创造力",
+            "cefr": "C1"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412527765
+      }
     },
     {
       "title": "一口气听懂本周最重要的 AI 大新闻",
@@ -31557,7 +31906,7 @@
               "word": "basically",
               "start": 17.46,
               "end": 17.84,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "upending",
@@ -32847,7 +33196,7 @@
               "word": "basically",
               "start": 68.68,
               "end": 68.86,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "this",
@@ -32987,7 +33336,28 @@
             }
           ]
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "ton",
+            "zh": "大量",
+            "cefr": "B2"
+          },
+          {
+            "word": "formerly",
+            "zh": "曾经",
+            "cefr": "B2"
+          },
+          {
+            "word": "energy",
+            "zh": "能耗",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412531293
+      }
     },
     {
       "title": "Google 这次开源，为什么可能改变 AI 格局？",
@@ -33213,7 +33583,7 @@
               "word": "basically",
               "start": 9.58,
               "end": 9.84,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "this",
@@ -33525,7 +33895,7 @@
               "word": "Basically",
               "start": 23.0,
               "end": 23.26,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "you're",
@@ -33813,7 +34183,7 @@
               "word": "basically",
               "start": 35.92,
               "end": 36.24,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "getting",
@@ -33857,7 +34227,7 @@
               "word": "already",
               "start": 37.78,
               "end": 38.1,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "has",
@@ -35279,7 +35649,7 @@
               "word": "anyone",
               "start": 86.72,
               "end": 86.82,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "that's",
@@ -35677,7 +36047,28 @@
             }
           ]
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "parameter",
+            "zh": "参数",
+            "cefr": "C2"
+          },
+          {
+            "word": "maverick",
+            "zh": "特立独行",
+            "cefr": "C2"
+          },
+          {
+            "word": "commercially",
+            "zh": "商业上",
+            "cefr": "C1"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412535299
+      }
     },
     {
       "title": "强到不能公开？这个 AI 先被拿去找漏洞",
@@ -36125,7 +36516,7 @@
               "word": "basically",
               "start": 19.2,
               "end": 19.66,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "this",
@@ -36247,7 +36638,7 @@
               "word": "everywhere",
               "start": 25.54,
               "end": 26.02,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "that",
@@ -37175,7 +37566,28 @@
             }
           ]
         }
-      ]
+      ],
+      "priming": {
+        "words": [
+          {
+            "word": "hack",
+            "zh": "入侵",
+            "cefr": "C1"
+          },
+          {
+            "word": "project",
+            "zh": "项目",
+            "cefr": "B2"
+          },
+          {
+            "word": "essentially",
+            "zh": "基本上",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412538561
+      }
     },
     {
       "id": 16,
@@ -37297,7 +37709,7 @@
               "word": "still",
               "start": 5.18,
               "end": 5.8,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "brutally",
@@ -38095,7 +38507,7 @@
               "word": "someone",
               "start": 59.82,
               "end": 60.62,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "knocking",
@@ -38515,7 +38927,8 @@
           "explanation_zh": "文中提到有些人没能回家，因此他们的家人觉得政府忘记了他们。"
         }
       ],
-      "overlap_score": 1.71
+      "overlap_score": 1.71,
+      "priming": null
     },
     {
       "id": 17,
@@ -39157,7 +39570,7 @@
               "word": "still",
               "start": 25.96,
               "end": 26.28,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "not",
@@ -41036,7 +41449,8 @@
           "explanation_zh": "文中提到泰勒·斯威夫特活动、Barbenheimer以及政府支出是推动经济改善的因素。"
         }
       ],
-      "overlap_score": 1.07
+      "overlap_score": 1.07,
+      "priming": null
     },
     {
       "id": 18,
@@ -42194,7 +42608,7 @@
               "word": "mainly",
               "start": 59.04,
               "end": 59.64,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "books",
@@ -42738,7 +43152,7 @@
               "word": "basically",
               "start": 88.4,
               "end": 88.8,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "every",
@@ -44220,7 +44634,28 @@
           "explanation_zh": "Fisher解释说订购太多会占用宝贵的书架空间，这是经营独立书店的风险之一。"
         }
       ],
-      "overlap_score": 2.07
+      "overlap_score": 2.07,
+      "priming": {
+        "words": [
+          {
+            "word": "quirky",
+            "zh": "古怪的",
+            "cefr": "C1"
+          },
+          {
+            "word": "particular",
+            "zh": "特定的",
+            "cefr": "B2"
+          },
+          {
+            "word": "literally",
+            "zh": "确实",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412545267
+      }
     },
     {
       "id": 19,
@@ -45734,7 +46169,28 @@
           "explanation_zh": "文章提到战前每天约有135艘船进出霍尔木兹海峡。"
         }
       ],
-      "overlap_score": 1.71
+      "overlap_score": 1.71,
+      "priming": {
+        "words": [
+          {
+            "word": "shaky",
+            "zh": "不稳定的",
+            "cefr": "B2"
+          },
+          {
+            "word": "strait",
+            "zh": "海峡",
+            "cefr": "B2"
+          },
+          {
+            "word": "effectively",
+            "zh": "实际上",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412548182
+      }
     },
     {
       "id": 20,
@@ -47473,7 +47929,28 @@
           "explanation_zh": "作者指出，当供应链出现瓶颈时，主要问题是没有任何东西能通过。"
         }
       ],
-      "overlap_score": 2.5
+      "overlap_score": 2.5,
+      "priming": {
+        "words": [
+          {
+            "word": "scenario",
+            "zh": "情景",
+            "cefr": "C1"
+          },
+          {
+            "word": "energy",
+            "zh": "能源",
+            "cefr": "B2"
+          },
+          {
+            "word": "dominate",
+            "zh": "主导",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412551285
+      }
     },
     {
       "id": 21,
@@ -49505,7 +49982,8 @@
           "explanation_zh": "文章中Bill对Steve说“我希望我们有你的品味”，因此正确答案是B。"
         }
       ],
-      "overlap_score": 2.5
+      "overlap_score": 2.5,
+      "priming": null
     },
     {
       "id": 22,
@@ -50549,7 +51027,7 @@
               "word": "already",
               "start": 54.94,
               "end": 55.42,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "for",
@@ -51479,7 +51957,23 @@
           "explanation_zh": "文章明确指出会议是在位于华盛顿的财政部总部举行的。"
         }
       ],
-      "overlap_score": 1.64
+      "overlap_score": 1.64,
+      "priming": {
+        "words": [
+          {
+            "word": "cite",
+            "zh": "引用",
+            "cefr": "C1"
+          },
+          {
+            "word": "marketing",
+            "zh": "营销",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.2-postfix",
+        "generatedAt": 1776412555591
+      }
     },
     {
       "id": 23,
@@ -52903,7 +53397,23 @@
           "explanation_zh": "文中说明没有Gmail移动应用的收件人可以用任何设备或服务通过网页浏览器读取加密邮件。"
         }
       ],
-      "overlap_score": 0.5
+      "overlap_score": 0.5,
+      "priming": {
+        "words": [
+          {
+            "word": "enterprise",
+            "zh": "企业",
+            "cefr": "B2"
+          },
+          {
+            "word": "quote",
+            "zh": "引用",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.2-postfix",
+        "generatedAt": 1776412558564
+      }
     },
     {
       "id": 24,
@@ -54448,7 +54958,8 @@
           "explanation_zh": "文中提到她最新的努力是写了一本书《You've Been Pooping All Wrong》。"
         }
       ],
-      "overlap_score": 1.5
+      "overlap_score": 1.5,
+      "priming": null
     },
     {
       "id": 25,
@@ -54628,7 +55139,7 @@
               "word": "anyone",
               "start": 8.64,
               "end": 9.12,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "has",
@@ -55442,7 +55953,8 @@
           "explanation_zh": "文章提到他们飞到月球背面时与地球完全失去联系约40分钟。"
         }
       ],
-      "overlap_score": 1.07
+      "overlap_score": 1.07,
+      "priming": null
     },
     {
       "id": 26,
@@ -55792,7 +56304,7 @@
               "word": "rather",
               "start": 18.74,
               "end": 18.98,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "than",
@@ -56872,7 +57384,23 @@
           "explanation_zh": "文中描述退休者因一次医疗紧急情况耗尽了储蓄。"
         }
       ],
-      "overlap_score": 0.86
+      "overlap_score": 0.86,
+      "priming": {
+        "words": [
+          {
+            "word": "loan",
+            "zh": "贷款",
+            "cefr": "B2"
+          },
+          {
+            "word": "pandemic",
+            "zh": "疫情",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.2-postfix",
+        "generatedAt": 1776412561940
+      }
     },
     {
       "id": 27,
@@ -57656,7 +58184,7 @@
               "word": "already",
               "start": 48.74,
               "end": 49.06,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "here",
@@ -58695,7 +59223,28 @@
           "explanation_zh": "文中提到家庭安防、约会应用、解读X光，但没有提到天气预报，因此选C。"
         }
       ],
-      "overlap_score": 0.79
+      "overlap_score": 0.79,
+      "priming": {
+        "words": [
+          {
+            "word": "unmanned",
+            "zh": "无人驾驶",
+            "cefr": "C1"
+          },
+          {
+            "word": "data",
+            "zh": "数据",
+            "cefr": "B2"
+          },
+          {
+            "word": "outcome",
+            "zh": "结果",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412564928
+      }
     },
     {
       "id": 28,
@@ -59591,7 +60140,7 @@
               "word": "rather",
               "start": 42.46,
               "end": 42.74,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "than",
@@ -60612,7 +61161,28 @@
           "explanation_zh": "文章明确指出在战后首次开展全国广告活动，强调肉类对氨基酸和均衡饮食的重要性。"
         }
       ],
-      "overlap_score": 1.5
+      "overlap_score": 1.5,
+      "priming": {
+        "words": [
+          {
+            "word": "subsidy",
+            "zh": "补贴",
+            "cefr": "C2"
+          },
+          {
+            "word": "stew",
+            "zh": "炖菜",
+            "cefr": "B2"
+          },
+          {
+            "word": "campaign",
+            "zh": "宣传活动",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412568323
+      }
     },
     {
       "id": 29,
@@ -62085,7 +62655,8 @@
           "explanation_zh": "文中指出那道亮光是“三位一体”试验，即第一次原子弹测试。"
         }
       ],
-      "overlap_score": 1.14
+      "overlap_score": 1.14,
+      "priming": null
     },
     {
       "id": 30,
@@ -63681,7 +64252,23 @@
           "explanation_zh": "文中提到如果攻击发生，放射性尘埃到达华盛顿大约需要15分钟。"
         }
       ],
-      "overlap_score": 1.57
+      "overlap_score": 1.57,
+      "priming": {
+        "words": [
+          {
+            "word": "catastrophic",
+            "zh": "灾难性的",
+            "cefr": "B2"
+          },
+          {
+            "word": "species",
+            "zh": "物种",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412570965
+      }
     },
     {
       "id": 39,
@@ -64463,7 +65050,7 @@
               "word": "still",
               "start": 38.64,
               "end": 38.92,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "have",
@@ -64679,7 +65266,7 @@
               "word": "still",
               "start": 49.28,
               "end": 49.72,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "have",
@@ -65705,7 +66292,7 @@
               "word": "Still",
               "start": 101.88,
               "end": 102.08,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "Reynolds",
@@ -66850,7 +67437,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "jersey",
+            "zh": "新泽西州",
+            "cefr": "C1"
+          },
+          {
+            "word": "import",
+            "zh": "进口",
+            "cefr": "B2"
+          },
+          {
+            "word": "distributor",
+            "zh": "经销商",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412573698
+      }
     },
     {
       "id": 40,
@@ -68996,7 +69604,28 @@
         }
       },
       "hook_strength": "medium",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "energy",
+            "zh": "能源",
+            "cefr": "B2"
+          },
+          {
+            "word": "boost",
+            "zh": "提高",
+            "cefr": "B2"
+          },
+          {
+            "word": "revenue",
+            "zh": "收入",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412576431
+      }
     },
     {
       "id": 41,
@@ -69164,7 +69793,7 @@
               "word": "still",
               "start": 8.02,
               "end": 8.58,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "blocking",
@@ -70988,7 +71617,8 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": null
     },
     {
       "id": 42,
@@ -71774,7 +72404,7 @@
               "word": "though",
               "start": 32.2,
               "end": 32.56,
-              "cefr": "A2"
+              "cefr": "B1"
             }
           ]
         },
@@ -73013,7 +73643,28 @@
         }
       },
       "hook_strength": "medium",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "margin",
+            "zh": "差距",
+            "cefr": "B2"
+          },
+          {
+            "word": "clog",
+            "zh": "堵塞",
+            "cefr": "B2"
+          },
+          {
+            "word": "lucrative",
+            "zh": "赚钱的",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412579335
+      }
     },
     {
       "id": 43,
@@ -74690,7 +75341,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "scenario",
+            "zh": "情景",
+            "cefr": "C1"
+          },
+          {
+            "word": "disrupt",
+            "zh": "扰乱",
+            "cefr": "B2"
+          },
+          {
+            "word": "odd",
+            "zh": "奇特",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412582649
+      }
     },
     {
       "id": 44,
@@ -77003,7 +77675,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "cursor",
+            "zh": "光标",
+            "cefr": "B2"
+          },
+          {
+            "word": "conference",
+            "zh": "会议",
+            "cefr": "B2"
+          },
+          {
+            "word": "stride",
+            "zh": "进展",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412584871
+      }
     },
     {
       "id": 45,
@@ -78385,7 +79078,7 @@
               "word": "already",
               "start": 87.56,
               "end": 87.88,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "here",
@@ -78769,7 +79462,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "embed",
+            "zh": "深植",
+            "cefr": "C2"
+          },
+          {
+            "word": "cheat",
+            "zh": "作弊",
+            "cefr": "B2"
+          },
+          {
+            "word": "trek",
+            "zh": "星际迷航",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412587243
+      }
     },
     {
       "id": 46,
@@ -80464,7 +81178,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "thrill",
+            "zh": "激动",
+            "cefr": "B2"
+          },
+          {
+            "word": "exclusion",
+            "zh": "排华法案",
+            "cefr": "B2"
+          },
+          {
+            "word": "certificate",
+            "zh": "证书",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412589686
+      }
     },
     {
       "id": 47,
@@ -82319,7 +83054,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "ethical",
+            "zh": "伦理的",
+            "cefr": "C1"
+          },
+          {
+            "word": "attribute",
+            "zh": "归因于",
+            "cefr": "B2"
+          },
+          {
+            "word": "inanimate",
+            "zh": "无生命的",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412592440
+      }
     },
     {
       "id": 48,
@@ -82777,7 +83533,7 @@
               "word": "already",
               "start": 25.26,
               "end": 25.74,
-              "cefr": "A1"
+              "cefr": "A2"
             }
           ]
         },
@@ -83573,7 +84329,7 @@
               "word": "someone",
               "start": 83.88,
               "end": 84.26,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "play",
@@ -84276,7 +85032,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "masterpiece",
+            "zh": "杰作",
+            "cefr": "B2"
+          },
+          {
+            "word": "bidding",
+            "zh": "竞价",
+            "cefr": "B2"
+          },
+          {
+            "word": "bid",
+            "zh": "出价",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412596755
+      }
     },
     {
       "id": 49,
@@ -85778,7 +86555,8 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": null
     },
     {
       "id": 50,
@@ -86312,7 +87090,7 @@
               "word": "basically",
               "start": 26.06,
               "end": 26.58,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "between",
@@ -87390,7 +88168,23 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "shooting",
+            "zh": "枪击案",
+            "cefr": "B2"
+          },
+          {
+            "word": "god",
+            "zh": "上帝",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412599534
+      }
     },
     {
       "id": 51,
@@ -88166,7 +88960,7 @@
               "word": "certainly",
               "start": 36.48,
               "end": 36.72,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "keep",
@@ -88264,7 +89058,7 @@
               "word": "still",
               "start": 42.4,
               "end": 42.74,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "lots",
@@ -89248,7 +90042,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "carrier",
+            "zh": "航母",
+            "cefr": "C1"
+          },
+          {
+            "word": "united",
+            "zh": "美国",
+            "cefr": "B2"
+          },
+          {
+            "word": "naval",
+            "zh": "海军",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412602284
+      }
     },
     {
       "id": 52,
@@ -89768,7 +90583,7 @@
               "word": "still",
               "start": 25.1,
               "end": 25.32,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "no",
@@ -90252,7 +91067,7 @@
               "word": "already",
               "start": 48.02,
               "end": 48.4,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "Scott",
@@ -91046,7 +91861,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "mediate",
+            "zh": "调解",
+            "cefr": "C2"
+          },
+          {
+            "word": "correspondent",
+            "zh": "记者",
+            "cefr": "B2"
+          },
+          {
+            "word": "prime",
+            "zh": "首席",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412604892
+      }
     },
     {
       "id": 53,
@@ -91648,7 +92484,7 @@
               "word": "still",
               "start": 26.04,
               "end": 26.4,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "not",
@@ -92712,7 +93548,8 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": null
     },
     {
       "id": 54,
@@ -93838,7 +94675,7 @@
               "word": "mainly",
               "start": 55.82,
               "end": 56.4,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "books",
@@ -94190,7 +95027,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "quirky",
+            "zh": "古怪的",
+            "cefr": "C1"
+          },
+          {
+            "word": "particular",
+            "zh": "特定的",
+            "cefr": "B2"
+          },
+          {
+            "word": "literally",
+            "zh": "确实",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412610068
+      }
     },
     {
       "id": 55,
@@ -95859,7 +96717,23 @@
         }
       },
       "hook_strength": "medium",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "tough",
+            "zh": "艰难",
+            "cefr": "B2"
+          },
+          {
+            "word": "necessarily",
+            "zh": "必然",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412613039
+      }
     },
     {
       "id": 56,
@@ -98294,7 +99168,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "oversee",
+            "zh": "监督",
+            "cefr": "C1"
+          },
+          {
+            "word": "manufacture",
+            "zh": "生产",
+            "cefr": "B2"
+          },
+          {
+            "word": "equity",
+            "zh": "私募股权",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412615428
+      }
     },
     {
       "id": 57,
@@ -98760,7 +99655,7 @@
               "word": "truly",
               "start": 23.62,
               "end": 24.42,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "disgraceful",
@@ -99794,7 +100689,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "profile",
+            "zh": "知名度高",
+            "cefr": "B2"
+          },
+          {
+            "word": "united",
+            "zh": "美利坚",
+            "cefr": "B2"
+          },
+          {
+            "word": "bureaucracy",
+            "zh": "官僚机构",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412617951
+      }
     },
     {
       "id": 58,
@@ -100072,7 +100988,7 @@
               "word": "basically",
               "start": 11.6,
               "end": 11.96,
-              "cefr": "A2"
+              "cefr": "B1"
             }
           ]
         },
@@ -102126,7 +103042,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "appliance",
+            "zh": "家用电器",
+            "cefr": "C1"
+          },
+          {
+            "word": "elaborate",
+            "zh": "精致",
+            "cefr": "C1"
+          },
+          {
+            "word": "resign",
+            "zh": "顺从",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412620583
+      }
     },
     {
       "id": 59,
@@ -103609,7 +104546,8 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": null
     },
     {
       "id": 60,
@@ -104131,7 +105069,7 @@
               "word": "anyone",
               "start": 18.38,
               "end": 18.72,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "who",
@@ -104305,7 +105243,7 @@
               "word": "largely",
               "start": 27.56,
               "end": 27.82,
-              "cefr": "B1"
+              "cefr": "B2"
             },
             {
               "word": "think",
@@ -104427,7 +105365,7 @@
               "word": "largely",
               "start": 31.58,
               "end": 32.06,
-              "cefr": "B1"
+              "cefr": "B2"
             }
           ]
         },
@@ -104655,7 +105593,7 @@
               "word": "basically",
               "start": 41.28,
               "end": 41.84,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "his",
@@ -105895,7 +106833,23 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "pandemic",
+            "zh": "全球疫情",
+            "cefr": "B2"
+          },
+          {
+            "word": "largely",
+            "zh": "主要",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412622879
+      }
     },
     {
       "id": 61,
@@ -106003,7 +106957,7 @@
               "word": "basically",
               "start": 3.6,
               "end": 3.88,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "it's",
@@ -106635,7 +107589,7 @@
               "word": "suddenly",
               "start": 34.68,
               "end": 34.98,
-              "cefr": "B1"
+              "cefr": "A2"
             },
             {
               "word": "you",
@@ -107275,7 +108229,7 @@
               "word": "though",
               "start": 58.36,
               "end": 58.54,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "it",
@@ -107689,7 +108643,7 @@
               "word": "pretty",
               "start": 73.88,
               "end": 74.04,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "excited",
@@ -108210,7 +109164,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "essentially",
+            "zh": "基本上",
+            "cefr": "B2"
+          },
+          {
+            "word": "replacement",
+            "zh": "替换",
+            "cefr": "B2"
+          },
+          {
+            "word": "actual",
+            "zh": "真正的",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412625171
+      }
     },
     {
       "id": 62,
@@ -109306,7 +110281,7 @@
               "word": "someone",
               "start": 41.16,
               "end": 41.48,
-              "cefr": "A1"
+              "cefr": "A2"
             }
           ]
         },
@@ -110203,7 +111178,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "suck",
+            "zh": "糟糕",
+            "cefr": "B2"
+          },
+          {
+            "word": "powerfully",
+            "zh": "有力地",
+            "cefr": "B2"
+          },
+          {
+            "word": "thesis",
+            "zh": "论点",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412627502
+      }
     },
     {
       "id": 63,
@@ -112433,7 +113429,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "contextual",
+            "zh": "情境的",
+            "cefr": "C1"
+          },
+          {
+            "word": "rectangular",
+            "zh": "矩形的",
+            "cefr": "B2"
+          },
+          {
+            "word": "oval",
+            "zh": "椭圆的",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412630755
+      }
     },
     {
       "id": 64,
@@ -112881,7 +113898,7 @@
               "word": "yet",
               "start": 21.64,
               "end": 21.94,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "cutting",
@@ -114786,7 +115803,28 @@
         }
       },
       "hook_strength": "medium",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "niche",
+            "zh": "细分领域",
+            "cefr": "C1"
+          },
+          {
+            "word": "capability",
+            "zh": "功能",
+            "cefr": "B2"
+          },
+          {
+            "word": "evaluation",
+            "zh": "评估",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412633945
+      }
     },
     {
       "id": 65,
@@ -115656,7 +116694,7 @@
               "word": "mainly",
               "start": 42.12,
               "end": 42.2,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "in",
@@ -116342,7 +117380,7 @@
               "word": "therefore",
               "start": 78.82,
               "end": 79.14,
-              "cefr": "A2"
+              "cefr": "B1"
             }
           ]
         },
@@ -117709,7 +118747,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "inclusive",
+            "zh": "包容的",
+            "cefr": "C1"
+          },
+          {
+            "word": "trial",
+            "zh": "实验",
+            "cefr": "B2"
+          },
+          {
+            "word": "scandal",
+            "zh": "丑闻",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412637000
+      }
     },
     {
       "id": 66,
@@ -120684,7 +121743,23 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "disrupt",
+            "zh": "打乱",
+            "cefr": "B2"
+          },
+          {
+            "word": "phase",
+            "zh": "阶段",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412640566
+      }
     },
     {
       "id": 67,
@@ -121452,7 +122527,7 @@
               "word": "basically",
               "start": 35.96,
               "end": 36.24,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "how",
@@ -122297,7 +123372,8 @@
         }
       },
       "hook_strength": "medium",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": null
     },
     {
       "id": 68,
@@ -123876,7 +124952,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "fossil",
+            "zh": "化石",
+            "cefr": "C1"
+          },
+          {
+            "word": "punch",
+            "zh": "重击",
+            "cefr": "B2"
+          },
+          {
+            "word": "peer",
+            "zh": "同行",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412643557
+      }
     },
     {
       "id": 69,
@@ -125384,7 +126481,7 @@
               "word": "suddenly",
               "start": 81.4,
               "end": 81.74,
-              "cefr": "B1"
+              "cefr": "A2"
             },
             {
               "word": "after",
@@ -125918,7 +127015,28 @@
         }
       },
       "hook_strength": "medium",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "fossil",
+            "zh": "化石",
+            "cefr": "C1"
+          },
+          {
+            "word": "cable",
+            "zh": "电缆",
+            "cefr": "B2"
+          },
+          {
+            "word": "radar",
+            "zh": "雷达",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412646925
+      }
     },
     {
       "id": 70,
@@ -127684,7 +128802,7 @@
               "word": "still",
               "start": 100.74,
               "end": 101.04,
-              "cefr": "A1"
+              "cefr": "A2"
             }
           ]
         },
@@ -128357,7 +129475,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "immense",
+            "zh": "巨大的",
+            "cefr": "C1"
+          },
+          {
+            "word": "innovate",
+            "zh": "创新",
+            "cefr": "C1"
+          },
+          {
+            "word": "privilege",
+            "zh": "荣幸",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412650032
+      }
     },
     {
       "id": 71,
@@ -129737,7 +130876,8 @@
         }
       },
       "hook_strength": "medium",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": null
     },
     {
       "id": 72,
@@ -131074,7 +132214,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "shield",
+            "zh": "防护罩",
+            "cefr": "B2"
+          },
+          {
+            "word": "shed",
+            "zh": "散去",
+            "cefr": "B2"
+          },
+          {
+            "word": "sail",
+            "zh": "穿行",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412653094
+      }
     },
     {
       "id": 73,
@@ -132263,7 +133424,8 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": null
     },
     {
       "id": 74,
@@ -132737,7 +133899,7 @@
               "word": "rather",
               "start": 26.7,
               "end": 26.94,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "than",
@@ -133523,7 +134685,7 @@
               "word": "yet",
               "start": 74.3,
               "end": 74.72,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "hundreds",
@@ -134263,7 +135425,23 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "loan",
+            "zh": "贷款",
+            "cefr": "B2"
+          },
+          {
+            "word": "pandemic",
+            "zh": "疫情",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.2-postfix",
+        "generatedAt": 1776412656137
+      }
     },
     {
       "id": 75,
@@ -135033,7 +136211,7 @@
               "word": "Yet",
               "start": 49.44,
               "end": 49.88,
-              "cefr": "A1"
+              "cefr": "A2"
             },
             {
               "word": "the",
@@ -135125,7 +136303,7 @@
               "word": "certainly",
               "start": 55.56,
               "end": 55.98,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "a",
@@ -136397,7 +137575,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "parable",
+            "zh": "寓言",
+            "cefr": "C2"
+          },
+          {
+            "word": "fabrication",
+            "zh": "捏造",
+            "cefr": "C2"
+          },
+          {
+            "word": "irony",
+            "zh": "讽刺",
+            "cefr": "C1"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412660569
+      }
     },
     {
       "id": 76,
@@ -136835,7 +138034,7 @@
               "word": "Suddenly",
               "start": 30.55,
               "end": 30.73,
-              "cefr": "B1"
+              "cefr": "A2"
             },
             {
               "word": "you",
@@ -138316,7 +139515,28 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "paramount",
+            "zh": "首要",
+            "cefr": "C2"
+          },
+          {
+            "word": "united",
+            "zh": "美利坚",
+            "cefr": "B2"
+          },
+          {
+            "word": "dash",
+            "zh": "破灭",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412663572
+      }
     },
     {
       "id": 77,
@@ -139676,7 +140896,7 @@
               "word": "rather",
               "start": 70.2,
               "end": 70.9,
-              "cefr": "A2"
+              "cefr": "B1"
             },
             {
               "word": "than",
@@ -140095,7 +141315,23 @@
         }
       },
       "hook_strength": "high",
-      "completeness": "high"
+      "completeness": "high",
+      "priming": {
+        "words": [
+          {
+            "word": "community",
+            "zh": "社群",
+            "cefr": "B2"
+          },
+          {
+            "word": "interpret",
+            "zh": "理解",
+            "cefr": "B2"
+          }
+        ],
+        "version": "v1.1",
+        "generatedAt": 1776412666889
+      }
     }
   ]
 }

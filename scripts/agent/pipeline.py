@@ -15,6 +15,7 @@ from .segmentation import select_segments, classify_episode
 from .filter import filter_candidates
 from .audio_cut import cut_audio
 from .cefr import batch_cefr_annotation, infer_difficulty
+from .priming import generate_priming, load_cefr_map as _load_priming_cefr_map
 from .translate import translate_lines
 from .output import (
     extract_clip_words, extract_collocations,
@@ -146,6 +147,24 @@ def process_episode(episode, tmp_dir, output_dir, clip_id_start,
         lines = batch_cefr_annotation(lines)
         step_end(f"cefr_{clip_id}")
 
+        # Task G: priming — pick 2-3 high-difficulty content words per clip
+        # for the listen-tab pre-listen visual cue. Runs right after CEFR
+        # annotation (overrides already applied via priming.load_cefr_map).
+        # Failure here is non-fatal: clip just won't have a priming field.
+        step_start(f"priming_{clip_id}")
+        clip_priming = None
+        try:
+            scripts_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            project_root = os.path.dirname(scripts_dir)
+            priming_cefr_map = _load_priming_cefr_map(
+                os.path.join(scripts_dir, "cefr_wordlist.json"),
+                os.path.join(project_root, "cefr_overrides.json"),
+            )
+            clip_priming = generate_priming(lines, priming_cefr_map)
+        except Exception as e:
+            log(f"priming 生成失败 (clip {clip_id}): {e}", "warn")
+        step_end(f"priming_{clip_id}")
+
         step_start(f"translate_{clip_id}")
         lines = translate_lines(lines)
         step_end(f"translate_{clip_id}")
@@ -180,6 +199,7 @@ def process_episode(episode, tmp_dir, output_dir, clip_id_start,
                 "tier": tier,
             },
             "lines": lines,
+            "priming": clip_priming,  # Task G: may be None for simple clips
             "collocations": collocations,
             "questions": questions,
             "prompt_version": PROMPT_VERSION,

@@ -3,7 +3,9 @@
 Input: clip lines with word timestamps
 Output: lines with CEFR levels annotated on each word
 
-Uses a cached wordlist (cefr_wordlist.json) and LLM fallback for unknown words.
+Lookup priority: cefr_overrides.json (project-internal manual list, fixes
+CEFR-J's over-grading of high-frequency function/discourse words) →
+cefr_wordlist.json (CEFR-J + Octanove) → LLM fallback for unknown words.
 """
 
 import json
@@ -15,6 +17,29 @@ from .utils import log, call_gpt, strip_markdown_fences
 # ── Module-level word map ──────────────────────────────────────
 
 CEFR_WORD_MAP = {}
+CEFR_OVERRIDES = {}
+
+
+def _load_overrides():
+    """Load project-root cefr_overrides.json once. Idempotent."""
+    global CEFR_OVERRIDES
+    if CEFR_OVERRIDES:
+        return CEFR_OVERRIDES
+    # scripts/agent/cefr.py → project root is two parents up
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    path = os.path.join(project_root, "cefr_overrides.json")
+    if not os.path.exists(path):
+        return CEFR_OVERRIDES
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        raw = data.get("overrides", {}) or {}
+        # normalise keys to lowercase clean form
+        CEFR_OVERRIDES = {re.sub(r"[^a-zA-Z']", "", k).lower(): v for k, v in raw.items() if v}
+        log(f"CEFR overrides 已加载: {len(CEFR_OVERRIDES)} 词", "ok")
+    except Exception as e:
+        log(f"CEFR overrides 加载失败: {e}", "error")
+    return CEFR_OVERRIDES
 
 
 def init_cefr_map(scripts_dir=None):
@@ -32,6 +57,7 @@ def init_cefr_map(scripts_dir=None):
         with open(cefr_cache_path, "r") as f:
             CEFR_WORD_MAP = json.load(f)
         log(f"CEFR 词表已加载: {len(CEFR_WORD_MAP)} 词", "ok")
+        _load_overrides()
         if len(CEFR_WORD_MAP) >= 3000:
             return
         log("词表较小，将补充生成...", "info")
@@ -73,10 +99,16 @@ def init_cefr_map(scripts_dir=None):
 
 
 def get_cefr(word):
-    """Get CEFR level for a single word. Returns A1-C2 or None."""
+    """Get CEFR level for a single word. Returns A1-C2 or None.
+
+    Lookup priority: overrides → CEFR-J wordlist → None (caller does LLM fallback).
+    """
     clean = re.sub(r"[^a-zA-Z']", "", word).lower()
     if not clean:
         return None
+    overrides = _load_overrides()
+    if clean in overrides:
+        return overrides[clean]
     return CEFR_WORD_MAP.get(clean)
 
 

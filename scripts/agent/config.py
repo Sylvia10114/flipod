@@ -50,6 +50,17 @@ def ensure_env():
     GPT_API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
 
 
+def ensure_gpt_env():
+    """Load only GPT env vars (skip Whisper). Used by tools that don't need
+    transcription, e.g. tools/backfill_priming.py.
+    """
+    global GPT_ENDPOINT, GPT_API_KEY, GPT_DEPLOYMENT, GPT_API_VERSION
+    GPT_ENDPOINT = _require_env("AZURE_OPENAI_ENDPOINT")
+    GPT_API_KEY = _require_env("AZURE_OPENAI_API_KEY")
+    GPT_DEPLOYMENT = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-5-chat-global-01")
+    GPT_API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
+
+
 # ── Content Tiers ──────────────────────────────────────────────
 # @PM review: 原 CURATED_FEEDS 里 tier="Storytelling"，prompt 文档用 "Story"。
 # 这里统一为 "Story"，CURATED_FEEDS 条目已同步修改。

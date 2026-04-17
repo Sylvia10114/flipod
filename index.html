@@ -214,6 +214,85 @@ html,body{
 .source-tag .source-dot{
   color:var(--text-4);
 }
+
+/* Task G: priming-zone — pre-listen keyword teaser, lives in top-info area */
+.priming-zone{
+  margin-top:10px;
+  padding:8px 12px;
+  background:rgba(255,255,255,0.04);
+  border-radius:10px;
+  max-width:90%;
+  margin-left:auto;
+  margin-right:auto;
+  animation:primingFadeIn .25s ease-out;
+}
+[data-theme="light"] .priming-zone{ background:rgba(0,0,0,0.04); }
+.priming-zone[hidden]{ display:none; }
+.priming-label{
+  font-size:11px;
+  color:var(--text-3);
+  margin-bottom:4px;
+  text-align:center;
+  letter-spacing:.04em;
+}
+.priming-words{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:4px 14px;
+}
+.priming-word{
+  display:inline-flex;
+  align-items:baseline;
+  gap:5px;
+  font-size:13px;
+  line-height:1.4;
+  white-space:nowrap;
+}
+.priming-word-en{ color:var(--text-1); font-weight:500; }
+.priming-word-zh{ color:var(--text-2); font-size:12px; }
+.priming-word{ cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.priming-word:active{ opacity:.7; }
+@keyframes primingFadeIn{
+  from{ opacity:0; transform:translateY(-2px); }
+  to{ opacity:1; transform:translateY(0); }
+}
+@media (prefers-reduced-motion: reduce){
+  .priming-zone{ animation:none; }
+}
+/* B33 · Priming word tooltip (document-level, absolute positioned) */
+.pz-tooltip{
+  position:absolute;
+  z-index:260;
+  max-width:240px;
+  min-width:160px;
+  padding:10px 12px;
+  background:var(--bg-primary);
+  color:var(--text-1);
+  border:1px solid var(--border);
+  border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.18);
+  font-size:13px;
+  line-height:1.5;
+  animation:primingFadeIn .18s ease-out;
+}
+.pz-tip-head{ display:flex; align-items:baseline; gap:8px; margin-bottom:4px; }
+.pz-tip-word{ font-weight:600; font-size:15px; color:var(--text-1); }
+.pz-tip-cefr{
+  font-size:10px; font-weight:500; letter-spacing:.04em;
+  padding:1px 6px; border-radius:999px;
+  background:rgba(59,130,246,0.12); color:#2563eb;
+}
+.pz-tip-ipa{ font-size:12px; color:var(--text-3); margin-bottom:4px; }
+.pz-tip-zh{ font-size:13px; color:var(--text-2); margin-bottom:8px; }
+.pz-tip-save{
+  width:100%; padding:6px 10px;
+  border:1px solid var(--border); background:var(--bg-card);
+  color:var(--text-1); border-radius:999px; cursor:pointer;
+  font-size:12px;
+}
+.pz-tip-save:hover{ background:var(--bg-primary); }
+.pz-tip-save[disabled]{ opacity:.6; cursor:default; color:var(--text-3); }
 .domain-tag{
   display:inline-block;
   padding:0;
@@ -2311,11 +2390,6 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
       我的收藏
       <span class="sp-menu-badge" id="sp-fav-count">0</span>
     </button>
-    <button class="sp-menu-item" data-panel="practice-panel">
-      <svg viewBox="0 0 24 24"><path d="M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z"/></svg>
-      听力练习
-      <span class="sp-menu-badge" id="sp-practice-count">0</span>
-    </button>
     <button class="sp-menu-item" data-panel="vocab-panel">
       <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 9H7v-2h6v2zm3 4H7v-2h9v2zm-3-8V3.5L18.5 9H13z"/></svg>
       词汇本
@@ -2418,8 +2492,42 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
 
   <!-- Mode tab bar -->
   <div class="mode-tab-bar" id="mode-tab-bar">
-    <button class="mode-tab" data-mode="listen" id="tab-listen">纯听</button>
-    <button class="mode-tab is-active" data-mode="learn" id="tab-learn">学习</button>
+    <button class="mode-tab is-active" data-mode="listen" id="tab-listen">纯听</button>
+    <button class="mode-tab" data-mode="practice" id="tab-practice">练习</button>
+  </div>
+
+  <!-- Practice Tab content (v3 funnel: locked / generating / ready) -->
+  <div id="practice-tab-content" hidden>
+    <!-- 未解锁 -->
+    <div id="practice-locked" class="practice-state" hidden>
+      <div class="practice-icon">🎧</div>
+      <h2>解锁个性化训练</h2>
+      <p>收藏 <strong id="practice-vocab-needed">5</strong> 个词，AI 会根据你的兴趣 + 生词本生成专属听力训练。</p>
+      <div class="practice-progress">
+        <div class="practice-progress-bar-track">
+          <div class="practice-progress-bar" id="practice-progress-bar"></div>
+        </div>
+        <div class="practice-progress-text">
+          <span id="practice-vocab-current">0</span> / 5
+        </div>
+      </div>
+      <button class="practice-cta" data-switch-tab="listen">回到纯听找词</button>
+    </div>
+
+    <!-- 生成中 -->
+    <div id="practice-generating" class="practice-state" hidden>
+      <div class="practice-spinner"></div>
+      <h2>正在为你生成…</h2>
+      <p>AI 正在结合你的生词本、兴趣 tag 和当前水平，生成 2 段专属训练。预计 20 秒。</p>
+    </div>
+
+    <!-- 已就绪 -->
+    <div id="practice-ready" class="practice-state" hidden>
+      <h2>专属训练</h2>
+      <div id="practice-pending-list" class="practice-list"></div>
+      <h3 id="practice-completed-header" hidden>已完成</h3>
+      <div id="practice-completed-list" class="practice-list"></div>
+    </div>
   </div>
 
   <div id="container">
@@ -3209,6 +3317,35 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
       `<div class="transcript-line"><div class="transcript-en">${l.en}</div><div class="transcript-zh">${l.zh}</div></div>`
     ).join('');
 
+    // Task G: priming words (high-difficulty content words pre-translated).
+    // Skip for idx===0: the very-first clip is a user-initiated start, the
+    // 1s wait reads as "lag" there, and priming pre-load value is low when
+    // the user is already in attention-paying mode.
+    const primingWords = (idx > 0 && clip.priming && Array.isArray(clip.priming.words))
+      ? clip.priming.words : [];
+    const primingHtml = primingWords.length ? `
+      <div class="priming-zone" id="priming-${idx}" data-priming-pending="1" hidden>
+        <div class="priming-label">🎯 ${primingWords.length} 个关键词</div>
+        <div class="priming-words">${primingWords.map(w => {
+          const enSafe = (w.word || '').replace(/[<>"]/g,'');
+          const zhSafe = (w.zh || '').replace(/[<>"]/g,'');
+          const cefrSafe = (w.cefr || '').replace(/[<>"]/g,'');
+          const ipaSafe = (w.ipa || '').replace(/[<>"]/g,'');
+          const tagSafe = (clip.tag || '').replace(/[<>"]/g,'');
+          return `
+          <span class="priming-word"
+                data-action="priming-word"
+                data-word="${enSafe}"
+                data-zh="${zhSafe}"
+                data-cefr="${cefrSafe}"
+                data-ipa="${ipaSafe}"
+                data-tag="${tagSafe}">
+            <span class="priming-word-en">${enSafe}</span>
+            <span class="priming-word-zh">${zhSafe}</span>
+          </span>`;
+        }).join('')}</div>
+      </div>` : '';
+
     div.innerHTML = `
       <div class="top-info">
         <div class="top-info-hint hint-loading">AI 正在为你排列内容...</div>
@@ -3217,6 +3354,7 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
           <span>${typeof clip.source === 'object' ? (clip.source.podcast || '') : (clip.source || '')}</span>
           ${clip.tag ? `<span class="source-dot">·</span><span class="domain-tag">${clip.tag}</span>` : ''}
         </div>
+        ${primingHtml}
       </div>
       <div class="feed-loading-dots">
         <div class="loading-dot"></div>
@@ -4043,17 +4181,9 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
       if (panel && (panel.classList.contains('is-visible') || panel.classList.contains('is-relisten-hidden'))) {
         return;
       }
-      // Teaching v3: check if clip has questions and mode is 'learn'
-      const mode = localStorage.getItem('flipodMode') || 'learn';
-      const clip = clips[idx];
-      const hasTeaching = clip && clip.questions && clip.questions.length > 0;
-
-      if (mode === 'learn' && hasTeaching && typeof TeachingController !== 'undefined') {
-        isPlaying = false;
-        updatePlayPauseIcons();
-        window._startTeaching(idx);
-        return;
-      }
+      // v3: 'learn' tab is gone — listen feed never auto-launches teaching panel.
+      // (Old auto-teaching trigger removed; practice now lives in the dedicated
+      // 'practice' tab driven by vocab + funnel state.)
       if (idx + 1 < total) {
         screens[idx + 1].scrollIntoView({ behavior: 'smooth' });
         setTimeout(() => playClip(idx + 1), 400);
@@ -4396,7 +4526,13 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
   function getVocab() {
     try { return JSON.parse(localStorage.getItem('flipodVocab') || '[]'); } catch { return []; }
   }
-  function saveVocab(arr) { localStorage.setItem('flipodVocab', JSON.stringify(arr)); }
+  function saveVocab(arr) {
+    localStorage.setItem('flipodVocab', JSON.stringify(arr));
+    // v3 funnel: notify practice-tab milestone hook (defined in mode-tab init).
+    if (typeof window._onVocabChanged === 'function') {
+      try { window._onVocabChanged(); } catch (e) { console.warn('[vocab] hook failed:', e); }
+    }
+  }
   function getKnownWords() {
     try { return new Set(JSON.parse(localStorage.getItem('flipodKnownWords') || '[]')); } catch { return new Set(); }
   }
@@ -4615,20 +4751,78 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
 
   // ── Intersection Observer ──
   let started = false;
+  // Task G: priming-aware delayed autoplay. Cards with priming get a 1s
+  // visual window so the user can pre-load 2-3 keywords before audio.
+  // Cards without priming use the SAME delay to keep timing consistent
+  // (avoids "fast clip vs slow clip" UX wobble).
+  const PRIMING_DELAY_MS = 1000;
+  const clipEntryTimers = new WeakMap(); // el → { timer, seenAt, primingShown }
+
+  function _primingTrack(name, payload) {
+    if (typeof window._track === 'function') { try { window._track(name, payload); } catch (e) {} }
+    try { console.debug('[track]', name, payload); } catch (e) {}
+  }
+
   const observer = new IntersectionObserver((entries) => {
     if (!started) return;
     // Block auto-advance while teaching panel is active
     const tp = document.getElementById('teaching-panel');
     if (tp && (tp.classList.contains('is-visible') || tp.classList.contains('is-relisten-hidden'))) return;
     for (const entry of entries) {
-      if (!entry.isIntersecting || entry.intersectionRatio < 0.5) continue;
       const el = entry.target;
-      if (el.classList.contains('content-screen')) {
+      const isContentCard = el.classList.contains('content-screen');
+      const intersectingEnough = entry.isIntersecting && entry.intersectionRatio >= 0.5;
+
+      if (intersectingEnough && isContentCard) {
         const idx = parseInt(el.dataset.idx);
-        if (idx !== currentIdx) {
-          playClip(idx);
+        if (idx === currentIdx) continue;
+        // Render priming + track seen (only when card has priming data
+        // AND it isn't the first clip — first clip never renders priming
+        // so no _seen / _skipped events for it either).
+        const primingZone = el.querySelector('.priming-zone');
+        const primingClip = clips[idx];
+        const wordCount = (primingZone && primingClip && primingClip.priming && primingClip.priming.words)
+          ? primingClip.priming.words.length : 0;
+        if (primingZone && wordCount > 0 && primingZone.hidden) {
+          primingZone.hidden = false;
+          _primingTrack('clip.priming_seen', { clip_id: idx, word_count: wordCount });
         }
-      } else if (el.dataset.feedCard) {
+        // Cancel any older pending timer for this card.
+        const existing = clipEntryTimers.get(el);
+        if (existing) { clearTimeout(existing.timer); }
+        const seenAt = Date.now();
+        const timer = setTimeout(() => {
+          // Re-verify still in viewport before firing.
+          const r = el.getBoundingClientRect();
+          const stillVisible = r.top < window.innerHeight * 0.7 && r.bottom > window.innerHeight * 0.3;
+          if (stillVisible && idx !== currentIdx) {
+            playClip(idx);
+          }
+          clipEntryTimers.delete(el);
+        }, PRIMING_DELAY_MS);
+        clipEntryTimers.set(el, { timer, seenAt, idx, wordCount });
+        continue;
+      }
+
+      if (!entry.isIntersecting || entry.intersectionRatio < 0.5) {
+        // Leaving viewport: cancel pending playClip; emit skipped only if
+        // the card actually rendered priming (wordCount > 0).
+        if (isContentCard) {
+          const pending = clipEntryTimers.get(el);
+          if (pending) {
+            clearTimeout(pending.timer);
+            const dwell = Date.now() - pending.seenAt;
+            if (dwell < PRIMING_DELAY_MS && pending.wordCount > 0) {
+              _primingTrack('clip.priming_skipped', { clip_id: pending.idx, dwell_ms: dwell });
+            }
+            clipEntryTimers.delete(el);
+          }
+        }
+        continue;
+      }
+
+      // Non-content-card cases (feed cards, start screen) use the original logic.
+      if (el.dataset.feedCard) {
         // Feed card — pause audio
         if (currentIdx >= 0 && currentIdx < total) {
           audios[currentIdx].pause();
@@ -4658,6 +4852,10 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
     initFeedRanking();
 
     setTimeout(() => screens[0].scrollIntoView({ behavior: 'smooth' }), 100);
+    // Task G product call: first clip skips priming (no zone rendered for
+    // idx===0) and uses the original 400ms — user just clicked start, so a
+    // 1s wait reads as lag and pre-listen value is low when attention is
+    // already engaged. Priming kicks in from clip[1] onwards.
     setTimeout(() => playClip(0), 400);
   });
 
@@ -4709,36 +4907,237 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
     }
   };
 
-  // ── Mode tab: 纯听 / 学习 ──
+  // ── Mode tab: 纯听 / 练习 (v3 funnel) ──
   {
+    // Migrate legacy 'learn' mode → 'listen' (v3 default).
+    const legacyMode = localStorage.getItem('flipodMode');
+    if (legacyMode === 'learn') localStorage.setItem('flipodMode', 'listen');
+
     const tabBar = document.getElementById('mode-tab-bar');
     const tabListen = document.getElementById('tab-listen');
-    const tabLearn = document.getElementById('tab-learn');
-    // Restore persisted mode
-    const savedMode = localStorage.getItem('flipodMode') || 'learn';
-    tabListen.classList.toggle('is-active', savedMode === 'listen');
-    tabLearn.classList.toggle('is-active', savedMode === 'learn');
+    const tabPractice = document.getElementById('tab-practice');
+    const practiceTabContent = document.getElementById('practice-tab-content');
+    const feed = document.getElementById('container');
+
+    function isPracticeInSession() {
+      // listening-practice.js sets window._listeningPractice; check overlay open + state mid-pass.
+      const ctrl = window._listeningPractice;
+      if (!ctrl) return false;
+      const overlay = document.getElementById('lp-overlay');
+      if (!overlay || !overlay.classList.contains('is-open')) return false;
+      const st = ctrl.state;
+      return st && st !== 'init' && st !== 'review';
+    }
+
+    function pauseAllClipAudio() {
+      try {
+        document.querySelectorAll('audio').forEach(a => { try { a.pause(); } catch (e) {} });
+      } catch (e) {}
+    }
+
+    function applyTabUI(mode) {
+      tabListen.classList.toggle('is-active', mode === 'listen');
+      tabPractice.classList.toggle('is-active', mode === 'practice');
+      if (feed) feed.hidden = (mode !== 'listen');
+      if (practiceTabContent) practiceTabContent.hidden = (mode !== 'practice');
+    }
+
+    function hideAllPracticeStates() {
+      ['practice-locked','practice-generating','practice-ready'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.hidden = true;
+      });
+    }
+
+    function readPracticeState() {
+      try { return JSON.parse(localStorage.getItem('flipodPracticeState') || '{}'); }
+      catch (e) { return {}; }
+    }
+    function readVocab() {
+      // 兼容旧 key 'flipodVocab' 与 brief 中的 'flipodVocabBook'
+      let raw = localStorage.getItem('flipodVocabBook');
+      if (!raw) raw = localStorage.getItem('flipodVocab') || '[]';
+      try { return JSON.parse(raw) || []; } catch (e) { return []; }
+    }
+    function track(name, payload) {
+      // Lightweight logger; defer to window._track if app provides one.
+      if (typeof window._track === 'function') {
+        try { window._track(name, payload); } catch (e) {}
+      }
+      try { console.debug('[track]', name, payload); } catch (e) {}
+    }
+
+    function triggerInitialGeneration() {
+      const ctrl = window._listeningPractice;
+      if (!ctrl) return;
+      try {
+        const vocab = readVocab();
+        if (typeof ctrl._refreshSupplyFromVocab === 'function') {
+          ctrl._refreshSupplyFromVocab(vocab);
+        } else if (typeof ctrl._ensurePracticeSupply === 'function') {
+          ctrl._ensurePracticeSupply(vocab);
+        }
+      } catch (e) { console.warn('[practice-tab] generate failed:', e); }
+    }
+
+    function renderPracticeList(pending, completed) {
+      const pendingEl = document.getElementById('practice-pending-list');
+      const completedEl = document.getElementById('practice-completed-list');
+      const completedHeader = document.getElementById('practice-completed-header');
+      if (!pendingEl) return;
+      if (!pending.length) {
+        pendingEl.innerHTML = '<div class="practice-list-empty">暂无待练，AI 会在你新收藏 3 个词后再生成。</div>';
+      } else {
+        pendingEl.innerHTML = pending.map(p => `
+          <div class="practice-list-item" data-practice-id="${p.id}">
+            <div class="practice-list-title">${(p.title || '专属训练').replace(/[<>]/g,'')}</div>
+            <div class="practice-list-meta">
+              <span>${(p.tag || '')}</span>
+              ${p.cefr ? `<span>· ${p.cefr}</span>` : ''}
+            </div>
+          </div>`).join('');
+      }
+      if (completed.length) {
+        completedHeader.hidden = false;
+        completedEl.innerHTML = completed.slice(-5).reverse().map(p => `
+          <div class="practice-list-item done" data-practice-id="${p.id}">
+            <div class="practice-list-title">${(p.title || '已完成训练').replace(/[<>]/g,'')}</div>
+            <div class="practice-list-meta"><span>${(p.tag || '')}</span></div>
+          </div>`).join('');
+      } else {
+        completedHeader.hidden = true;
+        completedEl.innerHTML = '';
+      }
+    }
+
+    function refreshPracticeView() {
+      const state = readPracticeState();
+      const vocab = readVocab();
+      const pending = state.pendingPractices || [];
+      const completed = state.completedPractices || [];
+
+      hideAllPracticeStates();
+      const VOCAB_UNLOCK = 5;
+      if (vocab.length < VOCAB_UNLOCK && pending.length === 0 && completed.length === 0) {
+        const cur = document.getElementById('practice-vocab-current');
+        const bar = document.getElementById('practice-progress-bar');
+        if (cur) cur.textContent = vocab.length;
+        if (bar) bar.style.width = Math.min(100, vocab.length * (100 / VOCAB_UNLOCK)) + '%';
+        document.getElementById('practice-locked').hidden = false;
+        track('practice.unlock_seen', { vocab_count: vocab.length, threshold: VOCAB_UNLOCK });
+      } else if (pending.length === 0 && completed.length === 0) {
+        document.getElementById('practice-generating').hidden = false;
+        track('practice.generating_seen', { is_first_time: true });
+        triggerInitialGeneration();
+        // After triggering, re-check shortly to surface results.
+        setTimeout(refreshPracticeView, 600);
+      } else {
+        renderPracticeList(pending, completed);
+        document.getElementById('practice-ready').hidden = false;
+        track('practice.list_seen', { pending_count: pending.length, completed_count: completed.length });
+      }
+    }
+    window._refreshPracticeView = refreshPracticeView;
+
+    function switchTab(targetMode) {
+      const currentMode = localStorage.getItem('flipodMode') || 'listen';
+      if (currentMode === targetMode) return;
+
+      // Mid-practice protection
+      if (currentMode === 'practice' && isPracticeInSession()) {
+        if (!confirm('当前训练未完成，切换会中断。是否继续？')) return;
+        try {
+          if (window._listeningPractice && typeof window._listeningPractice.close === 'function') {
+            window._listeningPractice.close();
+          }
+        } catch (e) {}
+      }
+
+      // 离开纯听 → 暂停 feed audio（不自动恢复）
+      if (currentMode === 'listen') pauseAllClipAudio();
+
+      localStorage.setItem('flipodMode', targetMode);
+      applyTabUI(targetMode);
+      if (targetMode === 'practice') refreshPracticeView();
+
+      track('tab.switch', {
+        from: currentMode,
+        to: targetMode,
+        mid_practice: currentMode === 'practice' && isPracticeInSession()
+      });
+    }
+    window._switchTab = switchTab;
+
+    // Initial paint
+    const savedMode = localStorage.getItem('flipodMode') || 'listen';
+    applyTabUI(savedMode);
+    if (savedMode === 'practice') refreshPracticeView();
 
     tabBar.addEventListener('click', e => {
       const btn = e.target.closest('.mode-tab');
       if (!btn) return;
-      const mode = btn.dataset.mode;
-      localStorage.setItem('flipodMode', mode);
-      tabListen.classList.toggle('is-active', mode === 'listen');
-      tabLearn.classList.toggle('is-active', mode === 'learn');
+      switchTab(btn.dataset.mode);
+    });
 
-      // If switching to 纯听 while teaching is visible, close it
-      if (mode === 'listen') {
-        const panel = document.getElementById('teaching-panel');
-        if (panel && panel.classList.contains('is-visible')) {
-          if (window._activeTeachingCtrl) {
-            window._activeTeachingCtrl.destroy();
-            window._activeTeachingCtrl = null;
-          }
-          panel.classList.remove('is-visible');
-          container.style.overflow = '';
+    // Allow inline buttons to call switchTab via data-switch-tab
+    document.addEventListener('click', e => {
+      const sw = e.target.closest('[data-switch-tab]');
+      if (sw) { e.preventDefault(); switchTab(sw.dataset.switchTab); }
+    });
+
+    // Click a practice item → open listening practice overlay for that practice id.
+    if (practiceTabContent) {
+      practiceTabContent.addEventListener('click', e => {
+        const item = e.target.closest('.practice-list-item');
+        if (!item) return;
+        const id = item.dataset.practiceId;
+        const ctrl = window._listeningPractice;
+        if (ctrl && typeof ctrl.open === 'function') {
+          try { ctrl.open(id); }
+          catch (err) { console.warn('[practice-tab] open failed:', err); }
         }
+      });
+    }
+
+    // Vocab milestone hooks: listen for storage updates + manual events.
+    function onVocabChanged() {
+      const vocab = readVocab();
+      const state = readPracticeState();
+      const completed = (state.completedPractices || []).length;
+      const pending = (state.pendingPractices || []).length;
+      const lastGenAt = state.lastVocabCountAtGeneration || 0;
+
+      // 首次解锁
+      if (vocab.length === 5 && pending === 0 && completed === 0) {
+        showAppToast('🎉 解锁个性化训练！切到「练习」Tab 看看');
+        track('profile.vocab_milestone', { count: 5, milestone: 'unlock' });
+        triggerInitialGeneration();
+      } else if (vocab.length === 20) {
+        showAppToast('练习 Tab 已积累更多训练，要不要看看？');
+        track('profile.vocab_milestone', { count: 20, milestone: 'remind_20' });
+      } else if (vocab.length === 50) {
+        showAppToast('你已经收了 50 个词，AI 给你专门做了几段训练');
+        track('profile.vocab_milestone', { count: 50, milestone: 'remind_50' });
+      } else if (lastGenAt && vocab.length - lastGenAt >= 3 && pending < 6) {
+        triggerInitialGeneration();
       }
+
+      // Refresh locked-state progress bar in real time if user is on practice tab.
+      if ((localStorage.getItem('flipodMode') || 'listen') === 'practice') {
+        refreshPracticeView();
+      }
+    }
+    function showAppToast(msg) {
+      const t = document.getElementById('flipod-toast');
+      if (!t) return;
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(showAppToast._timer);
+      showAppToast._timer = setTimeout(() => t.classList.remove('show'), 3200);
+    }
+    window._onVocabChanged = onVocabChanged;
+    window.addEventListener('storage', e => {
+      if (e.key === 'flipodVocabBook' || e.key === 'flipodVocab') onVocabChanged();
     });
   }
 
@@ -5611,6 +6010,9 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
           }
           vocab.push({ word, cefr, phonetic: '', context: '', contextZh: '', timestamp: Date.now() });
           localStorage.setItem('flipodVocab', JSON.stringify(vocab));
+          if (typeof window._onVocabChanged === 'function') {
+            try { window._onVocabChanged(); } catch (e) {}
+          }
           btn.textContent = '✓ 已收藏';
           btn.style.color = 'var(--accent)';
         });
@@ -5663,5 +6065,111 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
 <script src="mock/practice-data.js"></script>
 <script src="listening-practice.js"></script>
 <script src="teaching-module-v3.js"></script>
+<script>
+/* B33 · Priming word click tooltip.
+ * Self-contained because priming markup lives in a feed card that's
+ * created dynamically; we delegate at document level so newly-rendered
+ * cards work without re-wiring.
+ */
+(function () {
+  'use strict';
+  function getVocab() {
+    try { return JSON.parse(localStorage.getItem('flipodVocab') || '[]'); } catch { return []; }
+  }
+  function saveVocab(arr) {
+    localStorage.setItem('flipodVocab', JSON.stringify(arr));
+    if (typeof window._onVocabChanged === 'function') {
+      try { window._onVocabChanged(); } catch (e) {}
+    }
+  }
+  function isSaved(word) {
+    var v = getVocab();
+    var k = String(word || '').toLowerCase();
+    return v.some(function (item) {
+      var w = item && (item.word || item.text);
+      return w && String(w).toLowerCase() === k;
+    });
+  }
+  function closeAllTooltips() {
+    document.querySelectorAll('.pz-tooltip').forEach(function (t) { t.remove(); });
+  }
+  function esc(s) {
+    return String(s || '').replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function showTooltip(el) {
+    closeAllTooltips();
+    var rect = el.getBoundingClientRect();
+    var word = el.dataset.word || '';
+    var zh = el.dataset.zh || '';
+    var cefr = el.dataset.cefr || '';
+    var ipa = el.dataset.ipa || '';
+    var tag = el.dataset.tag || '';
+    var alreadySaved = isSaved(word);
+
+    var tip = document.createElement('div');
+    tip.className = 'pz-tooltip';
+    tip.innerHTML =
+      '<div class="pz-tip-head">' +
+        '<span class="pz-tip-word">' + esc(word) + '</span>' +
+        (cefr ? '<span class="pz-tip-cefr">' + esc(cefr) + '</span>' : '') +
+      '</div>' +
+      (ipa ? '<div class="pz-tip-ipa">' + esc(ipa) + '</div>' : '') +
+      (zh ? '<div class="pz-tip-zh">' + esc(zh) + '</div>' : '') +
+      '<button class="pz-tip-save"' + (alreadySaved ? ' disabled' : '') + '>' +
+        (alreadySaved ? '已收藏' : '收藏') +
+      '</button>';
+
+    // Position below the word; flip above if not enough space.
+    var tipTop = rect.bottom + window.scrollY + 6;
+    var tipLeft = Math.max(8, Math.min(rect.left + window.scrollX, window.innerWidth - 260));
+    tip.style.top = tipTop + 'px';
+    tip.style.left = tipLeft + 'px';
+    document.body.appendChild(tip);
+
+    var saveBtn = tip.querySelector('.pz-tip-save');
+    if (saveBtn && !alreadySaved) {
+      saveBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var vocab = getVocab();
+        vocab.push({
+          word: word,
+          zh: zh,
+          cefr: cefr,
+          ipa: ipa,
+          tag: tag,
+          timestamp: Date.now(),
+          source: 'priming'
+        });
+        saveVocab(vocab);
+        saveBtn.textContent = '已收藏';
+        saveBtn.disabled = true;
+      });
+    }
+
+    // Defer the outside-click listener so the current click doesn't immediately close it.
+    setTimeout(function () {
+      document.addEventListener('click', onOutsideClick);
+    }, 0);
+    function onOutsideClick(ev) {
+      if (tip.contains(ev.target)) return;
+      document.removeEventListener('click', onOutsideClick);
+      tip.remove();
+    }
+  }
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('.priming-word');
+    if (!el) return;
+    e.stopPropagation();
+    showTooltip(el);
+  });
+  // Close on Escape + close on scroll so floating tip doesn't detach.
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeAllTooltips();
+  });
+  window.addEventListener('scroll', closeAllTooltips, true);
+})();
+</script>
 </body>
 </html>
