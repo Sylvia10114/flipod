@@ -3054,9 +3054,8 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
     return;
   }
 
-  // ── DEV: 只保留有 questions 的 clip，取前 3 个用于教学测试 ──
-  clips = clips.filter(c => c.questions && c.questions.length > 0).slice(0, 3);
-  console.log('Teaching demo clips:', clips.length, clips.map(c => c.title));
+  // ── v3: 所有 clip 都进入 feed，练习 Tab 按需生成（去掉旧 teaching-module 的 questions 硬过滤 + slice(0,3)）──
+  console.log('Feed clips:', clips.length);
 
   let total = clips.length;
   const audios = [];
@@ -3151,7 +3150,7 @@ body.left-hand .bottom-bar{ flex-direction:row-reverse; }
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 3000);
+      const timeout = setTimeout(() => controller.abort(), 15000);
       const resp = await fetch('/api/rank', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
