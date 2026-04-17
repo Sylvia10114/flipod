@@ -485,8 +485,16 @@ export function PracticeSessionModal({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onDismiss}>
-      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-        <View style={[styles.header, { paddingHorizontal: metrics.pageHorizontalPadding }]}>
+      <SafeAreaView edges={['bottom']} style={styles.safeArea}>
+        <View
+          style={[
+            styles.header,
+            {
+              paddingTop: Math.max(insets.top + 10, 18),
+              paddingHorizontal: metrics.pageHorizontalPadding,
+            },
+          ]}
+        >
           <View style={[styles.headerInner, { maxWidth: metrics.modalMaxWidth }]}>
             <Pressable
               onPress={() => {
@@ -494,7 +502,7 @@ export function PracticeSessionModal({
                 onDismiss();
               }}
               style={styles.closeButton}
-              hitSlop={8}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <Text style={styles.closeButtonText}>{t('common.close')}</Text>
             </Pressable>
@@ -984,9 +992,9 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
     backgroundColor: colors.bgApp,
   },
   header: {
-    paddingTop: 8,
     paddingBottom: 8,
     alignItems: 'center',
+    zIndex: 2,
   },
   headerInner: {
     width: '100%',
