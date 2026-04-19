@@ -11,7 +11,7 @@ import subprocess
 import time
 
 from . import config
-from .download import materialize_audio_window, probe_audio_duration
+from .download import materialize_audio_window, probe_audio_duration, _download_full_audio
 from .utils import hash_key, log, normalize_audio_url
 
 
@@ -148,66 +148,112 @@ def transcribe_audio(audio_source, tmp_dir, cache_dir, duration_sec=None, use_ca
         log("  无法探测音频总时长，无法分块转录", "error")
         return None
 
-    chunk_dir = os.path.join(tmp_dir, "chunks", hash_key(normalize_audio_url(audio_source) or str(audio_source)))
-    os.makedirs(chunk_dir, exist_ok=True)
-    windows = build_chunk_windows(duration, chunk_seconds=chunk_seconds, overlap_seconds=overlap_seconds)
-    total_chunks = len(windows)
-    merged = {"text": "", "words": [], "segments": []}
-    seen_english_content = False
+    current_source = audio_source
+    current_duration = duration
+    temp_local_source = None
+    used_local_retry = False
 
     try:
-        for idx, (chunk_start, chunk_end) in enumerate(windows, start=1):
-            chunk_path = os.path.join(chunk_dir, f"chunk_{idx:03d}.mp3")
-            if not materialize_audio_window(audio_source, chunk_start, chunk_end, chunk_path, timeout=240):
-                log(f"  chunk {idx}/{total_chunks} materialize 失败", "error")
+        while True:
+            chunk_dir = os.path.join(
+                tmp_dir,
+                "chunks",
+                hash_key(normalize_audio_url(current_source) or str(current_source)),
+            )
+            os.makedirs(chunk_dir, exist_ok=True)
+            windows = build_chunk_windows(
+                current_duration,
+                chunk_seconds=chunk_seconds,
+                overlap_seconds=overlap_seconds,
+            )
+            total_chunks = len(windows)
+            merged = {"text": "", "words": [], "segments": []}
+            seen_english_content = False
+            restart_with_local = False
+
+            for idx, (chunk_start, chunk_end) in enumerate(windows, start=1):
+                chunk_path = os.path.join(chunk_dir, f"chunk_{idx:03d}.mp3")
+                if not materialize_audio_window(current_source, chunk_start, chunk_end, chunk_path, timeout=240):
+                    if (
+                        current_source == audio_source
+                        and not used_local_retry
+                        and str(audio_source).startswith(("http://", "https://"))
+                    ):
+                        raw_dir = os.path.join(tmp_dir, "raw")
+                        os.makedirs(raw_dir, exist_ok=True)
+                        temp_local_source = os.path.join(
+                            raw_dir,
+                            f"transcribe_fallback_{hash_key(normalize_audio_url(audio_source) or str(audio_source))[:12]}.mp3",
+                        )
+                        log("  远端 chunk materialize 失败，回退整集本地副本后重试", "warn")
+                        if not _download_full_audio(audio_source, temp_local_source):
+                            log(f"  chunk {idx}/{total_chunks} materialize 失败", "error")
+                            return None
+                        local_duration = probe_audio_duration(temp_local_source)
+                        if local_duration:
+                            current_duration = local_duration
+                        current_source = temp_local_source
+                        used_local_retry = True
+                        restart_with_local = True
+                        break
+                    log(f"  chunk {idx}/{total_chunks} materialize 失败", "error")
+                    return None
+
+                log(
+                    f"  chunk {idx}/{total_chunks}: {chunk_start/60:.1f}-{chunk_end/60:.1f} 分钟 "
+                    f"({chunk_end - chunk_start:.0f}s)",
+                    "info",
+                )
+                chunk_transcript = _transcribe_local_file(chunk_path)
+
+                try:
+                    os.remove(chunk_path)
+                except OSError:
+                    pass
+
+                if chunk_transcript is None:
+                    return None
+
+                chunk_words = chunk_transcript.get("words", [])
+                chunk_segments = chunk_transcript.get("segments", [])
+                if not chunk_words and not chunk_segments:
+                    log(f"  chunk {idx}/{total_chunks} 无有效语音内容，跳过", "warn")
+                    continue
+
+                detected_lang = chunk_transcript.get("language", "")
+                if detected_lang and detected_lang not in ("english", "en"):
+                    if not seen_english_content:
+                        log(f"  检测到非英语内容 (lang={detected_lang})，整集跳过", "warn")
+                        return None
+                    log(f"  chunk {idx}/{total_chunks} 非英语 (lang={detected_lang})，跳过该块", "warn")
+                    continue
+
+                seen_english_content = True
+                merge_chunk_transcript(merged, chunk_transcript, chunk_start)
+
+            shutil.rmtree(chunk_dir, ignore_errors=True)
+            if restart_with_local:
+                continue
+
+            if not merged["words"] and not merged["segments"]:
+                log("  整集转录结果为空", "error")
                 return None
 
-            log(
-                f"  chunk {idx}/{total_chunks}: {chunk_start/60:.1f}-{chunk_end/60:.1f} 分钟 "
-                f"({chunk_end - chunk_start:.0f}s)",
-                "info",
-            )
-            chunk_transcript = _transcribe_local_file(chunk_path)
+            merged["duration_sec"] = round(float(current_duration), 2)
 
             try:
-                os.remove(chunk_path)
+                with open(cache_path, "w", encoding="utf-8") as f:
+                    json.dump(merged, f, ensure_ascii=False)
+                log(f"  💾 整集 transcript 缓存已写入: {os.path.basename(cache_path)}", "info")
+            except Exception as e:
+                log(f"  ⚠️ transcript 缓存写入失败 (忽略): {e}", "warn")
+
+            log(f"  转录完成: {len(merged['words'])} 词, {len(merged['segments'])} 段", "ok")
+            return merged
+    finally:
+        if temp_local_source:
+            try:
+                if os.path.exists(temp_local_source):
+                    os.remove(temp_local_source)
             except OSError:
                 pass
-
-            if chunk_transcript is None:
-                return None
-
-            chunk_words = chunk_transcript.get("words", [])
-            chunk_segments = chunk_transcript.get("segments", [])
-            if not chunk_words and not chunk_segments:
-                log(f"  chunk {idx}/{total_chunks} 无有效语音内容，跳过", "warn")
-                continue
-
-            detected_lang = chunk_transcript.get("language", "")
-            if detected_lang and detected_lang not in ("english", "en"):
-                if not seen_english_content:
-                    log(f"  检测到非英语内容 (lang={detected_lang})，整集跳过", "warn")
-                    return None
-                log(f"  chunk {idx}/{total_chunks} 非英语 (lang={detected_lang})，跳过该块", "warn")
-                continue
-
-            seen_english_content = True
-            merge_chunk_transcript(merged, chunk_transcript, chunk_start)
-
-        if not merged["words"] and not merged["segments"]:
-            log("  整集转录结果为空", "error")
-            return None
-
-        merged["duration_sec"] = round(float(duration), 2)
-
-        try:
-            with open(cache_path, "w", encoding="utf-8") as f:
-                json.dump(merged, f, ensure_ascii=False)
-            log(f"  💾 整集 transcript 缓存已写入: {os.path.basename(cache_path)}", "info")
-        except Exception as e:
-            log(f"  ⚠️ transcript 缓存写入失败 (忽略): {e}", "warn")
-
-        log(f"  转录完成: {len(merged['words'])} 词, {len(merged['segments'])} 段", "ok")
-        return merged
-    finally:
-        shutil.rmtree(chunk_dir, ignore_errors=True)

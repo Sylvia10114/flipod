@@ -10,6 +10,7 @@ import time
 from .config import VALID_TIERS
 from .utils import log, step_start, step_end
 from .download import download_audio, cleanup_episode_audio
+from .audio_cut import cut_audio
 from .transcribe import transcribe_audio
 from .segmentation import select_segments, classify_episode
 from .filter import filter_candidates
@@ -140,6 +141,13 @@ def process_episode(episode, tmp_dir, output_dir, clip_id_start,
                         w["start"] = round(w["start"] - time_offset, 2)
                         w["end"] = round(w["end"] - time_offset, 2)
 
+            clip_filename = f"clips/clip{clip_id}.mp3"
+            clip_path = os.path.join(output_dir, clip_filename)
+            os.makedirs(os.path.dirname(clip_path), exist_ok=True)
+            if not cut_audio(episode["audio_source"], actual_start, actual_end, clip_path):
+                log("  片段音频切割失败，跳过", "warn")
+                continue
+
             lines = batch_cefr_annotation(lines)
             step_end(f"cefr_{clip_id}")
 
@@ -160,6 +168,7 @@ def process_episode(episode, tmp_dir, output_dir, clip_id_start,
                 "id": clip_id,
                 "title": seg.get("suggested_title", f"片段 {clip_id}"),
                 "tag": tier,
+                "audio": clip_filename,
                 "duration": round(duration, 1),
                 "clip_start_sec": actual_start,
                 "clip_end_sec": actual_end,

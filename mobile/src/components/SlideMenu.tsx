@@ -20,7 +20,6 @@ type Props = {
   activeScreen: MenuScreen;
   linkedIdentities: LinkedIdentity[];
   bookmarksCount: number;
-  practiceCount: number;
   vocabCount: number;
   clipsPlayed: number;
   onClose: () => void;
@@ -56,7 +55,6 @@ export function SlideMenu({
   activeScreen,
   linkedIdentities,
   bookmarksCount,
-  practiceCount,
   vocabCount,
   clipsPlayed,
   onClose,
@@ -125,15 +123,6 @@ export function SlideMenu({
                   onPress={() => {
                     triggerUiFeedback('menu');
                     onNavigate('library');
-                  }}
-                />
-                <MenuItem
-                  label={t('menu.practice')}
-                  count={practiceCount}
-                  active={activeScreen === 'practice'}
-                  onPress={() => {
-                    triggerUiFeedback('menu');
-                    onNavigate('practice');
                   }}
                 />
                 <MenuItem

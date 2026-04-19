@@ -1,0 +1,88 @@
+import React from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { radii, spacing, typography } from '../design';
+import { triggerUiFeedback } from '../feedback';
+import { useUiI18n } from '../i18n';
+import { useResponsiveLayout } from '../responsive';
+import { useAppTheme } from '../theme';
+import type { HomeMode } from '../types';
+
+type Props = {
+  mode: HomeMode;
+  onChangeMode: (mode: HomeMode) => void;
+};
+
+export function HomeModeTabs({ mode, onChangeMode }: Props) {
+  const { colors } = useAppTheme();
+  const { t } = useUiI18n();
+  const metrics = useResponsiveLayout();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
+
+  const items: Array<{ key: HomeMode; label: string }> = [
+    { key: 'listen', label: t('home.listenTab') },
+    { key: 'learn', label: t('home.learnTab') },
+  ];
+
+  return (
+    <View style={[styles.wrap, { paddingHorizontal: metrics.isTablet ? 8 : 6 }]}>
+      {items.map(item => {
+        const active = item.key === mode;
+        return (
+          <Pressable
+            key={item.key}
+            onPress={() => {
+              if (active) return;
+              triggerUiFeedback('menu');
+              onChangeMode(item.key);
+            }}
+            style={({ pressed }) => [
+              styles.tab,
+              active && styles.tabActive,
+              pressed && !active && styles.tabPressed,
+            ]}
+          >
+            <Text style={[styles.tabText, active && styles.tabTextActive]}>{item.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
+  return StyleSheet.create({
+    wrap: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      padding: 6,
+      borderRadius: radii.pill,
+      backgroundColor: colors.bgSurface1,
+      borderWidth: 1,
+      borderColor: colors.stroke,
+    },
+    tab: {
+      flex: 1,
+      minHeight: 42,
+      borderRadius: radii.pill,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: spacing.md,
+    },
+    tabActive: {
+      backgroundColor: colors.accentFeed,
+    },
+    tabPressed: {
+      backgroundColor: colors.bgSurface2,
+    },
+    tabText: {
+      color: colors.textSecondary,
+      fontSize: typography.caption,
+      fontWeight: '700',
+    },
+    tabTextActive: {
+      color: colors.textOnAccent,
+    },
+  });
+}

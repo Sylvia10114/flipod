@@ -283,13 +283,32 @@
       "summarySentences": "sentences practiced",
       "summaryHard": "hard sentences",
       "practiceAnother": "Practice another clip",
-      "backToFeed": "Back to Feed"
+      "backToFeed": "Back to Feed",
+      "stepNativeLanguage": "STEP 1 · Start with meaning",
+      "stepEnglish": "STEP 2 · English drill",
+      "stepFade": "STEP 3 · Fade the text",
+      "stepBlind": "STEP 4 · Blind listen",
+      "challengeWordsTitle": "Challenge words",
+      "previewTitle": "Start with the meaning",
+      "previewBody": "Read the key lines in your language, then listen once through.",
+      "previewFallbackBody": "Translation is not ready yet, so start with the English meaning layer.",
+      "englishDrillTitle": "English, one line at a time",
+      "englishDrillBody": "Match the sound to the English sentence before moving on.",
+      "fadeTitle": "Let the text fade",
+      "fadeBody": "Keep less text on screen each time, and see what still sticks.",
+      "blindTitle": "Blind listen",
+      "blindBody": "Listen again with no text, just the audio.",
+      "finishPractice": "Finish practice"
     },
     "startScreen": {
       "preparingContent": "Preparing content for you...",
       "title": "Start with this one",
       "subtitle": "I picked a few clips that fit where you are right now",
       "tapHint": "Tap to begin"
+    },
+    "home": {
+      "listenTab": "Just Listen",
+      "learnTab": "Guided Practice"
     }
   },
   "simplified_chinese": {
@@ -576,13 +595,32 @@
       "summarySentences": "句精听",
       "summaryHard": "句觉得难",
       "practiceAnother": "再练一段",
-      "backToFeed": "回到 Feed"
+      "backToFeed": "回到 Feed",
+      "stepNativeLanguage": "STEP 1 · 先看意思",
+      "stepEnglish": "STEP 2 · 英文精听",
+      "stepFade": "STEP 3 · 逐步淡出",
+      "stepBlind": "STEP 4 · 盲听",
+      "challengeWordsTitle": "挑战词",
+      "previewTitle": "先看意思",
+      "previewBody": "先用你的语言读关键句，再完整听一遍。",
+      "previewFallbackBody": "翻译还没准备好，先用英文理解内容。",
+      "englishDrillTitle": "英文逐句精听",
+      "englishDrillBody": "先把声音和英文原句对上，再进入下一句。",
+      "fadeTitle": "让文字逐步淡出",
+      "fadeBody": "每次减少一点文字，看看还能听懂多少。",
+      "blindTitle": "盲听",
+      "blindBody": "不看文字再听一遍，只专注音频。",
+      "finishPractice": "完成练习"
     },
     "startScreen": {
       "preparingContent": "正在为你准备内容...",
       "title": "先听这一条",
       "subtitle": "我挑了几段适合现在开始的内容",
       "tapHint": "点击开始"
+    },
+    "home": {
+      "listenTab": "随便听",
+      "learnTab": "系统练"
     }
   },
   "traditional_chinese": {
@@ -869,13 +907,32 @@
       "summarySentences": "句精聽",
       "summaryHard": "句覺得難",
       "practiceAnother": "再練一段",
-      "backToFeed": "回到 Feed"
+      "backToFeed": "回到 Feed",
+      "stepNativeLanguage": "STEP 1 · 先看意思",
+      "stepEnglish": "STEP 2 · 英文精聽",
+      "stepFade": "STEP 3 · 逐步淡出",
+      "stepBlind": "STEP 4 · 盲聽",
+      "challengeWordsTitle": "挑戰詞",
+      "previewTitle": "先看意思",
+      "previewBody": "先用你的語言讀關鍵句，再完整聽一遍。",
+      "previewFallbackBody": "翻譯還沒準備好，先用英文理解內容。",
+      "englishDrillTitle": "英文逐句精聽",
+      "englishDrillBody": "先把聲音和英文原句對上，再進入下一句。",
+      "fadeTitle": "讓文字逐步淡出",
+      "fadeBody": "每次減少一點文字，看看還能聽懂多少。",
+      "blindTitle": "盲聽",
+      "blindBody": "不看文字再聽一遍，只專注音訊。",
+      "finishPractice": "完成練習"
     },
     "startScreen": {
       "preparingContent": "正在為你準備內容...",
       "title": "先聽這一條",
       "subtitle": "我挑了幾段適合現在開始的內容",
       "tapHint": "點擊開始"
+    },
+    "home": {
+      "listenTab": "隨便聽",
+      "learnTab": "系統練"
     }
   },
   "japanese": {
@@ -1162,13 +1219,32 @@
       "summarySentences": "文を精聴した",
       "summaryHard": "文が難しかった",
       "practiceAnother": "別のクリップを練習する",
-      "backToFeed": "Feed に戻る"
+      "backToFeed": "Feed に戻る",
+      "stepNativeLanguage": "STEP 1 · まず意味から",
+      "stepEnglish": "STEP 2 · 英文を一文ずつ",
+      "stepFade": "STEP 3 · 文字を薄くする",
+      "stepBlind": "STEP 4 · ブラインドリスニング",
+      "challengeWordsTitle": "つまずきやすい語",
+      "previewTitle": "まず意味をつかむ",
+      "previewBody": "まずはあなたの言語で重要な文を読み、そのあと一度通して聞きましょう。",
+      "previewFallbackBody": "翻訳がまだないので、まずは英語で内容をつかみましょう。",
+      "englishDrillTitle": "英文を一文ずつ",
+      "englishDrillBody": "音と英語の文を結び付けてから次へ進みます。",
+      "fadeTitle": "文字を少しずつ減らす",
+      "fadeBody": "表示される文字を少しずつ減らし、どこまで聞き取れるか確かめます。",
+      "blindTitle": "ブラインドリスニング",
+      "blindBody": "文字を見ずにもう一度聞き、音声だけに集中します。",
+      "finishPractice": "練習を終える"
     },
     "startScreen": {
       "preparingContent": "あなた向けの内容を準備しています...",
       "title": "まずはこの 1 本から",
       "subtitle": "今のあなたに合いそうなクリップをいくつか選びました",
       "tapHint": "タップして始める"
+    },
+    "home": {
+      "listenTab": "気軽に聞く",
+      "learnTab": "しっかり練習"
     }
   },
   "korean": {
@@ -1455,13 +1531,32 @@
       "summarySentences": "문장 연습",
       "summaryHard": "어려웠던 문장",
       "practiceAnother": "다른 클립 연습하기",
-      "backToFeed": "Feed로 돌아가기"
+      "backToFeed": "Feed로 돌아가기",
+      "stepNativeLanguage": "STEP 1 · 먼저 뜻 보기",
+      "stepEnglish": "STEP 2 · 영어 문장 듣기",
+      "stepFade": "STEP 3 · 글자 줄이기",
+      "stepBlind": "STEP 4 · 블라인드 리스닝",
+      "challengeWordsTitle": "도전 단어",
+      "previewTitle": "먼저 뜻을 잡아요",
+      "previewBody": "먼저 네 언어로 핵심 문장을 읽고, 그다음 한 번 끝까지 들어보세요.",
+      "previewFallbackBody": "번역이 아직 없어서 먼저 영어로 내용을 잡아볼게요.",
+      "englishDrillTitle": "영어를 한 문장씩",
+      "englishDrillBody": "소리와 영어 문장을 연결한 뒤 다음으로 넘어가세요.",
+      "fadeTitle": "글자를 조금씩 줄이기",
+      "fadeBody": "화면의 글자를 조금씩 줄이며 어디까지 들리는지 확인합니다.",
+      "blindTitle": "블라인드 리스닝",
+      "blindBody": "글자를 보지 말고 다시 듣고, 오디오에만 집중하세요.",
+      "finishPractice": "연습 마치기"
     },
     "startScreen": {
       "preparingContent": "당신을 위한 내용을 준비하고 있어요...",
       "title": "먼저 이 클립부터",
       "subtitle": "지금의 당신에게 맞는 클립 몇 개를 골라 두었어요",
       "tapHint": "탭해서 시작"
+    },
+    "home": {
+      "listenTab": "가볍게 듣기",
+      "learnTab": "체계적 연습"
     }
   },
   "spanish": {
@@ -1748,13 +1843,32 @@
       "summarySentences": "frases practicadas",
       "summaryHard": "frases difíciles",
       "practiceAnother": "Practicar otro clip",
-      "backToFeed": "Volver al Feed"
+      "backToFeed": "Volver al Feed",
+      "stepNativeLanguage": "STEP 1 · Empezar por el sentido",
+      "stepEnglish": "STEP 2 · Inglés frase por frase",
+      "stepFade": "STEP 3 · Desvanecer el texto",
+      "stepBlind": "STEP 4 · Escucha a ciegas",
+      "challengeWordsTitle": "Palabras difíciles",
+      "previewTitle": "Empieza por el sentido",
+      "previewBody": "Lee las frases clave en tu idioma y luego escucha el clip completo una vez.",
+      "previewFallbackBody": "La traducción todavía no está lista, así que empieza por entenderlo en inglés.",
+      "englishDrillTitle": "Inglés, una frase a la vez",
+      "englishDrillBody": "Relaciona el sonido con la frase en inglés antes de seguir.",
+      "fadeTitle": "Haz que el texto se desvanezca",
+      "fadeBody": "Cada vez verás menos texto para comprobar cuánto te queda claro.",
+      "blindTitle": "Escucha a ciegas",
+      "blindBody": "Vuelve a escuchar sin texto, solo con el audio.",
+      "finishPractice": "Terminar práctica"
     },
     "startScreen": {
       "preparingContent": "Preparando contenido para ti...",
       "title": "Empieza con este",
       "subtitle": "Elegí algunos clips que encajan con tu momento actual",
       "tapHint": "Toca para empezar"
+    },
+    "home": {
+      "listenTab": "Escuchar libremente",
+      "learnTab": "Práctica guiada"
     }
   },
   "french": {
@@ -2041,13 +2155,32 @@
       "summarySentences": "phrases travaillées",
       "summaryHard": "phrases difficiles",
       "practiceAnother": "Pratiquer un autre clip",
-      "backToFeed": "Retour au Feed"
+      "backToFeed": "Retour au Feed",
+      "stepNativeLanguage": "STEP 1 · Commencer par le sens",
+      "stepEnglish": "STEP 2 · Anglais phrase par phrase",
+      "stepFade": "STEP 3 · Faire disparaître le texte",
+      "stepBlind": "STEP 4 · Écoute à l’aveugle",
+      "challengeWordsTitle": "Mots difficiles",
+      "previewTitle": "Commencez par le sens",
+      "previewBody": "Lisez les phrases clés dans votre langue, puis écoutez une fois tout le clip.",
+      "previewFallbackBody": "La traduction n’est pas encore prête, alors commencez par le sens en anglais.",
+      "englishDrillTitle": "L’anglais, une phrase à la fois",
+      "englishDrillBody": "Reliez le son à la phrase anglaise avant de continuer.",
+      "fadeTitle": "Laisser le texte s’effacer",
+      "fadeBody": "Affichez de moins en moins de texte pour voir ce qui reste acquis.",
+      "blindTitle": "Écoute à l’aveugle",
+      "blindBody": "Réécoutez sans texte, uniquement avec l’audio.",
+      "finishPractice": "Terminer la pratique"
     },
     "startScreen": {
       "preparingContent": "Préparation du contenu pour vous...",
       "title": "Commence par celui-ci",
       "subtitle": "J'ai choisi quelques clips qui correspondent à ton niveau actuel",
       "tapHint": "Touchez pour commencer"
+    },
+    "home": {
+      "listenTab": "Écoute libre",
+      "learnTab": "Pratique guidée"
     }
   },
   "brazilian_portuguese": {
@@ -2334,13 +2467,32 @@
       "summarySentences": "frases praticadas",
       "summaryHard": "frases difíceis",
       "practiceAnother": "Praticar outro clipe",
-      "backToFeed": "Voltar ao Feed"
+      "backToFeed": "Voltar ao Feed",
+      "stepNativeLanguage": "STEP 1 · Comece pelo sentido",
+      "stepEnglish": "STEP 2 · Inglês frase por frase",
+      "stepFade": "STEP 3 · Fazer o texto sumir",
+      "stepBlind": "STEP 4 · Escuta às cegas",
+      "challengeWordsTitle": "Palavras difíceis",
+      "previewTitle": "Comece pelo sentido",
+      "previewBody": "Leia as frases-chave no seu idioma e depois escute o clipe inteiro uma vez.",
+      "previewFallbackBody": "A tradução ainda não está pronta, então comece entendendo em inglês.",
+      "englishDrillTitle": "Inglês, uma frase por vez",
+      "englishDrillBody": "Relacione o som com a frase em inglês antes de seguir.",
+      "fadeTitle": "Deixe o texto desaparecer",
+      "fadeBody": "Mostre cada vez menos texto para ver quanto ainda fica claro.",
+      "blindTitle": "Escuta às cegas",
+      "blindBody": "Ouça de novo sem texto, focando só no áudio.",
+      "finishPractice": "Finalizar prática"
     },
     "startScreen": {
       "preparingContent": "Preparando conteúdo para você...",
       "title": "Comece por este",
       "subtitle": "Separei alguns clipes que combinam com o seu momento atual",
       "tapHint": "Toque para começar"
+    },
+    "home": {
+      "listenTab": "Ouvir livremente",
+      "learnTab": "Prática guiada"
     }
   },
   "italian": {
@@ -2627,13 +2779,32 @@
       "summarySentences": "frasi praticate",
       "summaryHard": "frasi difficili",
       "practiceAnother": "Pratica un altro clip",
-      "backToFeed": "Torna al Feed"
+      "backToFeed": "Torna al Feed",
+      "stepNativeLanguage": "STEP 1 · Parti dal significato",
+      "stepEnglish": "STEP 2 · Inglese frase per frase",
+      "stepFade": "STEP 3 · Far svanire il testo",
+      "stepBlind": "STEP 4 · Ascolto alla cieca",
+      "challengeWordsTitle": "Parole difficili",
+      "previewTitle": "Parti dal significato",
+      "previewBody": "Leggi le frasi chiave nella tua lingua, poi ascolta una volta tutto il clip.",
+      "previewFallbackBody": "La traduzione non è ancora pronta, quindi parti dal significato in inglese.",
+      "englishDrillTitle": "Inglese, una frase alla volta",
+      "englishDrillBody": "Abbina il suono alla frase inglese prima di andare avanti.",
+      "fadeTitle": "Lascia svanire il testo",
+      "fadeBody": "Mostra sempre meno testo per vedere quanto riesci ancora a seguire.",
+      "blindTitle": "Ascolto alla cieca",
+      "blindBody": "Riascolta senza testo, concentrandoti solo sull’audio.",
+      "finishPractice": "Termina pratica"
     },
     "startScreen": {
       "preparingContent": "Sto preparando contenuti per te...",
       "title": "Inizia da questo",
       "subtitle": "Ho scelto alcuni clip adatti al tuo momento attuale",
       "tapHint": "Tocca per iniziare"
+    },
+    "home": {
+      "listenTab": "Ascolto libero",
+      "learnTab": "Pratica guidata"
     }
   },
   "german": {
@@ -2920,13 +3091,32 @@
       "summarySentences": "Sätze geübt",
       "summaryHard": "schwierige Sätze",
       "practiceAnother": "Einen anderen Clip üben",
-      "backToFeed": "Zurück zum Feed"
+      "backToFeed": "Zurück zum Feed",
+      "stepNativeLanguage": "STEP 1 · Erst die Bedeutung",
+      "stepEnglish": "STEP 2 · Englisch Satz für Satz",
+      "stepFade": "STEP 3 · Text ausblenden",
+      "stepBlind": "STEP 4 · Blind hören",
+      "challengeWordsTitle": "Schwierige Wörter",
+      "previewTitle": "Starte mit der Bedeutung",
+      "previewBody": "Lies die wichtigen Sätze in deiner Sprache und höre dann den ganzen Clip einmal durch.",
+      "previewFallbackBody": "Die Übersetzung ist noch nicht bereit, also starte mit der Bedeutung auf Englisch.",
+      "englishDrillTitle": "Englisch, Satz für Satz",
+      "englishDrillBody": "Verbinde den Klang mit dem englischen Satz, bevor du weitergehst.",
+      "fadeTitle": "Den Text ausblenden",
+      "fadeBody": "Zeige jedes Mal etwas weniger Text und prüfe, was noch hängen bleibt.",
+      "blindTitle": "Blind hören",
+      "blindBody": "Höre noch einmal ohne Text und konzentriere dich nur auf das Audio.",
+      "finishPractice": "Übung beenden"
     },
     "startScreen": {
       "preparingContent": "Inhalte werden für dich vorbereitet...",
       "title": "Starte mit diesem",
       "subtitle": "Ich habe ein paar Clips ausgewählt, die gerade gut zu dir passen",
       "tapHint": "Tippen zum Starten"
+    },
+    "home": {
+      "listenTab": "Einfach hören",
+      "learnTab": "Gezielt üben"
     }
   }
 }

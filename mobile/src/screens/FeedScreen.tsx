@@ -31,6 +31,7 @@ import {
 import { ProgressCard, ReviewCard } from '../components/FeedCards';
 import { PlayerControls } from '../components/PlayerControls';
 import { ProgressBar } from '../components/ProgressBar';
+import { ChallengeWordPills } from '../components/ChallengeWordPills';
 import { WordLine } from '../components/WordLine';
 import { WordPopup } from '../components/WordPopup';
 import { radii, spacing, typography } from '../design';
@@ -38,9 +39,11 @@ import { triggerUiFeedback } from '../feedback';
 import { useFeedPlayer } from '../hooks/useFeedPlayer';
 import { useUiI18n } from '../i18n';
 import { getLocalizedTopicLabel } from '../i18n/helpers';
+import { deriveChallengeWords } from '../learning-scaffold';
 import { useResponsiveLayout } from '../responsive';
 import { useAppTheme } from '../theme';
 import type {
+  ChallengeWord,
   Clip,
   ClipLine,
   ClipLineWord,
@@ -58,6 +61,8 @@ type Props = {
   clips: Clip[];
   visibleClipCount: number;
   hasMoreClips: boolean;
+  isForeground: boolean;
+  contentViewportHeight?: number;
   profile: Profile;
   dominantHand: DominantHand;
   playbackRate: number;
@@ -78,7 +83,6 @@ type Props = {
   onMarkKnown: (word: string) => void;
   onRecordWordLookup: (cefr?: string, details?: { clip?: Clip | null; word?: string }) => void;
   onReviewAction: (word: string, action: 'remember' | 'forgot') => void;
-  onOpenMenu: () => void;
   onLoadMoreClips: () => void;
   onPlaybackRateChange: (rate: number) => void;
   onSubtitleSizeChange: () => void;
@@ -122,6 +126,8 @@ export function FeedScreen({
   clips,
   visibleClipCount,
   hasMoreClips,
+  isForeground,
+  contentViewportHeight = 0,
   profile,
   dominantHand,
   playbackRate,
@@ -142,7 +148,6 @@ export function FeedScreen({
   onMarkKnown,
   onRecordWordLookup,
   onReviewAction,
-  onOpenMenu,
   onLoadMoreClips,
   onPlaybackRateChange,
   onSubtitleSizeChange,
@@ -157,7 +162,7 @@ export function FeedScreen({
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const data = useMemo(() => clips.slice(0, visibleClipCount), [clips, visibleClipCount]);
-  const pageHeight = Math.max(480, metrics.windowHeight - insets.top - insets.bottom);
+  const pageHeight = Math.max(480, contentViewportHeight > 0 ? contentViewportHeight : metrics.windowHeight - insets.bottom);
   const [showZh, setShowZh] = useState(false);
   const [masked, setMasked] = useState(false);
   const [popup, setPopup] = useState<PopupState>(null);
@@ -173,6 +178,8 @@ export function FeedScreen({
   const autoplayTargetRef = useRef<number | null>(null);
   const visibleRequestIdRef = useRef<number | null>(null);
   const requestCounterRef = useRef(0);
+  const wasForegroundRef = useRef(isForeground);
+  const pendingForegroundResumeRef = useRef(false);
   const sessionRef = useRef<{
     clip: Clip;
     clipIndex: number;
@@ -252,6 +259,13 @@ export function FeedScreen({
   }, [dismissedCards, reviewState, vocabEntries]);
 
   const showProgressCard = clipsPlayed > 0 && !dismissedCards.has('progress');
+  const challengeWordsByKey = useMemo(() => {
+    const mapping = new Map<string, ChallengeWord[]>();
+    data.forEach((clip, index) => {
+      mapping.set(buildClipKey(clip, index), deriveChallengeWords(clip, profile.level, knownWords));
+    });
+    return mapping;
+  }, [data, knownWords, profile.level]);
   const feedPages = useMemo<FeedPage[]>(() => {
     const pages: FeedPage[] = [];
     let reviewIndex = 0;
@@ -325,6 +339,7 @@ export function FeedScreen({
   }, [onClipSkipped]);
 
   const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    if (!isForeground) return;
     const firstVisible = viewableItems.find(viewable => viewable.isViewable && typeof viewable.index === 'number');
     if (!firstVisible || typeof firstVisible.index !== 'number') return;
 
@@ -392,6 +407,7 @@ export function FeedScreen({
     requestAutoplay,
     setCurrentVisibleRequestId,
     stop,
+    isForeground,
   ]);
 
   React.useEffect(() => {
@@ -459,13 +475,68 @@ export function FeedScreen({
     };
   }, [clearAutoplayTimer, finalizeSession]);
 
+  React.useEffect(() => {
+    if (wasForegroundRef.current && !isForeground) {
+      wasForegroundRef.current = false;
+      pendingForegroundResumeRef.current = false;
+      autoplayTargetRef.current = null;
+      clearAutoplayTimer();
+      setPendingAutoplayIndex(null);
+      setCurrentVisibleRequestId(null);
+      setTranscriptIndex(null);
+      sessionRef.current = null;
+      void stop();
+      return;
+    }
+
+    if (!wasForegroundRef.current && isForeground) {
+      wasForegroundRef.current = true;
+      pendingForegroundResumeRef.current = true;
+    }
+  }, [clearAutoplayTimer, isForeground, setCurrentVisibleRequestId, stop]);
+
+  React.useEffect(() => {
+    if (!isForeground) return;
+    if (!pendingForegroundResumeRef.current) return;
+    if (visibleClipIndex === null) return;
+    if (playbackPhase === 'playing' || playbackPhase === 'loading') {
+      pendingForegroundResumeRef.current = false;
+      return;
+    }
+
+    pendingForegroundResumeRef.current = false;
+    const requestId = createRequestId();
+    autoplayTargetRef.current = visibleClipIndex;
+    setCurrentVisibleRequestId(requestId);
+    setPendingAutoplayIndex(visibleClipIndex);
+    clearAutoplayTimer();
+    autoplayTimerRef.current = setTimeout(() => {
+      if (autoplayTargetRef.current !== visibleClipIndex) return;
+      if (visibleRequestIdRef.current !== requestId) return;
+      void requestAutoplay(visibleClipIndex, requestId);
+    }, AUTOPLAY_DEBOUNCE_MS);
+  }, [
+    clearAutoplayTimer,
+    createRequestId,
+    isForeground,
+    playbackPhase,
+    requestAutoplay,
+    setCurrentVisibleRequestId,
+    visibleClipIndex,
+  ]);
+
   return (
-    <ScreenSurface>
+    <ScreenSurface edges={['left', 'right', 'bottom']}>
       <FlatList
         data={feedPages}
         keyExtractor={item => item.key}
         pagingEnabled
         snapToInterval={pageHeight}
+        getItemLayout={(_, index) => ({
+          length: pageHeight,
+          offset: pageHeight * index,
+          index,
+        })}
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
@@ -477,7 +548,7 @@ export function FeedScreen({
                 style={[
                   styles.cardPage,
                   {
-                    minHeight: pageHeight,
+                    height: pageHeight,
                     paddingBottom: 18 + insets.bottom,
                     paddingHorizontal: metrics.pageHorizontalPadding,
                   },
@@ -504,7 +575,7 @@ export function FeedScreen({
                 style={[
                   styles.cardPage,
                   {
-                    minHeight: pageHeight,
+                    height: pageHeight,
                     paddingBottom: 18 + insets.bottom,
                     paddingHorizontal: metrics.pageHorizontalPadding,
                   },
@@ -536,20 +607,15 @@ export function FeedScreen({
           const liked = likedKeys.includes(clipKey);
           const saved = bookmarkedKeys.includes(clipKey);
           const sourceUrl = getClipSourceExternalUrl(clip);
+          const challengeWords = challengeWordsByKey.get(clipKey) || [];
 
           return (
-            <View style={[styles.page, { minHeight: pageHeight, paddingBottom: 18 + insets.bottom }]}>
+            <View style={[styles.page, { height: pageHeight, paddingBottom: 18 + insets.bottom }]}>
               <PlayerLayout
                 header={
                   <View style={[styles.headerBlock, { width: playerWidth }]}>
-                    <View style={styles.headerActions}>
-                      <Pressable onPress={() => {
-                        triggerUiFeedback('menu');
-                        onOpenMenu();
-                      }} style={styles.iconButton}>
-                        <Feather name="menu" size={18} color={colors.textSecondary} />
-                      </Pressable>
-                      {sourceUrl ? (
+                    {sourceUrl ? (
+                      <View style={styles.headerActions}>
                         <Pressable
                           onPress={() => {
                             void handleOpenSource(clip);
@@ -558,12 +624,13 @@ export function FeedScreen({
                         >
                           <Feather name="external-link" size={18} color={colors.textSecondary} />
                         </Pressable>
-                      ) : (
-                        <View style={styles.iconButtonPlaceholder} />
-                      )}
-                    </View>
+                      </View>
+                    ) : null}
                     <View style={styles.headerCopy}>
                       <Text style={styles.clipTitle}>{clip.title}</Text>
+                      {challengeWords.length > 0 ? (
+                        <ChallengeWordPills words={challengeWords} tone="feed" />
+                      ) : null}
                       <Pressable
                         onPress={() => {
                           triggerUiFeedback('menu');
@@ -635,7 +702,6 @@ export function FeedScreen({
                       onCycleSubtitleSize={onSubtitleSizeChange}
                       onToggleZh={() => setShowZh(prev => !prev)}
                       onToggleMask={() => setMasked(prev => !prev)}
-                      onOpenMenu={onOpenMenu}
                     />
                   </View>
                 }
@@ -803,6 +869,34 @@ return StyleSheet.create({
   headerBlock: {
     gap: spacing.sm,
   },
+  challengeWordRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: 2,
+  },
+  challengeWordPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(139,156,247,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,156,247,0.24)',
+  },
+  challengeWordText: {
+    color: colors.textPrimary,
+    fontSize: typography.caption,
+    fontWeight: '700',
+  },
+  challengeWordBadge: {
+    color: colors.accentFeed,
+    fontSize: typography.micro,
+    fontWeight: '700',
+  },
   headerActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -813,10 +907,6 @@ return StyleSheet.create({
     height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  iconButtonPlaceholder: {
-    width: 28,
-    height: 28,
   },
   headerCopy: {
     alignItems: 'center',

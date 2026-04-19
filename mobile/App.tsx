@@ -1,7 +1,7 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { Audio } from 'expo-av';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   buildClipKey,
@@ -23,6 +23,7 @@ import {
 } from './src/content-localization';
 import { AppToast } from './src/components/AppToast';
 import { CalibrationToast } from './src/components/CalibrationToast';
+import { HomeTopChrome } from './src/components/HomeTopChrome';
 import { PracticeSessionModal } from './src/components/PracticeSessionModal';
 import { type MenuScreen, SlideMenu } from './src/components/SlideMenu';
 import { demoClips } from './src/demo-clips';
@@ -100,6 +101,7 @@ import type {
   LocalizedClipContent,
   LinkedIdentity,
   NativeLanguage,
+  HomeMode,
   PracticeMap,
   Profile,
   RankMode,
@@ -259,6 +261,10 @@ function cycleSubtitleSize(size: SubtitleSize): SubtitleSize {
   return 'sm';
 }
 
+function getHomeModeScreen(mode: HomeMode): MenuScreen {
+  return 'feed';
+}
+
 export default function App() {
   const [booting, setBooting] = useState(true);
   const [deviceId, setDeviceId] = useState('');
@@ -295,6 +301,9 @@ export default function App() {
   const [practiceClipKey, setPracticeClipKey] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
+  const [homeTopChromeHeight, setHomeTopChromeHeight] = useState(0);
+  const [homeContentHeight, setHomeContentHeight] = useState(0);
+  const { height: windowHeight } = useWindowDimensions();
   const currentTheme = profile.theme === 'light' ? 'light' : 'dark';
   const ui = useMemo(() => createUiI18n(profile.nativeLanguage), [profile.nativeLanguage]);
   const playedKeysRef = useRef<Set<string>>(new Set());
@@ -332,14 +341,14 @@ export default function App() {
     setLikedClipKeys(snapshot.likedClipKeys || []);
     setLikeEvents(snapshot.likeEvents || []);
     setLinkedIdentities(snapshot.linkedIdentities || []);
-    setActiveScreen('feed');
+    setActiveScreen(getHomeModeScreen(settings.homeMode));
     setPracticeClipKey(null);
     setFeedOrderIds([]);
     setFeedReasons({});
     setSkippedClipIds([]);
     setVisibleFeedCount(FEED_BATCH_SIZE);
     lastFeedSignatureRef.current = null;
-  }, []);
+  }, [settings.homeMode]);
 
   const showToast = useCallback((message: string) => {
     setToastMessage(message);
@@ -503,6 +512,7 @@ export default function App() {
         setDeviceId(nextDeviceId);
         setGuestMode(nextGuestMode);
         setSettings(localSettings);
+        setActiveScreen(getHomeModeScreen(localSettings.homeMode));
         setProfile(localProfile || {
           ...defaultProfile,
           nativeLanguage: DEVICE_NATIVE_LANGUAGE,
@@ -906,6 +916,17 @@ export default function App() {
     await saveSettings(nextSettings);
   }, []);
 
+  const handleHomeModeChange = useCallback((mode: HomeMode) => {
+    if (settings.homeMode === mode && activeScreen === 'feed') return;
+    const nextSettings: AppSettings = {
+      ...settings,
+      homeMode: mode,
+    };
+    void persistSettings(nextSettings);
+    setActiveScreen('feed');
+    setMenuOpen(false);
+  }, [activeScreen, persistSettings, settings]);
+
   const maybeShowCalibration = useCallback((signals: CalibrationSignals) => {
     if (practiceClipKey || calibrationSuggestion) return;
     const suggestion = buildCalibrationSuggestion(
@@ -929,7 +950,7 @@ export default function App() {
     setAuthToken(payload.session.token);
     setGuestMode(false);
     applyAuthSnapshot(snapshot);
-    setActiveScreen('feed');
+    setActiveScreen(getHomeModeScreen(settings.homeMode));
     setMenuOpen(false);
     setShowAuthSheet(false);
     setAuthError('');
@@ -1044,7 +1065,7 @@ export default function App() {
       signature,
     });
 
-    setActiveScreen('feed');
+    setActiveScreen(getHomeModeScreen(settings.homeMode));
   };
 
   const boostInterestFromLike = async (tag: string, preserveThroughClipId?: number | null) => {
@@ -1084,7 +1105,7 @@ export default function App() {
 
   const handleResetProfile = async () => {
     setProfile(defaultProfile);
-    setActiveScreen('feed');
+    setActiveScreen(getHomeModeScreen(DEFAULT_SETTINGS.homeMode));
     setMenuOpen(false);
     setPracticeClipKey(null);
     setFeedOrderIds([]);
@@ -1529,13 +1550,13 @@ export default function App() {
 
   const handleReturnFeed = useCallback(() => {
     setPracticeClipKey(null);
-    setActiveScreen('feed');
-  }, []);
+    handleHomeModeChange('listen');
+  }, [handleHomeModeChange]);
 
   const handlePracticeAgain = useCallback(() => {
     setPracticeClipKey(null);
-    setActiveScreen('practice');
-  }, []);
+    handleHomeModeChange('learn');
+  }, [handleHomeModeChange]);
 
   const handleTryGuest = useCallback(async () => {
     await saveGuestMode(true);
@@ -1543,17 +1564,17 @@ export default function App() {
     setAuthError('');
     setShowAuthSheet(false);
     setMenuOpen(false);
-    setActiveScreen('feed');
-  }, []);
+    setActiveScreen(getHomeModeScreen(settings.homeMode));
+  }, [settings.homeMode]);
 
   const handleEndGuestMode = useCallback(async () => {
     await clearGuestMode();
     setGuestMode(false);
     setShowAuthSheet(false);
     setMenuOpen(false);
-    setActiveScreen('feed');
+    setActiveScreen(getHomeModeScreen(settings.homeMode));
     setAuthError('');
-  }, []);
+  }, [settings.homeMode]);
 
   const handleLogout = useCallback(async () => {
     if (authToken) {
@@ -1592,7 +1613,7 @@ export default function App() {
     setSkippedClipIds([]);
     setVisibleFeedCount(FEED_BATCH_SIZE);
     lastFeedSignatureRef.current = null;
-    setActiveScreen('feed');
+    setActiveScreen(getHomeModeScreen(DEFAULT_SETTINGS.homeMode));
     setMenuOpen(false);
     setShowAuthSheet(false);
     setPracticeClipKey(null);
@@ -1638,7 +1659,7 @@ export default function App() {
     setSkippedClipIds([]);
     setVisibleFeedCount(FEED_BATCH_SIZE);
     lastFeedSignatureRef.current = null;
-    setActiveScreen('feed');
+    setActiveScreen(getHomeModeScreen(DEFAULT_SETTINGS.homeMode));
     setMenuOpen(false);
     setShowAuthSheet(false);
     setPracticeClipKey(null);
@@ -1674,7 +1695,7 @@ export default function App() {
         bookmarks={bookmarks}
         clips={localizedClipsData}
         onRemove={handleRemoveBookmark}
-        onBack={() => setActiveScreen('feed')}
+        onBack={() => setActiveScreen(getHomeModeScreen(settings.homeMode))}
       />
     );
   } else if (activeScreen === 'account') {
@@ -1685,9 +1706,9 @@ export default function App() {
         linkedIdentities={linkedIdentities}
         bookmarksCount={bookmarks.length}
         vocabCount={vocabList.length}
-        practiceCount={Object.keys(practiceData).length}
+        practiceCount={practiceCount}
         dominantHand={settings.dominantHand}
-        onBack={() => setActiveScreen('feed')}
+        onBack={() => setActiveScreen(getHomeModeScreen(settings.homeMode))}
         onLinkPhone={() => {
           setAuthError('');
           setShowAuthSheet(true);
@@ -1708,70 +1729,110 @@ export default function App() {
         }}
       />
     );
-  } else if (activeScreen === 'practice') {
-    content = (
-      <PracticeScreen
-        bookmarks={bookmarks}
-        clips={localizedClipsData}
-        profile={profile}
-        vocabList={vocabList}
-        practiceData={practiceData}
-        showIntro={!settings.practiceIntroSeen}
-        onDismissIntro={handleDismissPracticeIntro}
-        onBackToFeed={() => setActiveScreen('feed')}
-        onStartPractice={handleStartPractice}
-      />
-    );
   } else if (activeScreen === 'vocab') {
     content = (
       <VocabScreen
         vocabList={vocabList}
         clips={localizedClipsData}
-        onBack={() => setActiveScreen('feed')}
+        onBack={() => setActiveScreen(getHomeModeScreen(settings.homeMode))}
       />
+    );
+  } else if (activeScreen === 'feed' || activeScreen === 'practice') {
+    const resolvedHomeViewportHeight = homeContentHeight > 0
+      ? homeContentHeight
+      : Math.max(0, windowHeight - homeTopChromeHeight);
+    content = (
+      <View style={styles.homeModeHost}>
+        <HomeTopChrome
+          mode={settings.homeMode}
+          onChangeMode={handleHomeModeChange}
+          onOpenMenu={() => setMenuOpen(true)}
+          onLayout={event => {
+            const nextHeight = event.nativeEvent.layout.height;
+            setHomeTopChromeHeight(prev => (Math.abs(prev - nextHeight) > 0.5 ? nextHeight : prev));
+          }}
+        />
+
+        <View
+          style={styles.homeModeContentHost}
+          onLayout={event => {
+            const nextHeight = event.nativeEvent.layout.height;
+            setHomeContentHeight(prev => (Math.abs(prev - nextHeight) > 0.5 ? nextHeight : prev));
+          }}
+        >
+          <View
+            style={[
+              styles.homeModePane,
+              settings.homeMode === 'listen' ? styles.homeModePaneActive : styles.homeModePaneHidden,
+            ]}
+            pointerEvents={settings.homeMode === 'listen' ? 'auto' : 'none'}
+          >
+            <FeedScreen
+              clips={currentClips}
+              visibleClipCount={visibleFeedClips.length}
+              hasMoreClips={visibleFeedClips.length < currentClips.length}
+              profile={profile}
+              contentViewportHeight={resolvedHomeViewportHeight}
+              dominantHand={settings.dominantHand}
+              playbackRate={settings.playbackRate}
+              subtitleSize={settings.subtitleSize}
+              feedState={feedState}
+              bookmarkedKeys={bookmarkedKeys}
+              likedKeys={likedClipKeys}
+              recoTag={recoTag}
+              minutesListened={minutesListened}
+              reviewState={reviewState}
+              vocabEntries={vocabList}
+              vocabWords={vocabWords}
+              knownWords={knownWords}
+              clipsPlayed={clipsPlayed}
+              isForeground={settings.homeMode === 'listen'}
+              onToggleLike={handleToggleLike}
+              onToggleBookmark={handleToggleBookmark}
+              onSaveVocab={handleSaveVocab}
+              onMarkKnown={handleMarkKnown}
+              onRecordWordLookup={handleRecordWordLookup}
+              onReviewAction={handleReviewAction}
+              onLoadMoreClips={handleLoadMoreFeed}
+              onPlaybackRateChange={handlePlaybackRateChange}
+              onSubtitleSizeChange={handleSubtitleSizeChange}
+              onClipStarted={handleClipStarted}
+              onClipCompleted={handleClipCompleted}
+              onClipSkipped={handleClipSkipped}
+              onVisibleClipChange={(clip, index) => {
+                const nextTargets = [{ clip: currentRawClips[index] || clip, index }];
+                if (currentRawClips[index + 1]) {
+                  nextTargets.push({ clip: currentRawClips[index + 1], index: index + 1 });
+                }
+                void requestContentTranslations(nextTargets, profile.nativeLanguage);
+              }}
+            />
+          </View>
+
+          <View
+            style={[
+              styles.homeModePane,
+              settings.homeMode === 'learn' ? styles.homeModePaneActive : styles.homeModePaneHidden,
+            ]}
+            pointerEvents={settings.homeMode === 'learn' ? 'auto' : 'none'}
+          >
+            <PracticeScreen
+              bookmarks={bookmarks}
+              clips={localizedClipsData}
+              profile={profile}
+              vocabList={vocabList}
+              practiceData={practiceData}
+              showIntro={!settings.practiceIntroSeen}
+              onDismissIntro={handleDismissPracticeIntro}
+              contentViewportHeight={resolvedHomeViewportHeight}
+              onStartPractice={handleStartPractice}
+            />
+          </View>
+        </View>
+      </View>
     );
   } else {
-    content = (
-      <FeedScreen
-        clips={currentClips}
-        visibleClipCount={visibleFeedClips.length}
-        hasMoreClips={visibleFeedClips.length < currentClips.length}
-        profile={profile}
-        dominantHand={settings.dominantHand}
-        playbackRate={settings.playbackRate}
-        subtitleSize={settings.subtitleSize}
-        feedState={feedState}
-        bookmarkedKeys={bookmarkedKeys}
-        likedKeys={likedClipKeys}
-        recoTag={recoTag}
-        minutesListened={minutesListened}
-        reviewState={reviewState}
-        vocabEntries={vocabList}
-        vocabWords={vocabWords}
-        knownWords={knownWords}
-        clipsPlayed={clipsPlayed}
-        onToggleLike={handleToggleLike}
-        onToggleBookmark={handleToggleBookmark}
-        onSaveVocab={handleSaveVocab}
-        onMarkKnown={handleMarkKnown}
-        onRecordWordLookup={handleRecordWordLookup}
-        onReviewAction={handleReviewAction}
-        onOpenMenu={() => setMenuOpen(true)}
-        onLoadMoreClips={handleLoadMoreFeed}
-        onPlaybackRateChange={handlePlaybackRateChange}
-        onSubtitleSizeChange={handleSubtitleSizeChange}
-        onClipStarted={handleClipStarted}
-        onClipCompleted={handleClipCompleted}
-        onClipSkipped={handleClipSkipped}
-        onVisibleClipChange={(clip, index) => {
-          const nextTargets = [{ clip: currentRawClips[index] || clip, index }];
-          if (currentRawClips[index + 1]) {
-            nextTargets.push({ clip: currentRawClips[index + 1], index: index + 1 });
-          }
-          void requestContentTranslations(nextTargets, profile.nativeLanguage);
-        }}
-      />
-    );
+    content = null;
   }
 
   return (
@@ -1791,11 +1852,18 @@ export default function App() {
                   activeScreen={activeScreen}
                   linkedIdentities={linkedIdentities}
                   bookmarksCount={bookmarks.length}
-                  practiceCount={practiceCount}
                   vocabCount={vocabList.length}
                   clipsPlayed={clipsPlayed}
                   onClose={() => setMenuOpen(false)}
                   onNavigate={screen => {
+                    if (screen === 'feed') {
+                      handleHomeModeChange('listen');
+                      return;
+                    }
+                    if (screen === 'practice') {
+                      handleHomeModeChange('learn');
+                      return;
+                    }
                     setActiveScreen(screen);
                     setMenuOpen(false);
                   }}
@@ -1830,6 +1898,8 @@ export default function App() {
                   visible={Boolean(practiceClipKey && practiceClip)}
                   clip={practiceClip}
                   clipIndex={practiceClipIndex}
+                  level={profile.level}
+                  nativeLanguage={profile.nativeLanguage}
                   vocabWords={vocabWords}
                   knownWords={knownWords}
                   onSaveVocab={handleSaveVocab}
@@ -1870,6 +1940,24 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#09090B',
+  },
+  homeModeHost: {
+    flex: 1,
+  },
+  homeModeContentHost: {
+    flex: 1,
+    position: 'relative',
+  },
+  homeModePane: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  homeModePaneActive: {
+    zIndex: 2,
+    opacity: 1,
+  },
+  homeModePaneHidden: {
+    zIndex: 0,
+    opacity: 0,
   },
   rootLight: {
     backgroundColor: '#F2F2F7',

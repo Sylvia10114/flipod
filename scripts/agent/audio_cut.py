@@ -12,6 +12,28 @@ from .config import FFMPEG
 from .utils import log
 
 
+REMOTE_INPUT_FLAGS = [
+    "-rw_timeout", "30000000",
+    "-timeout", "30000000",
+    "-reconnect", "1",
+    "-reconnect_streamed", "1",
+    "-reconnect_delay_max", "2",
+    "-user_agent", "Mozilla/5.0",
+]
+
+
+def _ffmpeg_input_args(source_path):
+    args = []
+    if str(source_path).startswith(("http://", "https://")):
+        args.extend(REMOTE_INPUT_FLAGS)
+    args.extend(["-i", str(source_path)])
+    return args
+
+
+def _cut_timeout_seconds(source_path):
+    return 150 if str(source_path).startswith(("http://", "https://")) else 60
+
+
 def compute_segment_gaps(segments):
     """Compute gaps between consecutive Whisper segments.
 
@@ -89,15 +111,23 @@ def cut_audio(source_path, start_time, end_time, output_path, segments=None):
 
     try:
         fade_out_start = max(0, duration - 0.3)
-        result = subprocess.run([
+        cmd = [
             FFMPEG, "-y",
             "-ss", str(start_time),
-            "-i", source_path,
+        ]
+        cmd.extend(_ffmpeg_input_args(source_path))
+        cmd.extend([
             "-t", str(duration),
             "-af", f"afade=t=in:st=0:d=0.3,afade=t=out:st={fade_out_start}:d=0.3",
             "-b:a", "128k",
             output_path
-        ], capture_output=True, text=True, timeout=30)
+        ])
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=_cut_timeout_seconds(source_path),
+        )
 
         if result.returncode != 0 or not os.path.exists(output_path):
             log(f"  切割失败: {result.stderr[:200]}", "error")

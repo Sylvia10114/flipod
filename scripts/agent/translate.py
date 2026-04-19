@@ -5,6 +5,7 @@ Output: same lines with 'zh' field populated
 """
 
 import json
+import re
 
 from .utils import log, call_gpt, strip_markdown_fences
 
@@ -52,6 +53,33 @@ def _translate_batch_json(batch_lines):
     return False
 
 
+def _translation_needs_touchup(en, zh):
+    zh = (zh or "").strip()
+    en = (en or "").strip()
+    zh_cjk = len(re.findall(r"[\u4e00-\u9fff]", zh))
+    zh_len = max(len(zh), 1)
+    en_alpha = len(re.findall(r"[A-Za-z]", zh))
+    if zh_cjk < 2:
+        return True
+    if en and (zh_len / max(len(en), 1)) > 2.8:
+        return True
+    if en_alpha > zh_cjk:
+        return True
+    return False
+
+
+def _touch_up_line_translation(line):
+    prompt = (
+        "把这句英文翻成自然、简洁的简体中文。"
+        "不要保留裸英文；人名、品牌名、机构名如果必须出现，请加中文译法或中文说明。"
+        "只输出中文。\n\n"
+        f"英文：{line['en']}"
+    )
+    response = call_gpt([{"role": "user", "content": prompt}], temperature=0.1, max_tokens=200)
+    if response and response.strip():
+        line["zh"] = response.strip()
+
+
 def translate_lines(lines):
     """Translate all lines from English to Chinese.
 
@@ -81,5 +109,14 @@ def translate_lines(lines):
         log(f"  翻译完成，但有 {missing} 句缺失翻译", "warn")
     else:
         log("  翻译完成", "ok")
+
+    touchup_count = 0
+    for line in lines:
+        if _translation_needs_touchup(line.get("en", ""), line.get("zh", "")):
+            _touch_up_line_translation(line)
+            touchup_count += 1
+
+    if touchup_count:
+        log(f"  翻译补救完成: {touchup_count} 句重译", "info")
 
     return lines

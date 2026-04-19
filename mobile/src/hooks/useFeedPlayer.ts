@@ -38,6 +38,21 @@ const MIN_LOADING_FEEDBACK_MS = 240;
 const PLAYBACK_STARTED_THRESHOLD_MS = 120;
 const PLAYBACK_START_MAX_WAIT_MS = 1200;
 
+function resolveDisplayLineIndex(clip: Clip | undefined, timeSeconds: number, fallbackIndex = 0) {
+  if (!clip?.lines?.length) return 0;
+
+  const exactIndex = findLineAtTime(clip, timeSeconds);
+  if (exactIndex >= 0) return exactIndex;
+
+  const previousLineIndex = clip.lines.reduce((bestIndex, line, index) => {
+    if (line.start <= timeSeconds) return index;
+    return bestIndex;
+  }, -1);
+
+  if (previousLineIndex >= 0) return previousLineIndex;
+  return Math.max(0, Math.min(fallbackIndex, clip.lines.length - 1));
+}
+
 const initialState: PlayerState = {
   activeIndex: 0,
   playbackPhase: 'idle',
@@ -140,7 +155,7 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
     const relativePositionMillis = clip
       ? Math.max(0, Math.floor(sourceToClipRelativeSeconds(clip, status.positionMillis / 1000) * 1000))
       : status.positionMillis;
-    const activeLineIndex = clip ? Math.max(0, findLineAtTime(clip, relativePositionMillis / 1000)) : 0;
+    const relativePositionSeconds = relativePositionMillis / 1000;
 
     const reachedClipEnd = clip
       && windowEndSec > windowStartSec
@@ -191,6 +206,14 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
       } else {
         playbackPhase = 'paused';
       }
+
+      const activeLineIndex = clip
+        ? resolveDisplayLineIndex(
+            clip,
+            relativePositionSeconds,
+            prev.activeIndex === clipIndex ? prev.activeLineIndex : 0
+          )
+        : 0;
 
       return {
         ...prev,
@@ -249,7 +272,11 @@ export function useFeedPlayer(clips: Clip[], initialPlaybackRate = 1) {
           pendingClipIndex: clipIndex,
           positionMillis: Math.max(0, Math.floor(sourceToClipRelativeSeconds(clip, targetSourcePositionMillis / 1000) * 1000)),
           durationMillis: clipDurationMillis || prev.durationMillis,
-          activeLineIndex: Math.max(0, findLineAtTime(clip, Math.max(0, sourceToClipRelativeSeconds(clip, targetSourcePositionMillis / 1000)))),
+          activeLineIndex: resolveDisplayLineIndex(
+            clip,
+            Math.max(0, sourceToClipRelativeSeconds(clip, targetSourcePositionMillis / 1000)),
+            prev.activeIndex === clipIndex ? prev.activeLineIndex : 0
+          ),
           errorMessage: null,
         }));
 

@@ -37,6 +37,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   dominantHand: 'right',
   playbackRate: 1,
   subtitleSize: 'md',
+  homeMode: 'listen',
   practiceIntroSeen: false,
   bookmarkPracticeHintSeen: false,
 };

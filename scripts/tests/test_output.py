@@ -10,6 +10,7 @@ def _sample_clip():
         "id": 101,
         "title": "A useful idea",
         "tag": "Business",
+        "audio": "clips/clip101.mp3",
         "duration": 4.0,
         "clip_start_sec": 124.5,
         "clip_end_sec": 128.5,
@@ -54,21 +55,34 @@ def _sample_clip():
 
 
 class TestValidateClip:
-    def test_accepts_metadata_only_clip(self, tmp_path):
+    def test_accepts_clip_with_local_audio_file(self, tmp_path):
+        clips_dir = tmp_path / "clips"
+        clips_dir.mkdir()
+        (clips_dir / "clip101.mp3").write_bytes(b"fake-audio")
         issues = validate_clip(_sample_clip(), str(tmp_path))
         assert issues == []
 
     def test_rejects_missing_audio_url(self, tmp_path):
+        clips_dir = tmp_path / "clips"
+        clips_dir.mkdir()
+        (clips_dir / "clip101.mp3").write_bytes(b"fake-audio")
         clip = _sample_clip()
         clip["source"]["audio_url"] = ""
         issues = validate_clip(clip, str(tmp_path))
         assert any("source.audio_url 缺失或非法" in issue for issue in issues)
 
     def test_rejects_invalid_clip_window(self, tmp_path):
+        clips_dir = tmp_path / "clips"
+        clips_dir.mkdir()
+        (clips_dir / "clip101.mp3").write_bytes(b"fake-audio")
         clip = _sample_clip()
         clip["clip_end_sec"] = clip["clip_start_sec"] - 1
         issues = validate_clip(clip, str(tmp_path))
         assert any("clip 时间窗非法" in issue for issue in issues)
+
+    def test_rejects_missing_local_audio_file(self, tmp_path):
+        issues = validate_clip(_sample_clip(), str(tmp_path))
+        assert any("audio 文件不存在" in issue for issue in issues)
 
 
 class TestProcessedEpisodes:

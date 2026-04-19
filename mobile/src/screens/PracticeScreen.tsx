@@ -4,8 +4,6 @@ import {
   ActionButton,
   EmptyState,
   GlassCard,
-  PillButton,
-  ScreenHeader,
   ScreenSurface,
 } from '../components/AppChrome';
 import { spacing, typography } from '../design';
@@ -42,7 +40,7 @@ type Props = {
   practiceData: PracticeMap;
   showIntro: boolean;
   onDismissIntro: () => void;
-  onBackToFeed: () => void;
+  contentViewportHeight?: number;
   onStartPractice: (clipIndex: number) => void;
 };
 
@@ -54,16 +52,13 @@ export function PracticeScreen({
   practiceData,
   showIntro,
   onDismissIntro,
-  onBackToFeed,
+  contentViewportHeight = 0,
   onStartPractice,
 }: Props) {
   const { colors } = useAppTheme();
   const { t } = useUiI18n();
   const metrics = useResponsiveLayout();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
-  const unpracticedCount = useMemo(() => {
-    return bookmarks.filter(item => !practiceData[item.clipKey]?.done).length;
-  }, [bookmarks, practiceData]);
 
   const recommended = useMemo(() => {
     const bookmarkKeys = new Set(bookmarks.map(item => item.clipKey));
@@ -154,20 +149,11 @@ export function PracticeScreen({
   }, [bookmarks, clips, practiceData, profile.interests, profile.level, vocabList]);
 
   return (
-    <ScreenSurface>
-      <ScreenHeader
-        leading={<PillButton label={t('common.back')} onPress={() => {
-          triggerUiFeedback('menu');
-          onBackToFeed();
-        }} />}
-        title={t('practice.title')}
-        subtitle={t('practice.subtitle')}
-        trailing={<Text style={styles.count}>{unpracticedCount || bookmarks.length}</Text>}
-      />
-
+    <ScreenSurface edges={['left', 'right', 'bottom']}>
       <FlatList
         data={bookmarks}
         keyExtractor={item => item.clipKey}
+        style={[styles.list, contentViewportHeight > 0 && { minHeight: contentViewportHeight }]}
         contentContainerStyle={[
           styles.content,
           {
@@ -186,7 +172,6 @@ export function PracticeScreen({
                 <ActionButton
                   label={t('practice.introAcknowledge')}
                   onPress={() => {
-                    triggerUiFeedback('onboarding');
                     onDismissIntro();
                   }}
                   variant="secondary"
@@ -282,101 +267,98 @@ export function PracticeScreen({
 
 function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
   return StyleSheet.create({
-  count: {
-    color: colors.textSecondary,
-    fontSize: typography.body,
-    fontWeight: '600',
-    minWidth: 20,
-    textAlign: 'right',
-  },
-  content: {
-    paddingHorizontal: spacing.page,
-    paddingBottom: 32,
-    gap: spacing.md,
-  },
-  headerContent: {
-    gap: spacing.lg,
-    marginBottom: 6,
-  },
-  introCard: {
-    gap: spacing.sm,
-  },
-  introTitle: {
-    color: colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  introBody: {
-    color: colors.textSecondary,
-    fontSize: typography.body,
-    lineHeight: 20,
-  },
-  introButton: {
-    alignSelf: 'flex-start',
-    minWidth: 96,
-  },
-  section: {
-    gap: spacing.sm,
-  },
-  sectionTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.title,
-    fontWeight: '700',
-  },
-  recoCard: {
-    gap: spacing.sm,
-  },
-  cardTitle: {
-    color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  cardMeta: {
-    color: colors.textSecondary,
-    fontSize: typography.caption,
-  },
-  reason: {
-    color: colors.textSecondary,
-    fontSize: typography.body,
-    lineHeight: 20,
-  },
-  savedCard: {
-    gap: spacing.sm,
-  },
-  savedCardDisabled: {
-    opacity: 0.45,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  statusBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  statusFresh: {
-    backgroundColor: `${colors.accentPractice}24`,
-  },
-  statusDone: {
-    backgroundColor: colors.bgSurface2,
-  },
-  statusText: {
-    fontSize: typography.micro,
-    fontWeight: '700',
-  },
-  statusTextFresh: {
-    color: colors.accentPractice,
-  },
-  statusTextDone: {
-    color: colors.textSecondary,
-  },
-  cta: {
-    color: colors.textPrimary,
-    fontSize: typography.caption,
-    fontWeight: '700',
-  },
+    list: {
+      flex: 1,
+    },
+    content: {
+      paddingHorizontal: spacing.page,
+      paddingBottom: 32,
+      gap: spacing.md,
+    },
+    headerContent: {
+      gap: spacing.lg,
+      marginBottom: 6,
+      paddingTop: spacing.md,
+    },
+    introCard: {
+      gap: spacing.sm,
+    },
+    introTitle: {
+      color: colors.textPrimary,
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    introBody: {
+      color: colors.textSecondary,
+      fontSize: typography.body,
+      lineHeight: 20,
+    },
+    introButton: {
+      alignSelf: 'flex-start',
+      minWidth: 96,
+    },
+    section: {
+      gap: spacing.sm,
+    },
+    sectionTitle: {
+      color: colors.textPrimary,
+      fontSize: typography.title,
+      fontWeight: '700',
+    },
+    recoCard: {
+      gap: spacing.sm,
+    },
+    cardTitle: {
+      color: colors.textPrimary,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    cardMeta: {
+      color: colors.textSecondary,
+      fontSize: typography.caption,
+    },
+    reason: {
+      color: colors.textSecondary,
+      fontSize: typography.body,
+      lineHeight: 20,
+    },
+    savedCard: {
+      gap: spacing.sm,
+    },
+    savedCardDisabled: {
+      opacity: 0.45,
+    },
+    footer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: spacing.md,
+    },
+    statusBadge: {
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+    },
+    statusFresh: {
+      backgroundColor: `${colors.accentPractice}24`,
+    },
+    statusDone: {
+      backgroundColor: colors.bgSurface2,
+    },
+    statusText: {
+      fontSize: typography.micro,
+      fontWeight: '700',
+    },
+    statusTextFresh: {
+      color: colors.accentPractice,
+    },
+    statusTextDone: {
+      color: colors.textSecondary,
+    },
+    cta: {
+      color: colors.textPrimary,
+      fontSize: typography.caption,
+      fontWeight: '700',
+    },
   });
 }

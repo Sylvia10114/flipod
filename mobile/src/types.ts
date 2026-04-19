@@ -126,11 +126,19 @@ export type AuthSession = {
 export type DominantHand = 'left' | 'right';
 export type SubtitleSize = 'sm' | 'md' | 'lg';
 export type PlaybackPhase = 'idle' | 'loading' | 'playing' | 'paused' | 'error';
+export type HomeMode = 'listen' | 'learn';
+
+export type ChallengeWord = {
+  word: string;
+  cefr?: string;
+  lineIndex: number;
+};
 
 export type AppSettings = {
   dominantHand: DominantHand;
   playbackRate: number;
   subtitleSize: SubtitleSize;
+  homeMode: HomeMode;
   practiceIntroSeen: boolean;
   bookmarkPracticeHintSeen: boolean;
 };

@@ -55,6 +55,55 @@ def split_long_sentence(text, max_words=25):
     return [text]
 
 
+CONNECTIVE_OPEN_RE = re.compile(r"^(and then|and|but|so|because|then|well|yeah|yes|no|or)\b[\s,]*", re.I)
+
+
+def has_terminal_punctuation(text):
+    return bool(re.search(r"[.!?…]$|['\"]$", (text or "").strip()))
+
+
+def merge_lines(left, right):
+    merged_en = " ".join(
+        part.strip().rstrip(",")
+        for part in [left.get("en", ""), right.get("en", "")]
+        if part and part.strip()
+    ).strip()
+    return {
+        "start": left.get("start", 0),
+        "end": right.get("end", left.get("end", 0)),
+        "en": merged_en,
+        "zh": "",
+        "words": (left.get("words", []) or []) + (right.get("words", []) or []),
+    }
+
+
+def repair_boundary_lines(lines):
+    """Repair fragmented leading/trailing subtitle lines before CEFR/translation."""
+    repaired = [dict(line) for line in lines]
+    for line in repaired:
+        line["words"] = list(line.get("words", []) or [])
+
+    while len(repaired) > 1 and not has_terminal_punctuation(repaired[0].get("en", "")):
+        repaired[0] = merge_lines(repaired[0], repaired[1])
+        repaired.pop(1)
+
+    while len(repaired) > 1 and not has_terminal_punctuation(repaired[-1].get("en", "")):
+        if has_terminal_punctuation(repaired[-2].get("en", "")):
+            repaired.pop()
+            break
+        repaired[-2] = merge_lines(repaired[-2], repaired[-1])
+        repaired.pop()
+
+    if repaired:
+        first_text = (repaired[0].get("en") or "").strip()
+        stripped = CONNECTIVE_OPEN_RE.sub("", first_text, count=1).strip()
+        if stripped and stripped != first_text:
+            repaired[0]["en"] = stripped[0].upper() + stripped[1:] if len(stripped) > 1 else stripped.upper()
+            repaired[0]["zh"] = ""
+
+    return repaired
+
+
 def extract_clip_words(transcript, start_time, end_time):
     """Extract word-level timestamps for a clip, using segment text for sentence splitting.
 
@@ -196,7 +245,7 @@ def extract_clip_words(transcript, start_time, end_time):
                 last["en"] = " ".join(w["word"] for w in last["words"])
                 last["end"] = last["words"][-1]["end"]
 
-    return lines
+    return repair_boundary_lines(lines)
 
 
 # ── Collocations ───────────────────────────────────────────────
@@ -354,6 +403,13 @@ def validate_clip(clip, output_dir):
 
     if not isinstance(audio_url, str) or not audio_url.startswith(("http://", "https://")):
         issues.append(f"clip {cid}: source.audio_url 缺失或非法")
+    audio_path = clip.get("audio", "")
+    if not isinstance(audio_path, str) or not audio_path:
+        issues.append(f"clip {cid}: audio 缺失")
+    else:
+        local_audio_path = os.path.join(output_dir, audio_path)
+        if not os.path.exists(local_audio_path):
+            issues.append(f"clip {cid}: audio 文件不存在 ({audio_path})")
     if clip_start is None or clip_end is None:
         issues.append(f"clip {cid}: clip_start_sec/clip_end_sec 缺失")
     else:
@@ -426,6 +482,8 @@ def validate_all_clips(clips, output_dir):
                 log(f"  校验问题: {issue}", "warn")
             critical = any(
                 "source.audio_url 缺失或非法" in i
+                or "audio 缺失" in i
+                or "audio 文件不存在" in i
                 or "clip_start_sec/clip_end_sec 缺失" in i
                 or "clip 时间窗非法" in i
                 or "无字幕行" in i

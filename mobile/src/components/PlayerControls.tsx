@@ -28,7 +28,6 @@ type Props = {
   onCycleSubtitleSize: () => void;
   onToggleZh: () => void;
   onToggleMask: () => void;
-  onOpenMenu: () => void;
 };
 
 type TransportButtonProps = {
