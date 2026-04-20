@@ -170,6 +170,9 @@ export function GeneratedPracticeSessionModal({
   const playbackRequestRef = useRef(0);
   const completionSavedRef = useRef(false);
   const activeTrackKeyRef = useRef('');
+  const positionMillisRef = useRef(0);
+  const durationMillisRef = useRef(0);
+  const step2AutoplayKeyRef = useRef('');
   const blindPulse = useRef(new Animated.Value(0)).current;
 
   const [step, setStep] = useState<Step>(1);
@@ -252,6 +255,8 @@ export function GeneratedPracticeSessionModal({
     soundRef.current = null;
     setIsPlaying(false);
     setIsLoading(false);
+    positionMillisRef.current = 0;
+    durationMillisRef.current = 0;
     setPositionMillis(0);
     setDurationMillis(0);
   }, []);
@@ -305,10 +310,11 @@ export function GeneratedPracticeSessionModal({
     if (existingSound) {
       try {
         const shouldRestart = options.fromStart || (
-          durationMillis > 0 && positionMillis >= Math.max(0, durationMillis - 200)
+          durationMillisRef.current > 0 && positionMillisRef.current >= Math.max(0, durationMillisRef.current - 200)
         );
         if (shouldRestart) {
           await existingSound.setPositionAsync(0);
+          positionMillisRef.current = 0;
           setPositionMillis(0);
         }
         setErrorMessage(null);
@@ -325,6 +331,8 @@ export function GeneratedPracticeSessionModal({
     playbackRequestRef.current = requestId;
     setErrorMessage(null);
     setIsLoading(true);
+    positionMillisRef.current = 0;
+    durationMillisRef.current = 0;
     setPositionMillis(0);
     setDurationMillis(0);
 
@@ -339,7 +347,7 @@ export function GeneratedPracticeSessionModal({
     try {
       const { sound } = await Audio.Sound.createAsync(
         { uri: sourceUri },
-        { shouldPlay: true },
+        { shouldPlay: false },
         (status: AVPlaybackStatus) => {
           if (requestId !== playbackRequestRef.current) {
             return;
@@ -354,6 +362,8 @@ export function GeneratedPracticeSessionModal({
           }
           setIsLoading(false);
           setIsPlaying(status.isPlaying);
+          positionMillisRef.current = status.positionMillis || 0;
+          durationMillisRef.current = status.durationMillis || 0;
           setPositionMillis(status.positionMillis || 0);
           setDurationMillis(status.durationMillis || 0);
           if (status.didJustFinish) {
@@ -363,20 +373,32 @@ export function GeneratedPracticeSessionModal({
         }
       );
 
+      if (requestId !== playbackRequestRef.current) {
+        sound.setOnPlaybackStatusUpdate(null);
+        await sound.unloadAsync();
+        return;
+      }
+
       soundRef.current = sound;
       activeTrackKeyRef.current = normalized;
+      await sound.playAsync();
       setIsPlaying(true);
       options.onStart?.();
     } catch {
+      if (requestId === playbackRequestRef.current) {
+        positionMillisRef.current = 0;
+        durationMillisRef.current = 0;
+      }
       setIsLoading(false);
       setIsPlaying(false);
       setErrorMessage(t('practiceSession.loadError'));
     }
-  }, [durationMillis, positionMillis, prepareAudioUri, t, unloadSound]);
+  }, [prepareAudioUri, t, unloadSound]);
 
   useEffect(() => {
     if (!visible || !practice) return;
     completionSavedRef.current = false;
+    step2AutoplayKeyRef.current = '';
     setStep(1);
     setSentenceIndex(0);
     setQuizSelection(null);
@@ -391,6 +413,8 @@ export function GeneratedPracticeSessionModal({
     setErrorMessage(null);
     setIsLoading(false);
     setIsPlaying(false);
+    positionMillisRef.current = 0;
+    durationMillisRef.current = 0;
     setPositionMillis(0);
     setDurationMillis(0);
   }, [practice, visible]);
@@ -403,6 +427,9 @@ export function GeneratedPracticeSessionModal({
 
   useEffect(() => {
     if (!visible || !practice || step !== 2) return;
+    const autoplayKey = `${practice.id}:${step}`;
+    if (step2AutoplayKeyRef.current === autoplayKey) return;
+    step2AutoplayKeyRef.current = autoplayKey;
     void playText(practice.text, {
       fromStart: true,
       onFinish: () => {
