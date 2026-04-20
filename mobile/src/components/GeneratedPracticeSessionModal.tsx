@@ -182,6 +182,7 @@ export function GeneratedPracticeSessionModal({
   const [positionMillis, setPositionMillis] = useState(0);
   const [durationMillis, setDurationMillis] = useState(0);
   const [hasPlayedStep1, setHasPlayedStep1] = useState(false);
+  const [hasPlayedStep2, setHasPlayedStep2] = useState(false);
   const [hasPlayedStep3, setHasPlayedStep3] = useState(false);
   const [hasPlayedStep4, setHasPlayedStep4] = useState(false);
   const [quizSelection, setQuizSelection] = useState<number | null>(null);
@@ -414,6 +415,7 @@ export function GeneratedPracticeSessionModal({
     setQuizSelection(null);
     setQuizAnswered(false);
     setHasPlayedStep1(false);
+    setHasPlayedStep2(false);
     setHasPlayedStep3(false);
     setHasPlayedStep4(false);
     setPopup(null);
@@ -439,8 +441,10 @@ export function GeneratedPracticeSessionModal({
     const autoplayKey = `${practice.id}:${step}`;
     if (step2AutoplayKeyRef.current === autoplayKey) return;
     step2AutoplayKeyRef.current = autoplayKey;
+    setHasPlayedStep2(false);
     void playText(practice.text, {
       fromStart: true,
+      onFinish: () => setHasPlayedStep2(true),
     });
   }, [playText, practice, step, visible]);
 
@@ -488,6 +492,13 @@ export function GeneratedPracticeSessionModal({
     onDismiss();
   }, [onDismiss, unloadSound]);
 
+  const transitionToStep = useCallback((nextStep: Step) => {
+    playbackRequestRef.current += 1;
+    setErrorMessage(null);
+    void unloadSound();
+    setStep(nextStep);
+  }, [unloadSound]);
+
   const handleWordTap = useCallback((word: ClipLineWord, line: ClipLine, lineIndex: number) => {
     const normalized = word.word.toLowerCase();
     if (!lookedWords.includes(normalized)) {
@@ -512,6 +523,20 @@ export function GeneratedPracticeSessionModal({
       ts: Date.now(),
     }, practice);
   }, [hardSentences.length, lookedWords.length, onComplete, practice]);
+
+  const finishAndPracticeAgain = useCallback(() => {
+    finishPractice();
+    playbackRequestRef.current += 1;
+    void unloadSound();
+    onPracticeAgain();
+  }, [finishPractice, onPracticeAgain, unloadSound]);
+
+  const finishAndReturnFeed = useCallback(() => {
+    finishPractice();
+    playbackRequestRef.current += 1;
+    void unloadSound();
+    onReturnFeed();
+  }, [finishPractice, onReturnFeed, unloadSound]);
 
   if (!practice) return null;
 
@@ -605,7 +630,7 @@ export function GeneratedPracticeSessionModal({
               label={t('common.continue')}
               onPress={() => {
                 triggerUiFeedback('primary');
-                setStep(2);
+                transitionToStep(2);
               }}
               variant="secondary"
               disabled={!hasPlayedStep1}
@@ -680,8 +705,10 @@ export function GeneratedPracticeSessionModal({
               <ActionButton
                 label={t('common.replay')}
                 onPress={() => {
+                  setHasPlayedStep2(false);
                   void playText(practice.text, {
                     fromStart: true,
+                    onFinish: () => setHasPlayedStep2(true),
                   });
                 }}
                 variant="secondary"
@@ -695,7 +722,9 @@ export function GeneratedPracticeSessionModal({
                     void pausePlayback();
                     return;
                   }
-                  void playText(practice.text);
+                  void playText(practice.text, {
+                    onFinish: () => setHasPlayedStep2(true),
+                  });
                 }}
                 loading={isLoading}
                 style={styles.dualAction}
@@ -703,8 +732,9 @@ export function GeneratedPracticeSessionModal({
             </View>
             <ActionButton
               label={t('common.continue')}
-              onPress={() => setStep(3)}
+              onPress={() => transitionToStep(3)}
               variant="secondary"
+              disabled={!hasPlayedStep2 || isPlaying || isLoading}
             />
           </View>
         </>
@@ -780,7 +810,7 @@ export function GeneratedPracticeSessionModal({
             />
             <ActionButton
               label={t('common.continue')}
-              onPress={() => setStep(4)}
+              onPress={() => transitionToStep(4)}
               variant="secondary"
               disabled={!hasPlayedStep3}
               style={styles.secondaryAction}
@@ -961,10 +991,7 @@ export function GeneratedPracticeSessionModal({
                 />
                 <ActionButton
                   label={t('practiceSession.practiceAnother')}
-                  onPress={() => {
-                    finishPractice();
-                    onPracticeAgain();
-                  }}
+                  onPress={finishAndPracticeAgain}
                   variant="secondary"
                   style={styles.secondaryAction}
                 />
@@ -972,10 +999,7 @@ export function GeneratedPracticeSessionModal({
 
               <ActionButton
                 label={t('practiceSession.backToFeed')}
-                onPress={() => {
-                  finishPractice();
-                  onReturnFeed();
-                }}
+                onPress={finishAndReturnFeed}
                 variant="secondary"
               />
             </>
