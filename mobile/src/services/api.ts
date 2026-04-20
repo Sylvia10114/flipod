@@ -2,6 +2,7 @@ import type {
   AuthBootstrapResponse,
   AuthInitResponse,
   Bookmark,
+  GeneratedPractice,
   LikeEvent,
   LocalizedClipContent,
   NativeLanguage,
@@ -166,6 +167,28 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ locale, items }),
     });
+  },
+  generatePractice(payload: {
+    target_words: Array<{
+      word: string;
+      cefr?: string;
+      tag?: string;
+      definition_zh?: string;
+    }>;
+    interests: string[];
+    user_cefr: string;
+    topic_hint?: string;
+  }) {
+    return request<{
+      practice: GeneratedPractice;
+      meta?: Record<string, unknown>;
+    }>('/api/practice/generate', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  buildPracticeTtsUrl(text: string) {
+    return `${API_BASE_URL}/api/tts?text=${encodeURIComponent(text)}`;
   },
   rankFeed(payload: RankRequest, token?: string) {
     return request<RankResponse>('/api/rank', {

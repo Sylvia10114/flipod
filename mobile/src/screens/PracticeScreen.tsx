@@ -1,159 +1,97 @@
 import React, { useMemo } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   ActionButton,
   EmptyState,
   GlassCard,
   ScreenSurface,
 } from '../components/AppChrome';
+import { ChallengeWordPills } from '../components/ChallengeWordPills';
 import { spacing, typography } from '../design';
 import {
-  buildClipKey,
-  findClipIndexByKey,
-  getClipDurationSeconds,
-  getSourceLabel,
-} from '../clip-utils';
-import { triggerUiFeedback } from '../feedback';
-import { buildLocalizedRecommendationReason } from '../feed-ranking';
+  buildGeneratedPracticeReason,
+  PRACTICE_MAX_PENDING,
+  PRACTICE_UNLOCK_COUNT,
+} from '../generated-practice';
 import { useUiI18n } from '../i18n';
 import { getLocalizedTopicLabel } from '../i18n/helpers';
 import { useResponsiveLayout } from '../responsive';
 import { useAppTheme } from '../theme';
-import type { Bookmark, Clip, PracticeMap, Profile, VocabEntry } from '../types';
-
-function getWordLevelWeight(level?: string) {
-  const normalized = (level || '').toUpperCase().trim();
-  if (normalized === 'A1') return 1;
-  if (normalized === 'A2' || normalized === 'A') return 2;
-  if (normalized === 'B1') return 3;
-  if (normalized === 'B2') return 4;
-  if (normalized === 'C1') return 5;
-  if (normalized === 'C2') return 6;
-  return 0;
-}
+import type {
+  GeneratedPractice,
+  GeneratedPracticeState,
+  Level,
+  Profile,
+  VocabEntry,
+} from '../types';
 
 type Props = {
-  bookmarks: Bookmark[];
-  clips: Clip[];
+  practiceState: GeneratedPracticeState;
+  pendingPractices: GeneratedPractice[];
+  completedPractices: GeneratedPractice[];
   profile: Profile;
   vocabList: VocabEntry[];
-  practiceData: PracticeMap;
   showIntro: boolean;
   onDismissIntro: () => void;
   contentViewportHeight?: number;
-  onStartPractice: (clipIndex: number) => void;
+  onGenerateMore: () => void;
+  onStartPractice: (practiceId: string) => void;
 };
 
+function practiceDurationLabel(practice: GeneratedPractice) {
+  const totalSeconds = practice.lines?.length
+    ? Math.max(0, Math.round(practice.lines[practice.lines.length - 1].end))
+    : 0;
+  if (!totalSeconds) return '';
+  return `${Math.floor(totalSeconds / 60)}:${String(Math.round(totalSeconds % 60)).padStart(2, '0')}`;
+}
+
+function toChallengeWords(practice: GeneratedPractice) {
+  const byWord = new Map(
+    (practice.target_word_contexts || []).map(item => [item.word.toLowerCase(), item])
+  );
+  return (practice.target_words || []).slice(0, 3).map((word, index) => {
+    const context = byWord.get(word.toLowerCase());
+    return {
+      word,
+      cefr: context?.cefr,
+      lineIndex: context?.sentence_index ?? index,
+    };
+  });
+}
+
+function createProgressLabel(count: number, t: (key: string, params?: Record<string, string | number>) => string) {
+  return t('practice.unlockProgress', { count, total: PRACTICE_UNLOCK_COUNT });
+}
+
 export function PracticeScreen({
-  bookmarks,
-  clips,
+  practiceState,
+  pendingPractices,
+  completedPractices,
   profile,
   vocabList,
-  practiceData,
   showIntro,
   onDismissIntro,
   contentViewportHeight = 0,
+  onGenerateMore,
   onStartPractice,
 }: Props) {
   const { colors } = useAppTheme();
   const { t } = useUiI18n();
   const metrics = useResponsiveLayout();
-  const styles = React.useMemo(() => createStyles(colors), [colors]);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const recommended = useMemo(() => {
-    const bookmarkKeys = new Set(bookmarks.map(item => item.clipKey));
-    const practicedKeys = new Set(
-      Object.entries(practiceData)
-        .filter(([, value]) => value?.done)
-        .map(([key]) => key)
-    );
-    const vocabSet = new Set(vocabList.map(item => item.word.toLowerCase()));
-    const interestSet = new Set(profile.interests.map(item => item.toLowerCase()));
-    const userLevelNum = (() => {
-      const normalized = (profile.level || 'B1').toUpperCase();
-      if (normalized === 'A1-A2') return 2;
-      if (normalized === 'B1') return 3;
-      if (normalized === 'B2') return 4;
-      if (normalized === 'C1-C2') return 5;
-      return 3;
-    })();
-
-    return clips
-      .map((clip, clipIndex) => {
-        const clipKey = buildClipKey(clip, clipIndex);
-        if (bookmarkKeys.has(clipKey) || practicedKeys.has(clipKey)) return null;
-
-        let score = 0;
-        let reason = buildLocalizedRecommendationReason(
-          clip,
-          profile.level || 'B1',
-          profile.interests,
-          t
-        );
-        const matchedWords: string[] = [];
-
-        const tag = (clip.tag || '').toLowerCase();
-        if (tag && interestSet.has(tag)) {
-          score += 3;
-          reason = buildLocalizedRecommendationReason(
-            clip,
-            profile.level || 'B1',
-            profile.interests,
-            t
-          );
-        }
-
-        for (const line of clip.lines || []) {
-          for (const word of line.words || []) {
-            const normalized = word.word.toLowerCase();
-            if (vocabSet.has(normalized) && !matchedWords.includes(normalized)) {
-              matchedWords.push(normalized);
-            }
-          }
-        }
-
-        if (matchedWords.length > 0) {
-          score += 5 + matchedWords.length;
-          reason = t('practice.reasonLookedUpWords', { words: matchedWords.slice(0, 2).join(' / ') });
-        }
-
-        let cefrWords = 0;
-        let cefrSum = 0;
-        for (const line of clip.lines || []) {
-          for (const word of line.words || []) {
-            const bucket = getWordLevelWeight(word.cefr || '');
-            if (bucket > 0) {
-              cefrWords += 1;
-              cefrSum += bucket;
-            }
-          }
-        }
-
-        if (cefrWords > 0) {
-          const avgLevel = cefrSum / cefrWords;
-          if (Math.abs(avgLevel - userLevelNum) <= 1) {
-            score += 2;
-          }
-        }
-
-        return {
-          clip,
-          clipIndex,
-          reason,
-          score: score || 0.1,
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => (b?.score || 0) - (a?.score || 0))
-      .slice(0, 3) as { clip: Clip; clipIndex: number; reason: string; score: number }[];
-  }, [bookmarks, clips, practiceData, profile.interests, profile.level, vocabList]);
+  const vocabCount = vocabList.length;
+  const isUnlocked = vocabCount >= PRACTICE_UNLOCK_COUNT;
+  const canGenerateMore = isUnlocked && pendingPractices.length < PRACTICE_MAX_PENDING && !practiceState.generating;
+  const introBody = profile.nativeLanguage === 'english'
+    ? t('practice.generatedIntroBody')
+    : t('practice.generatedIntroBodyLocalized');
 
   return (
     <ScreenSurface edges={['left', 'right', 'bottom']}>
-      <FlatList
-        data={bookmarks}
-        keyExtractor={item => item.clipKey}
-        style={[styles.list, contentViewportHeight > 0 && { minHeight: contentViewportHeight }]}
+      <ScrollView
+        style={[styles.scroll, contentViewportHeight > 0 && { minHeight: contentViewportHeight }]}
         contentContainerStyle={[
           styles.content,
           {
@@ -163,202 +101,259 @@ export function PracticeScreen({
             width: '100%',
           },
         ]}
-        ListHeaderComponent={
-          <View style={styles.headerContent}>
-            {showIntro ? (
-              <GlassCard tone="practice" style={styles.introCard}>
-                <Text style={styles.introTitle}>{t('practice.introTitle')}</Text>
-                <Text style={styles.introBody}>{t('practice.introBody')}</Text>
+      >
+        {showIntro ? (
+          <GlassCard tone="practice" style={styles.introCard}>
+            <Text style={styles.introTitle}>{t('practice.generatedIntroTitle')}</Text>
+            <Text style={styles.introBody}>{introBody}</Text>
+            <ActionButton
+              label={t('practice.introAcknowledge')}
+              onPress={onDismissIntro}
+              variant="secondary"
+              style={styles.introButton}
+            />
+          </GlassCard>
+        ) : null}
+
+        {!isUnlocked ? (
+          <GlassCard tone="practice" style={styles.unlockCard}>
+            <Text style={styles.unlockEyebrow}>{t('home.learnTab')}</Text>
+            <Text style={styles.unlockTitle}>{t('practice.unlockTitle')}</Text>
+            <Text style={styles.unlockBody}>{t('practice.unlockBody')}</Text>
+            <View style={styles.progressTrack}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { width: `${Math.min(100, Math.round((vocabCount / PRACTICE_UNLOCK_COUNT) * 100))}%` },
+                ]}
+              />
+            </View>
+            <Text style={styles.progressLabel}>{createProgressLabel(vocabCount, t)}</Text>
+          </GlassCard>
+        ) : null}
+
+        {isUnlocked && pendingPractices.length === 0 && practiceState.generating ? (
+          <GlassCard tone="practice" style={styles.loadingCard}>
+            <ActivityIndicator size="small" color={colors.accentPractice} />
+            <Text style={styles.loadingTitle}>{t('practice.generatingTitle')}</Text>
+            <Text style={styles.loadingBody}>{t('practice.generatingBody')}</Text>
+          </GlassCard>
+        ) : null}
+
+        {isUnlocked ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{t('practice.pendingTitle')}</Text>
+              {canGenerateMore ? (
                 <ActionButton
-                  label={t('practice.introAcknowledge')}
-                  onPress={() => {
-                    onDismissIntro();
-                  }}
+                  label={t('practice.generateMore')}
+                  onPress={onGenerateMore}
                   variant="secondary"
-                  style={styles.introButton}
+                  style={styles.generateButton}
                 />
-              </GlassCard>
-            ) : null}
-
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{t('practice.recommended')}</Text>
-              {recommended.length > 0 ? (
-                recommended.map(item => {
-                  const duration = getClipDurationSeconds(item.clip);
-                  const durationLabel = duration > 0
-                    ? `${Math.floor(duration / 60)}:${String(Math.round(duration % 60)).padStart(2, '0')}`
-                    : '';
-
-                  return (
-                    <GlassCard key={`reco-${item.clipIndex}`} tone="practice" style={styles.recoCard}>
-                      <Text style={styles.cardTitle}>{item.clip.title}</Text>
-                      <Text style={styles.cardMeta}>
-                        {getSourceLabel(item.clip.source)}
-                        {item.clip.tag ? ` · ${getLocalizedTopicLabel(item.clip.tag, t)}` : ''}
-                        {durationLabel ? ` · ${durationLabel}` : ''}
-                      </Text>
-                      <Text style={styles.reason}>{item.reason}</Text>
-                      <ActionButton
-                        label={t('practice.startThisClip')}
-                        onPress={() => {
-                          triggerUiFeedback('primary');
-                          onStartPractice(item.clipIndex);
-                        }}
-                      />
-                    </GlassCard>
-                  );
-                })
-              ) : (
-                <GlassCard style={styles.recoCard}>
-                  <Text style={styles.reason}>{t('practice.allDone')}</Text>
-                </GlassCard>
-              )}
+              ) : null}
             </View>
 
-            <Text style={styles.sectionTitle}>{t('practice.savedMaterials')}</Text>
-          </View>
-        }
-        ListEmptyComponent={
-          <EmptyState title={t('practice.emptyTitle')} body={t('practice.emptyBody')} />
-        }
-        renderItem={({ item }) => {
-          const clipIndex = (() => {
-            const directMatch = findClipIndexByKey(clips, item.clipKey);
-            if (directMatch >= 0) return directMatch;
-            return clips.findIndex(clip => clip.title === item.title);
-          })();
-          const record = practiceData[item.clipKey];
-          const done = Boolean(record?.done);
+            {pendingPractices.length > 0 ? (
+              pendingPractices.map(practice => {
+                const challengeWords = toChallengeWords(practice);
+                return (
+                  <GlassCard key={practice.id} tone="practice" style={styles.practiceCard}>
+                    <View style={styles.practiceHead}>
+                      <View style={styles.practiceCopy}>
+                        <Text style={styles.cardTitle}>{practice.title}</Text>
+                        <Text style={styles.cardMeta}>
+                          {practice.tag ? getLocalizedTopicLabel(practice.tag, t) : getLocalizedTopicLabel('story', t)}
+                          {practice.cefr ? ` · ${practice.cefr}` : ''}
+                          {practiceDurationLabel(practice) ? ` · ${practiceDurationLabel(practice)}` : ''}
+                        </Text>
+                      </View>
+                    </View>
 
-          return (
-            <Pressable
-              disabled={clipIndex < 0}
-              onPress={() => {
-                if (clipIndex >= 0) {
-                  triggerUiFeedback('primary');
-                  onStartPractice(clipIndex);
-                }
-              }}
-            >
-              <GlassCard style={[styles.savedCard, clipIndex < 0 && styles.savedCardDisabled]}>
-                <Text style={styles.cardTitle}>{clipIndex >= 0 ? clips[clipIndex].title : item.title}</Text>
-                <Text style={styles.cardMeta}>
-                  {item.source}
-                  {item.tag ? ` · ${getLocalizedTopicLabel(item.tag, t)}` : ''}
-                </Text>
-                <View style={styles.footer}>
-                  <View style={[styles.statusBadge, done ? styles.statusDone : styles.statusFresh]}>
-                    <Text style={[styles.statusText, done ? styles.statusTextDone : styles.statusTextFresh]}>
-                      {done
-                        ? t('practice.statusPracticed', { words: record?.words || 0 })
-                        : t('practice.statusFresh')}
+                    {challengeWords.length > 0 ? (
+                      <View style={styles.challengeWrap}>
+                        <Text style={styles.challengeLabel}>{t('practiceSession.challengeWordsTitle')}</Text>
+                        <ChallengeWordPills words={challengeWords} tone="practice" />
+                      </View>
+                    ) : null}
+
+                    <Text style={styles.reason}>
+                      {t('practice.generatedReason', { words: buildGeneratedPracticeReason(
+                        (practice.target_words || []).map(word => ({ word } as VocabEntry))
+                      ) })}
                     </Text>
-                  </View>
-                  <Text style={styles.cta}>{clipIndex >= 0 ? t('practice.startCta') : t('practice.audioMissing')}</Text>
-                </View>
+
+                    <ActionButton
+                      label={t('practice.startGeneratedPractice')}
+                      onPress={() => onStartPractice(practice.id)}
+                    />
+                  </GlassCard>
+                );
+              })
+            ) : (
+              <EmptyState
+                title={t('practice.pendingEmptyTitle')}
+                body={
+                  practiceState.lastGenerationError?.msg
+                    ? `${t('practice.pendingEmptyBody')} ${practiceState.lastGenerationError.msg}`
+                    : t('practice.pendingEmptyBody')
+                }
+              />
+            )}
+          </View>
+        ) : null}
+
+        {completedPractices.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('practice.completedTitle')}</Text>
+            {completedPractices.slice(-3).reverse().map(practice => (
+              <GlassCard key={`completed-${practice.id}`} style={styles.completedCard}>
+                <Text style={styles.cardTitle}>{practice.title}</Text>
+                <Text style={styles.cardMeta}>
+                  {practice.tag ? getLocalizedTopicLabel(practice.tag, t) : ''}
+                  {practice.completedAt ? ` · ${new Date(practice.completedAt).toLocaleDateString()}` : ''}
+                </Text>
               </GlassCard>
-            </Pressable>
-          );
-        }}
-      />
+            ))}
+          </View>
+        ) : null}
+      </ScrollView>
     </ScreenSurface>
   );
 }
 
 function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
   return StyleSheet.create({
-    list: {
+    scroll: {
       flex: 1,
     },
     content: {
-      paddingHorizontal: spacing.page,
-      paddingBottom: 32,
-      gap: spacing.md,
-    },
-    headerContent: {
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.xxl,
       gap: spacing.lg,
-      marginBottom: 6,
-      paddingTop: spacing.md,
     },
     introCard: {
-      gap: spacing.sm,
+      gap: spacing.md,
     },
     introTitle: {
       color: colors.textPrimary,
-      fontSize: 18,
+      fontSize: typography.title,
       fontWeight: '700',
     },
     introBody: {
       color: colors.textSecondary,
       fontSize: typography.body,
-      lineHeight: 20,
+      lineHeight: 22,
     },
     introButton: {
       alignSelf: 'flex-start',
-      minWidth: 96,
+    },
+    unlockCard: {
+      gap: spacing.md,
+    },
+    unlockEyebrow: {
+      color: colors.accentPractice,
+      fontSize: typography.micro,
+      fontWeight: '700',
+      letterSpacing: 1.2,
+      textTransform: 'uppercase',
+    },
+    unlockTitle: {
+      color: colors.textPrimary,
+      fontSize: typography.hero,
+      fontWeight: '800',
+    },
+    unlockBody: {
+      color: colors.textSecondary,
+      fontSize: typography.body,
+      lineHeight: 22,
+    },
+    progressTrack: {
+      height: 10,
+      borderRadius: 999,
+      backgroundColor: colors.bgSurface2,
+      overflow: 'hidden',
+    },
+    progressFill: {
+      height: '100%',
+      borderRadius: 999,
+      backgroundColor: colors.accentPractice,
+    },
+    progressLabel: {
+      color: colors.textSecondary,
+      fontSize: typography.caption,
+      fontWeight: '600',
+    },
+    loadingCard: {
+      gap: spacing.md,
+      alignItems: 'flex-start',
+    },
+    loadingTitle: {
+      color: colors.textPrimary,
+      fontSize: typography.title,
+      fontWeight: '700',
+    },
+    loadingBody: {
+      color: colors.textSecondary,
+      fontSize: typography.body,
+      lineHeight: 22,
     },
     section: {
-      gap: spacing.sm,
+      gap: spacing.md,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: spacing.md,
     },
     sectionTitle: {
       color: colors.textPrimary,
       fontSize: typography.title,
       fontWeight: '700',
     },
-    recoCard: {
-      gap: spacing.sm,
+    generateButton: {
+      minWidth: 124,
+    },
+    practiceCard: {
+      gap: spacing.md,
+    },
+    practiceHead: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      gap: spacing.md,
+    },
+    practiceCopy: {
+      flex: 1,
+      gap: spacing.xs,
     },
     cardTitle: {
       color: colors.textPrimary,
-      fontSize: 16,
+      fontSize: typography.title,
       fontWeight: '700',
     },
     cardMeta: {
       color: colors.textSecondary,
       fontSize: typography.caption,
     },
+    challengeWrap: {
+      gap: spacing.sm,
+    },
+    challengeLabel: {
+      color: colors.textSecondary,
+      fontSize: typography.caption,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+    },
     reason: {
       color: colors.textSecondary,
       fontSize: typography.body,
-      lineHeight: 20,
+      lineHeight: 22,
     },
-    savedCard: {
-      gap: spacing.sm,
-    },
-    savedCardDisabled: {
-      opacity: 0.45,
-    },
-    footer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      gap: spacing.md,
-    },
-    statusBadge: {
-      borderRadius: 999,
-      paddingHorizontal: 12,
-      paddingVertical: 7,
-    },
-    statusFresh: {
-      backgroundColor: `${colors.accentPractice}24`,
-    },
-    statusDone: {
-      backgroundColor: colors.bgSurface2,
-    },
-    statusText: {
-      fontSize: typography.micro,
-      fontWeight: '700',
-    },
-    statusTextFresh: {
-      color: colors.accentPractice,
-    },
-    statusTextDone: {
-      color: colors.textSecondary,
-    },
-    cta: {
-      color: colors.textPrimary,
-      fontSize: typography.caption,
-      fontWeight: '700',
+    completedCard: {
+      gap: spacing.xs,
     },
   });
 }

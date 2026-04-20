@@ -98,6 +98,7 @@ type PopupState = {
   contextZh: string;
   clipKey: string;
   clipTitle: string;
+  tag?: string;
   contentKey?: string;
   lineIndex?: number;
 } | null;
@@ -756,6 +757,7 @@ export function FeedScreen({
                             contextZh: lineData.zh || '',
                             clipKey,
                             clipTitle: clip.title,
+                            tag: clip.tag,
                             contentKey: clip.contentKey,
                             lineIndex: isActive ? activeLineIndex : 0,
                           });
@@ -789,6 +791,7 @@ export function FeedScreen({
               lineIndex: popup.lineIndex,
               clipKey: popup.clipKey,
               clipTitle: popup.clipTitle,
+              tag: popup.tag,
               sourceType: 'feed',
               practiced: false,
             });

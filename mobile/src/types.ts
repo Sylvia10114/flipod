@@ -221,12 +221,14 @@ export type VocabEntry = {
   word: string;
   cefr?: string;
   phonetic?: string;
+  definitionZh?: string;
   context?: string;
   contextZh?: string;
   contentKey?: string;
   lineIndex?: number;
   clipKey?: string;
   clipTitle?: string;
+  tag?: string;
   sourceType?: 'feed' | 'practice';
   practiced?: boolean;
   known?: boolean;
@@ -263,6 +265,81 @@ export type CalibrationSignals = {
   avgWordsPerClip: number;
   practiceHardRate: number;
   practiceSessions: number;
+};
+
+export type GeneratedPracticeTargetWordContext = {
+  word: string;
+  sentence_index: number | null;
+  definition_zh: string;
+  cefr: string;
+  ipa: string;
+};
+
+export type GeneratedPracticeVocab = {
+  word: string;
+  cefr: string;
+  zh: string;
+  ipa: string;
+  sentence_index: number | null;
+};
+
+export type GeneratedPracticeLine = {
+  en: string;
+  zh: string;
+  start: number;
+  end: number;
+  target_words?: string[];
+};
+
+export type GeneratedPracticeMcq = {
+  q: string;
+  options: string[];
+  correct: number;
+  explanation: string;
+};
+
+export type GeneratedPractice = {
+  id: string;
+  title: string;
+  tag: string;
+  category: string;
+  cefr: string;
+  topicKey?: string;
+  target_words: string[];
+  text: string;
+  gist_zh?: string;
+  lines: GeneratedPracticeLine[];
+  vocabulary: Array<{
+    word: string;
+    definition_zh: string;
+    cefr: string;
+    ipa: string;
+  }>;
+  target_word_contexts: GeneratedPracticeTargetWordContext[];
+  vocab_in_text: GeneratedPracticeVocab[];
+  mcq: GeneratedPracticeMcq | null;
+  generatedAt: number;
+  generatedBy: string;
+  generationVersion: string;
+  contentKey?: string;
+  contentHash?: string;
+  reason?: string;
+  completedAt?: number;
+};
+
+export type GeneratedPracticeError = {
+  msg: string;
+  ts: number;
+};
+
+export type GeneratedPracticeState = {
+  lastGeneratedAt: number;
+  lastVocabCountAtGeneration: number;
+  pendingPractices: GeneratedPractice[];
+  completedPractices: GeneratedPractice[];
+  generationVersion: string | number;
+  generating: boolean;
+  lastGenerationError: GeneratedPracticeError | null;
 };
 
 export type CalibrationState = {

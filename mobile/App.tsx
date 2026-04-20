@@ -23,8 +23,8 @@ import {
 } from './src/content-localization';
 import { AppToast } from './src/components/AppToast';
 import { CalibrationToast } from './src/components/CalibrationToast';
+import { GeneratedPracticeSessionModal } from './src/components/GeneratedPracticeSessionModal';
 import { HomeTopChrome } from './src/components/HomeTopChrome';
-import { PracticeSessionModal } from './src/components/PracticeSessionModal';
 import { type MenuScreen, SlideMenu } from './src/components/SlideMenu';
 import { demoClips } from './src/demo-clips';
 import {
@@ -37,6 +37,23 @@ import {
   normalizeClips,
   normalizeTopic,
 } from './src/feed-ranking';
+import {
+  buildGeneratedPracticeContentKey,
+  buildGeneratedPracticeReason,
+  buildGeneratedPracticeTranslationRequestItem,
+  buildLocalizedGeneratedPractice,
+  completeGeneratedPractice,
+  createDefaultGeneratedPracticeState,
+  normalizeGeneratedPracticeState,
+  normalizeUserPracticeCefr,
+  planGeneratedPracticeBatch,
+  PRACTICE_BATCH_SIZE,
+  PRACTICE_MAX_PENDING,
+  PRACTICE_REFRESH_DELTA,
+  PRACTICE_UNLOCK_COUNT,
+  shouldRefreshGeneratedPracticeTitle,
+  withGeneratedPracticesAppended,
+} from './src/generated-practice';
 import { FeedScreen } from './src/screens/FeedScreen';
 import { AccountScreen } from './src/screens/AccountScreen';
 import { LibraryScreen } from './src/screens/LibraryScreen';
@@ -60,6 +77,7 @@ import {
   loadCalibrationSignals,
   loadCalibrationState,
   loadGuestMode,
+  loadGeneratedPracticeState,
   loadLikeEvents,
   loadLikedClips,
   loadListenedClips,
@@ -77,6 +95,7 @@ import {
   saveCalibrationState,
   saveContentTranslations,
   saveGuestMode,
+  saveGeneratedPracticeState,
   saveLikeEvents,
   saveLikedClips,
   saveListenedClips,
@@ -96,6 +115,8 @@ import type {
   CalibrationState,
   CalibrationSuggestion,
   Clip,
+  GeneratedPractice,
+  GeneratedPracticeState,
   LikeEvent,
   Level,
   LocalizedClipContent,
@@ -286,6 +307,9 @@ export default function App() {
   const [visibleFeedCount, setVisibleFeedCount] = useState(FEED_BATCH_SIZE);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [vocabList, setVocabList] = useState<VocabEntry[]>([]);
+  const [generatedPracticeState, setGeneratedPracticeState] = useState<GeneratedPracticeState>(
+    createDefaultGeneratedPracticeState()
+  );
   const [likedClipKeys, setLikedClipKeys] = useState<string[]>([]);
   const [listenedClipKeys, setListenedClipKeys] = useState<string[]>([]);
   const [likeEvents, setLikeEvents] = useState<LikeEvent[]>([]);
@@ -298,7 +322,7 @@ export default function App() {
   const [activeScreen, setActiveScreen] = useState<MenuScreen>('feed');
   const [menuOpen, setMenuOpen] = useState(false);
   const [feedState, setFeedState] = useState<'loading' | 'normal' | 'rerank' | 'fallback'>('loading');
-  const [practiceClipKey, setPracticeClipKey] = useState<string | null>(null);
+  const [activeGeneratedPracticeId, setActiveGeneratedPracticeId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
   const [homeTopChromeHeight, setHomeTopChromeHeight] = useState(0);
@@ -325,6 +349,7 @@ export default function App() {
   });
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inflightContentTranslationsRef = useRef<Set<string>>(new Set());
+  const practiceGenerationInFlightRef = useRef(false);
 
   const applyAuthSnapshot = useCallback((snapshot: AuthBootstrapResponse) => {
     setProfile({
@@ -342,7 +367,7 @@ export default function App() {
     setLikeEvents(snapshot.likeEvents || []);
     setLinkedIdentities(snapshot.linkedIdentities || []);
     setActiveScreen(getHomeModeScreen(settings.homeMode));
-    setPracticeClipKey(null);
+    setActiveGeneratedPracticeId(null);
     setFeedOrderIds([]);
     setFeedReasons({});
     setSkippedClipIds([]);
@@ -361,8 +386,12 @@ export default function App() {
     }, 2600);
   }, []);
 
-  const requestContentTranslations = useCallback(async (
-    targetClips: Array<{ clip: Clip; index: number }>,
+  const requestTranslationItems = useCallback(async (
+    items: Array<{
+      requestItem: ReturnType<typeof buildContentTranslationRequestItem>;
+      existingSourceTitle: string;
+      needsTitleRefresh: boolean;
+    }>,
     localeOverride?: NativeLanguage
   ) => {
     const locale = localeOverride || profile.nativeLanguage;
@@ -370,12 +399,17 @@ export default function App() {
       return;
     }
 
-    const items = targetClips.reduce<Array<ReturnType<typeof buildContentTranslationRequestItem>>>((acc, entry) => {
-      const item = buildContentTranslationRequestItem(entry.clip, entry.index);
+    const pendingItems = items.reduce<Array<ReturnType<typeof buildContentTranslationRequestItem>>>((acc, entry) => {
+      const item = entry.requestItem;
       const cacheKey = buildContentTranslationCacheKey(item.contentKey, locale, item.contentHash);
       const cachedTranslation = contentTranslations[cacheKey];
       const cacheMissingTitle = !String(cachedTranslation?.title || '').trim();
-      const cacheNeedsTitleRefresh = shouldRefreshLocalizedTitle(entry.clip, locale, cachedTranslation);
+      const cacheNeedsTitleRefresh = entry.needsTitleRefresh
+        || (cachedTranslation ? shouldRefreshLocalizedTitle(
+          { title: entry.existingSourceTitle, lines: [], source: '' } as Clip,
+          locale,
+          cachedTranslation
+        ) : false);
       if (
         (cachedTranslation && !cacheMissingTitle && !cacheNeedsTitleRefresh)
         || inflightContentTranslationsRef.current.has(cacheKey)
@@ -387,12 +421,12 @@ export default function App() {
       return acc;
     }, []);
 
-    if (!items.length) {
+    if (!pendingItems.length) {
       return;
     }
 
     try {
-      const response = await api.getContentTranslations(locale, items);
+      const response = await api.getContentTranslations(locale, pendingItems);
       setContentTranslations(prev => {
         const next = { ...prev };
         for (const translation of Object.values(response.translations || {})) {
@@ -408,13 +442,39 @@ export default function App() {
       });
     } catch {
     } finally {
-      items.forEach(item => {
+      pendingItems.forEach(item => {
         inflightContentTranslationsRef.current.delete(
           buildContentTranslationCacheKey(item.contentKey, locale, item.contentHash)
         );
       });
     }
   }, [contentTranslations, profile.nativeLanguage]);
+
+  const requestContentTranslations = useCallback(async (
+    targetClips: Array<{ clip: Clip; index: number }>,
+    localeOverride?: NativeLanguage
+  ) => {
+    return requestTranslationItems(
+      targetClips.map(entry => ({
+        requestItem: buildContentTranslationRequestItem(entry.clip, entry.index),
+        existingSourceTitle: entry.clip.title,
+        needsTitleRefresh: Boolean(
+          shouldRefreshLocalizedTitle(
+            entry.clip,
+            localeOverride || profile.nativeLanguage,
+            contentTranslations[
+              buildContentTranslationCacheKey(
+                buildContentTranslationRequestItem(entry.clip, entry.index).contentKey,
+                localeOverride || profile.nativeLanguage,
+                buildContentTranslationRequestItem(entry.clip, entry.index).contentHash
+              )
+            ]
+          )
+        ),
+      })),
+      localeOverride
+    );
+  }, [contentTranslations, profile.nativeLanguage, requestTranslationItems]);
 
   const localizedClipsData = useMemo(() => {
     return clipsData.map((clip, index) => {
@@ -432,6 +492,40 @@ export default function App() {
       );
     });
   }, [clipsData, contentTranslations, profile.nativeLanguage, ui]);
+
+  const localizedPendingPractices = useMemo(() => {
+    return (generatedPracticeState.pendingPractices || []).map(practice => {
+      const identity = buildGeneratedPracticeTranslationRequestItem(practice);
+      const cacheKey = buildContentTranslationCacheKey(
+        identity.contentKey,
+        profile.nativeLanguage,
+        identity.contentHash
+      );
+      return buildLocalizedGeneratedPractice(
+        practice,
+        profile.nativeLanguage,
+        contentTranslations[cacheKey],
+        ui.t('common.translationUnavailable')
+      );
+    });
+  }, [contentTranslations, generatedPracticeState.pendingPractices, profile.nativeLanguage, ui]);
+
+  const localizedCompletedPractices = useMemo(() => {
+    return (generatedPracticeState.completedPractices || []).map(practice => {
+      const identity = buildGeneratedPracticeTranslationRequestItem(practice);
+      const cacheKey = buildContentTranslationCacheKey(
+        identity.contentKey,
+        profile.nativeLanguage,
+        identity.contentHash
+      );
+      return buildLocalizedGeneratedPractice(
+        practice,
+        profile.nativeLanguage,
+        contentTranslations[cacheKey],
+        ui.t('common.translationUnavailable')
+      );
+    });
+  }, [contentTranslations, generatedPracticeState.completedPractices, profile.nativeLanguage, ui]);
 
   useEffect(() => {
     return () => {
@@ -474,6 +568,7 @@ export default function App() {
           localKnownWords,
           localBookmarks,
           localVocab,
+          localGeneratedPracticeState,
           localLikedClips,
           localLikeEvents,
           localListenedClips,
@@ -491,6 +586,7 @@ export default function App() {
           loadKnownWords(),
           loadBookmarks(),
           loadVocab(),
+          loadGeneratedPracticeState(),
           loadLikedClips(),
           loadLikeEvents(),
           loadListenedClips(),
@@ -518,6 +614,7 @@ export default function App() {
           nativeLanguage: DEVICE_NATIVE_LANGUAGE,
         });
         setPracticeData(localPractice);
+        setGeneratedPracticeState(normalizeGeneratedPracticeState(localGeneratedPracticeState));
         setKnownWords(localKnownWords);
         setBookmarks(localBookmarks);
         setVocabList(localVocab);
@@ -682,13 +779,6 @@ export default function App() {
       return changed ? mapped : null;
     })();
 
-    if (practiceClipKey) {
-      const canonicalPracticeClipKey = canonicalize(practiceClipKey);
-      if (canonicalPracticeClipKey !== practiceClipKey) {
-        setPracticeClipKey(canonicalPracticeClipKey);
-      }
-    }
-
     if (nextBookmarks) {
       setBookmarks(nextBookmarks);
       void saveBookmarks(nextBookmarks);
@@ -710,7 +800,7 @@ export default function App() {
       setVocabList(nextVocabList);
       void saveVocab(nextVocabList);
     }
-  }, [bookmarks, clipsData, likedClipKeys, listenedClipKeys, practiceClipKey, practiceData, vocabList]);
+  }, [bookmarks, clipsData, likedClipKeys, listenedClipKeys, practiceData, vocabList]);
   const bookmarkedKeys = useMemo(() => bookmarks.map(item => item.clipKey), [bookmarks]);
   const likedKeys = useMemo(() => new Set(likedClipKeys), [likedClipKeys]);
   const vocabWords = useMemo(() => vocabList.map(item => item.word), [vocabList]);
@@ -761,10 +851,11 @@ export default function App() {
     return Math.max(0, Math.round(totalSeconds / 60));
   }, [clipsData, listenedClipKeys]);
   const practiceCount = useMemo(() => {
-    return bookmarks.filter(item => !practiceData[item.clipKey]?.done).length || bookmarks.length;
-  }, [bookmarks, practiceData]);
-  const practiceClipIndex = practiceClipKey ? findClipIndexByKey(clipsData, practiceClipKey) : -1;
-  const practiceClip = practiceClipIndex >= 0 ? localizedClipsData[practiceClipIndex] : null;
+    return (generatedPracticeState.pendingPractices || []).length;
+  }, [generatedPracticeState.pendingPractices]);
+  const activeGeneratedPractice = activeGeneratedPracticeId
+    ? localizedPendingPractices.find(item => item.id === activeGeneratedPracticeId) || null
+    : null;
   const isAuthenticated = Boolean(authToken);
   const isGuest = guestMode && !authToken;
   const canAccessApp = Boolean(authToken || guestMode);
@@ -803,11 +894,31 @@ export default function App() {
   }, [clipsLoaded, currentRawClips, profile.nativeLanguage, requestContentTranslations]);
 
   useEffect(() => {
-    if (practiceClipIndex < 0) return;
-    const rawClip = clipsData[practiceClipIndex];
-    if (!rawClip) return;
-    void requestContentTranslations([{ clip: rawClip, index: practiceClipIndex }], profile.nativeLanguage);
-  }, [clipsData, practiceClipIndex, profile.nativeLanguage, requestContentTranslations]);
+    const practiceItems = (generatedPracticeState.pendingPractices || []).slice(0, 2).map(practice => {
+      const requestItem = buildGeneratedPracticeTranslationRequestItem(practice);
+      const cacheKey = buildContentTranslationCacheKey(
+        requestItem.contentKey,
+        profile.nativeLanguage,
+        requestItem.contentHash
+      );
+      return {
+        requestItem,
+        existingSourceTitle: practice.title,
+        needsTitleRefresh: shouldRefreshGeneratedPracticeTitle(
+          practice,
+          profile.nativeLanguage,
+          contentTranslations[cacheKey]
+        ),
+      };
+    });
+    if (!practiceItems.length) return;
+    void requestTranslationItems(practiceItems, profile.nativeLanguage);
+  }, [
+    contentTranslations,
+    generatedPracticeState.pendingPractices,
+    profile.nativeLanguage,
+    requestTranslationItems,
+  ]);
 
   const applyFeedItems = useCallback((feed: RankedFeedItem[], nextState: 'normal' | 'fallback') => {
     setFeedOrderIds(feed.map(item => item.id));
@@ -928,7 +1039,7 @@ export default function App() {
   }, [activeScreen, persistSettings, settings]);
 
   const maybeShowCalibration = useCallback((signals: CalibrationSignals) => {
-    if (practiceClipKey || calibrationSuggestion) return;
+    if (activeGeneratedPracticeId || calibrationSuggestion) return;
     const suggestion = buildCalibrationSuggestion(
       signals,
       calibrationStateRef.current,
@@ -938,7 +1049,7 @@ export default function App() {
     if (suggestion) {
       setCalibrationSuggestion(suggestion);
     }
-  }, [calibrationSuggestion, practiceClipKey, profile.level, ui]);
+  }, [activeGeneratedPracticeId, calibrationSuggestion, profile.level, ui]);
 
   const finishAuthFlow = useCallback(async (payload: AuthInitResponse) => {
     const snapshot = await api.migrateLocal(payload.session.token, localMigrationPayload);
@@ -1107,7 +1218,7 @@ export default function App() {
     setProfile(defaultProfile);
     setActiveScreen(getHomeModeScreen(DEFAULT_SETTINGS.homeMode));
     setMenuOpen(false);
-    setPracticeClipKey(null);
+    setActiveGeneratedPracticeId(null);
     setFeedOrderIds([]);
     setFeedReasons({});
     setSkippedClipIds([]);
@@ -1414,21 +1525,23 @@ export default function App() {
       nativeLanguage
     );
 
-    if (practiceClipIndex >= 0 && clipsData[practiceClipIndex]) {
-      void requestContentTranslations(
-        [{ clip: clipsData[practiceClipIndex], index: practiceClipIndex }],
-        nativeLanguage
-      );
+    const pendingPracticeItems = (generatedPracticeState.pendingPractices || []).slice(0, 2).map(practice => ({
+      requestItem: buildGeneratedPracticeTranslationRequestItem(practice),
+      existingSourceTitle: practice.title,
+      needsTitleRefresh: true,
+    }));
+    if (pendingPracticeItems.length > 0) {
+      void requestTranslationItems(pendingPracticeItems, nativeLanguage);
     }
 
     showToast(ui.t('app.toastLanguageUpdated'));
   }, [
     authToken,
-    clipsData,
     currentRawClips,
-    practiceClipIndex,
+    generatedPracticeState.pendingPractices,
     profile,
     requestContentTranslations,
+    requestTranslationItems,
     showToast,
     ui,
   ]);
@@ -1439,17 +1552,121 @@ export default function App() {
     void persistSettings(nextSettings);
   };
 
-  const handlePracticeComplete = useCallback((clipKey: string, record: PracticeMap[string]) => {
-    setPracticeData(prev => {
-      const next = { ...prev, [clipKey]: record };
-      void savePracticeData(next);
+  const generatePracticeBatch = useCallback(async (
+    trigger: 'unlock' | 'refresh' | 'manual_more',
+    requestedCount = PRACTICE_BATCH_SIZE
+  ) => {
+    if (practiceGenerationInFlightRef.current) return false;
+
+    const baseState = normalizeGeneratedPracticeState(generatedPracticeState);
+    const plannedBatches = planGeneratedPracticeBatch(
+      vocabList,
+      baseState,
+      profile.interests,
+      profile.level,
+      requestedCount
+    );
+    if (!plannedBatches.length) {
+      return false;
+    }
+
+    practiceGenerationInFlightRef.current = true;
+    const pendingState: GeneratedPracticeState = {
+      ...baseState,
+      generating: true,
+      lastGenerationError: null,
+    };
+    setGeneratedPracticeState(pendingState);
+    await saveGeneratedPracticeState(pendingState);
+
+    try {
+      const generatedPractices: GeneratedPractice[] = [];
+      for (const batch of plannedBatches) {
+        const response = await api.generatePractice({
+          target_words: batch.map(item => ({
+            word: item.word,
+            cefr: item.cefr,
+            tag: item.tag,
+            definition_zh: item.definitionZh || item.contextZh || '',
+          })),
+          interests: profile.interests,
+          user_cefr: normalizeUserPracticeCefr(profile.level),
+        });
+
+        generatedPractices.push({
+          ...response.practice,
+          reason: buildGeneratedPracticeReason(batch),
+        });
+      }
+
+      const nextState = withGeneratedPracticesAppended(
+        baseState,
+        generatedPractices,
+        vocabList.length
+      );
+      setGeneratedPracticeState(nextState);
+      await saveGeneratedPracticeState(nextState);
+
+      if (profile.nativeLanguage !== 'english') {
+        void requestTranslationItems(
+          generatedPractices.map(practice => ({
+            requestItem: buildGeneratedPracticeTranslationRequestItem(practice),
+            existingSourceTitle: practice.title,
+            needsTitleRefresh: true,
+          })),
+          profile.nativeLanguage
+        );
+      }
+
+      return true;
+    } catch (error) {
+      const nextState: GeneratedPracticeState = {
+        ...baseState,
+        generating: false,
+        lastGenerationError: {
+          msg: error instanceof Error ? error.message : ui.t('app.requestFailed'),
+          ts: Date.now(),
+        },
+      };
+      setGeneratedPracticeState(nextState);
+      await saveGeneratedPracticeState(nextState);
+      return false;
+    } finally {
+      practiceGenerationInFlightRef.current = false;
+    }
+  }, [
+    generatedPracticeState,
+    profile.interests,
+    profile.level,
+    profile.nativeLanguage,
+    requestTranslationItems,
+    ui,
+    vocabList,
+  ]);
+
+  useEffect(() => {
+    if (!profile.onboardingDone) return;
+    if (vocabList.length < PRACTICE_UNLOCK_COUNT) return;
+    if (practiceGenerationInFlightRef.current) return;
+
+    const state = normalizeGeneratedPracticeState(generatedPracticeState);
+    const delta = Math.max(0, vocabList.length - state.lastVocabCountAtGeneration);
+    const shouldGenerateInitial = state.pendingPractices.length === 0 && state.completedPractices.length === 0;
+    const shouldAutoRefresh = delta >= PRACTICE_REFRESH_DELTA && state.pendingPractices.length < PRACTICE_MAX_PENDING;
+    if (!shouldGenerateInitial && !shouldAutoRefresh) return;
+
+    void generatePracticeBatch(shouldGenerateInitial ? 'unlock' : 'refresh');
+  }, [generatePracticeBatch, generatedPracticeState, profile.onboardingDone, vocabList.length]);
+
+  const handleGeneratedPracticeComplete = useCallback((practiceId: string, record: PracticeMap[string], practice: GeneratedPractice) => {
+    setGeneratedPracticeState(prev => {
+      const next = completeGeneratedPractice(prev, practiceId);
+      void saveGeneratedPracticeState(next);
       return next;
     });
-
     setCalibrationSignals(prev => {
       const nextSessions = prev.practiceSessions + 1;
-      const clipIndex = findClipIndexByKey(clipsData, clipKey);
-      const sentenceCount = clipIndex >= 0 ? clipsData[clipIndex]?.lines.length || 0 : 0;
+      const sentenceCount = practice.lines.length || 0;
       const next = {
         ...prev,
         practiceSessions: nextSessions,
@@ -1460,11 +1677,7 @@ export default function App() {
       void saveCalibrationSignals(next);
       return next;
     });
-
-    if (authToken) {
-      void api.savePractice(authToken, clipKey, record).catch(() => {});
-    }
-  }, [authToken, clipsData]);
+  }, []);
 
   const handleReviewAction = useCallback((word: string, action: 'remember' | 'forgot') => {
     const normalized = word.toLowerCase();
@@ -1538,23 +1751,31 @@ export default function App() {
     await saveCalibrationState(nextCalibrationState);
   }, [calibrationSuggestion]);
 
-  const handleStartPractice = useCallback((clipIndex: number) => {
-    const clip = clipsData[clipIndex];
-    if (!clip) return;
-    setPracticeClipKey(buildClipKey(clip, clipIndex));
-  }, [clipsData]);
+  const handleStartPractice = useCallback((practiceId: string) => {
+    const selected = (generatedPracticeState.pendingPractices || []).find(item => item.id === practiceId);
+    if (selected && profile.nativeLanguage !== 'english') {
+      void requestTranslationItems([
+        {
+          requestItem: buildGeneratedPracticeTranslationRequestItem(selected),
+          existingSourceTitle: selected.title,
+          needsTitleRefresh: true,
+        },
+      ], profile.nativeLanguage);
+    }
+    setActiveGeneratedPracticeId(practiceId);
+  }, [generatedPracticeState.pendingPractices, profile.nativeLanguage, requestTranslationItems]);
 
   const handleClosePractice = useCallback(() => {
-    setPracticeClipKey(null);
+    setActiveGeneratedPracticeId(null);
   }, []);
 
   const handleReturnFeed = useCallback(() => {
-    setPracticeClipKey(null);
+    setActiveGeneratedPracticeId(null);
     handleHomeModeChange('listen');
   }, [handleHomeModeChange]);
 
   const handlePracticeAgain = useCallback(() => {
-    setPracticeClipKey(null);
+    setActiveGeneratedPracticeId(null);
     handleHomeModeChange('learn');
   }, [handleHomeModeChange]);
 
@@ -1595,6 +1816,7 @@ export default function App() {
     setLinkedIdentities([]);
     setProfile(defaultProfile);
     setPracticeData({});
+    setGeneratedPracticeState(createDefaultGeneratedPracticeState());
     setBookmarks([]);
     setVocabList([]);
     setLikedClipKeys([]);
@@ -1616,7 +1838,7 @@ export default function App() {
     setActiveScreen(getHomeModeScreen(DEFAULT_SETTINGS.homeMode));
     setMenuOpen(false);
     setShowAuthSheet(false);
-    setPracticeClipKey(null);
+    setActiveGeneratedPracticeId(null);
     setAuthError('');
   }, [authToken]);
 
@@ -1662,7 +1884,7 @@ export default function App() {
     setActiveScreen(getHomeModeScreen(DEFAULT_SETTINGS.homeMode));
     setMenuOpen(false);
     setShowAuthSheet(false);
-    setPracticeClipKey(null);
+    setActiveGeneratedPracticeId(null);
     setAuthError('');
     showToast(ui.t('app.toastAccountDeleted'));
   }, [authToken, showToast, ui]);
@@ -1817,14 +2039,17 @@ export default function App() {
             pointerEvents={settings.homeMode === 'learn' ? 'auto' : 'none'}
           >
             <PracticeScreen
-              bookmarks={bookmarks}
-              clips={localizedClipsData}
+              practiceState={generatedPracticeState}
+              pendingPractices={localizedPendingPractices}
+              completedPractices={localizedCompletedPractices}
               profile={profile}
               vocabList={vocabList}
-              practiceData={practiceData}
               showIntro={!settings.practiceIntroSeen}
               onDismissIntro={handleDismissPracticeIntro}
               contentViewportHeight={resolvedHomeViewportHeight}
+              onGenerateMore={() => {
+                void generatePracticeBatch('manual_more');
+              }}
               onStartPractice={handleStartPractice}
             />
           </View>
@@ -1894,18 +2119,16 @@ export default function App() {
                   }}
                 />
 
-                <PracticeSessionModal
-                  visible={Boolean(practiceClipKey && practiceClip)}
-                  clip={practiceClip}
-                  clipIndex={practiceClipIndex}
-                  level={profile.level}
+                <GeneratedPracticeSessionModal
+                  visible={Boolean(activeGeneratedPractice)}
+                  practice={activeGeneratedPractice}
                   nativeLanguage={profile.nativeLanguage}
                   vocabWords={vocabWords}
                   knownWords={knownWords}
                   onSaveVocab={handleSaveVocab}
                   onMarkKnown={handleMarkKnown}
                   onRecordWordLookup={handleRecordWordLookup}
-                  onComplete={handlePracticeComplete}
+                  onComplete={handleGeneratedPracticeComplete}
                   onDismiss={handleClosePractice}
                   onReturnFeed={handleReturnFeed}
                   onPracticeAgain={handlePracticeAgain}

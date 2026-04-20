@@ -6,6 +6,7 @@ import type {
   Bookmark,
   CalibrationSignals,
   CalibrationState,
+  GeneratedPracticeState,
   LikeEvent,
   LocalizedClipContent,
   PracticeMap,
@@ -32,6 +33,7 @@ const REVIEW_STATE_KEY = 'flipodReview';
 const LEVEL_SIGNALS_KEY = 'flipodLevelSignals';
 const LEVEL_CALIBRATION_KEY = 'flipodLevelCalibration';
 const CONTENT_TRANSLATIONS_KEY = 'flipodContentTranslations';
+const GENERATED_PRACTICE_KEY = 'flipodGeneratedPracticeState';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   dominantHand: 'right',
@@ -196,6 +198,22 @@ export async function loadVocab(): Promise<VocabEntry[]> {
 
 export async function saveVocab(vocab: VocabEntry[]) {
   await AsyncStorage.setItem(VOCAB_KEY, JSON.stringify(vocab));
+}
+
+export async function loadGeneratedPracticeState(): Promise<GeneratedPracticeState | null> {
+  const raw = await AsyncStorage.getItem(GENERATED_PRACTICE_KEY);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as GeneratedPracticeState) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveGeneratedPracticeState(state: GeneratedPracticeState) {
+  await AsyncStorage.setItem(GENERATED_PRACTICE_KEY, JSON.stringify(state));
 }
 
 export async function loadContentTranslations(): Promise<Record<string, LocalizedClipContent>> {
