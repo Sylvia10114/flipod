@@ -1,6 +1,6 @@
 import { errorResponse, HttpError, json, noContent, readJson } from '../../_lib/http.js';
 
-const PROMPT_VERSION = 'v3.1.0';
+const PROMPT_VERSION = 'v3.2.0';
 const MAX_RETRIES = 2;
 const ALLOWED_CATEGORIES = ['business', 'psychology', 'science', 'tech', 'culture', 'general'];
 const CEFR_RANKS = { A1: 0, A2: 1, B1: 2, B2: 3, C1: 4, C2: 5 };
@@ -55,7 +55,11 @@ function extractJsonObject(text) {
   return JSON.parse(match[0]);
 }
 
-async function callAzureOpenAiJson(env, messages, maxCompletionTokens = 3200) {
+async function callAzureOpenAiJson(
+  env,
+  messages,
+  { maxCompletionTokens = 3200, temperature = 0.7 } = {}
+) {
   const config = getAzureOpenAiConfig(env);
   const url = `${config.endpoint}/openai/deployments/${config.deployment}/chat/completions?api-version=${config.apiVersion}`;
 
@@ -67,7 +71,7 @@ async function callAzureOpenAiJson(env, messages, maxCompletionTokens = 3200) {
     },
     body: JSON.stringify({
       messages,
-      temperature: 0.7,
+      temperature,
       max_completion_tokens: maxCompletionTokens,
       response_format: { type: 'json_object' },
     }),
@@ -85,8 +89,22 @@ async function callAzureOpenAiJson(env, messages, maxCompletionTokens = 3200) {
   };
 }
 
+function buildTargetWordRules(words) {
+  return (words || []).map(item => {
+    const word = normalizeText(item?.word);
+    return {
+      word,
+      cefr: normalizeText(item?.cefr).toUpperCase() || 'B1',
+      tag: normalizeText(item?.tag).toLowerCase() || 'general',
+      definition_zh: normalizeText(item?.definition_zh),
+      exact_surface_form_rule: `Use the exact surface form "${word}" exactly once. Do not change tense, number, or morphology.`,
+    };
+  });
+}
+
 function buildPracticePrompt({ words, interests, userCefr, retryHint }) {
   const wordList = words.map(item => item.word).join(', ');
+  const targetWordRules = buildTargetWordRules(words);
   const retrySuffix = retryHint
     ? `\n\nPrevious attempt failed validation: ${retryHint}. Fix these specific issues.`
     : '';
@@ -98,6 +116,7 @@ Learner interests: ${(interests || []).join(', ') || 'general'}
 Passage requirements:
 1. Natural spoken-English mini passage, 80-150 words, 6-8 sentences.
 2. Use every target word naturally, and each target word must appear exactly once.
+2a. Use the exact target word spelling once, not an inflection or derivation. For example, if the target word is "stumble", do NOT use "stumbled", "stumbles", or "stumbling".
 3. The passage should feel like a short podcast/storytelling narration, not textbook prose.
 4. Keep non-target vocabulary mostly within CEFR ${userCefr} or easier.
 5. Provide line-by-line Simplified Chinese translations aligned to each sentence.
@@ -109,6 +128,9 @@ Passage requirements:
 11. Return target_word_contexts for each target word with sentence_index, definition_zh, cefr, ipa.
 12. Return vocab_in_text for extra advanced words in the passage (excluding target words), with word, cefr, zh, ipa, sentence_index.
 13. Also return topic_en as a short English learner-facing title.
+
+Target word rules:
+${JSON.stringify(targetWordRules, null, 2)}
 
 Return strict JSON only. Schema:
 {
@@ -156,7 +178,7 @@ function validatePractice(json, expected) {
       .split(/\s+/)
       .filter(Boolean)
       .length;
-    if (wordCount < 80 || wordCount > 170) {
+    if (wordCount < 75 || wordCount > 170) {
       errors.push(`word_count_${wordCount}`);
     }
     if (json.lines.length < 6 || json.lines.length > 8) {
@@ -210,6 +232,75 @@ function validatePractice(json, expected) {
   }
 
   return { ok: errors.length === 0, errors };
+}
+
+function buildValidationSummary(json, expected, errors) {
+  const fullText = Array.isArray(json?.lines)
+    ? json.lines.map(line => normalizeText(line?.en)).join(' ')
+    : '';
+  const targetWordUsage = (expected.target_words || []).map(word => ({
+    word,
+    count: countWordOccurrences(fullText, word),
+  }));
+  return {
+    errors,
+    topic_en: normalizeText(json?.topic_en),
+    line_count: Array.isArray(json?.lines) ? json.lines.length : 0,
+    word_count: normalizeText(fullText).split(/\s+/).filter(Boolean).length,
+    target_word_usage: targetWordUsage,
+  };
+}
+
+async function repairPracticeDraft(env, payload, draft, validation) {
+  const messages = [
+    {
+      role: 'system',
+      content: [
+        'You repair invalid JSON for a mobile listening-practice system.',
+        'Return strict JSON only.',
+        'Keep the original story meaning when possible, but fix validation failures exactly.',
+        'Use every target word in its exact surface form exactly once, never an inflection.',
+        'Preserve a natural 6-8 sentence passage with Simplified Chinese line translations.',
+        'Keep mcq, explanations, target_word_contexts, and vocab_in_text aligned with the repaired passage.',
+      ].join(' '),
+    },
+    {
+      role: 'user',
+      content: JSON.stringify({
+        instruction: 'Repair this practice JSON so it passes validation.',
+        target_words: buildTargetWordRules(payload.target_word_objs),
+        interests: payload.interests,
+        user_cefr: payload.user_cefr,
+        validation: buildValidationSummary(draft, payload, validation.errors),
+        draft,
+        outputSchema: {
+          title: 'string',
+          topic_en: 'string',
+          category: 'business|psychology|science|tech|culture|general',
+          lines: [{ en: 'string', zh: 'string' }],
+          gist_zh: 'string',
+          mcq: {
+            q: 'string',
+            options: ['string', 'string', 'string', 'string'],
+            correct: 0,
+            explanation: 'string',
+          },
+          target_word_contexts: [
+            { word: 'string', sentence_index: 0, definition_zh: 'string', cefr: 'B1', ipa: 'string' },
+          ],
+          vocab_in_text: [
+            { word: 'string', cefr: 'B1', zh: 'string', ipa: 'string', sentence_index: 0 },
+          ],
+        },
+      }),
+    },
+  ];
+
+  const response = await callAzureOpenAiJson(env, messages, {
+    maxCompletionTokens: 3200,
+    temperature: 0.15,
+  });
+  return extractJsonObject(response.content);
 }
 
 function buildPracticeFromLlm(json, expected) {
@@ -308,10 +399,13 @@ async function generatePracticeWithValidation(env, payload) {
         role: 'user',
         content: prompt,
       },
-    ]);
+    ], {
+      maxCompletionTokens: 3200,
+      temperature: 0.35,
+    });
 
-    const parsed = extractJsonObject(response.content);
-    const validation = validatePractice(parsed, payload);
+    let parsed = extractJsonObject(response.content);
+    let validation = validatePractice(parsed, payload);
     if (validation.ok) {
       return {
         practice: buildPracticeFromLlm(parsed, payload),
@@ -323,8 +417,26 @@ async function generatePracticeWithValidation(env, payload) {
       };
     }
 
+    try {
+      parsed = await repairPracticeDraft(env, payload, parsed, validation);
+      validation = validatePractice(parsed, payload);
+      if (validation.ok) {
+        return {
+          practice: buildPracticeFromLlm(parsed, payload),
+          meta: {
+            promptVersion: PROMPT_VERSION,
+            usage: response.usage,
+            attempts: attempt + 1,
+            repaired: true,
+          },
+        };
+      }
+    } catch (repairError) {
+      validation.errors.push(`repair_failed_${normalizeText(repairError?.message).slice(0, 80)}`);
+    }
+
     lastErrors = validation.errors;
-    retryHint = validation.errors.slice(0, 3).join('; ');
+    retryHint = validation.errors.slice(0, 4).join('; ');
   }
 
   throw new HttpError(422, `Practice generation failed validation: ${lastErrors.join(', ')}`, 'practice_validation_failed');

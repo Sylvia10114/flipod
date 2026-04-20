@@ -11,7 +11,7 @@ export const PRACTICE_UNLOCK_COUNT = 5;
 export const PRACTICE_REFRESH_DELTA = 3;
 export const PRACTICE_BATCH_SIZE = 2;
 export const PRACTICE_MAX_PENDING = 6;
-export const PRACTICE_PROMPT_VERSION = 'v3.1.0';
+export const PRACTICE_PROMPT_VERSION = 'v3.2.0';
 
 const CEFR_ORDER = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
 
