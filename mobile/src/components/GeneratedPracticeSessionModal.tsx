@@ -212,13 +212,26 @@ export function GeneratedPracticeSessionModal({
   );
   const isReviewReady = step === 4 && hasPlayedStep4 && (!practice?.mcq || quizAnswered);
   const playbackSeconds = positionMillis / 1000;
+  const transcriptStartSeconds = enrichedLines[0]?.start || 0;
+  const transcriptEndSeconds = enrichedLines[enrichedLines.length - 1]?.end || transcriptStartSeconds;
+  const transcriptDurationSeconds = Math.max(0, transcriptEndSeconds - transcriptStartSeconds);
+  const alignedPlaybackSeconds = useMemo(() => {
+    if (playbackSeconds <= 0) return 0;
+    if (durationMillis <= 0 || transcriptDurationSeconds <= 0) return playbackSeconds;
+    const audioDurationSeconds = durationMillis / 1000;
+    if (audioDurationSeconds <= 0) return playbackSeconds;
+    const progress = Math.max(0, Math.min(1, playbackSeconds / audioDurationSeconds));
+    return transcriptStartSeconds + (progress * transcriptDurationSeconds);
+  }, [durationMillis, playbackSeconds, transcriptDurationSeconds, transcriptStartSeconds]);
   const activePlaybackLineIndex = useMemo(() => {
-    if (!enrichedLines.length || playbackSeconds <= 0) return -1;
-    const index = enrichedLines.findIndex(line => playbackSeconds >= line.start && playbackSeconds < line.end);
+    if (!enrichedLines.length || alignedPlaybackSeconds <= 0) return -1;
+    const index = enrichedLines.findIndex(
+      line => alignedPlaybackSeconds >= line.start && alignedPlaybackSeconds < line.end
+    );
     if (index >= 0) return index;
-    if (playbackSeconds >= enrichedLines[enrichedLines.length - 1].end) return enrichedLines.length - 1;
+    if (alignedPlaybackSeconds >= enrichedLines[enrichedLines.length - 1].end) return enrichedLines.length - 1;
     return -1;
-  }, [enrichedLines, playbackSeconds]);
+  }, [alignedPlaybackSeconds, enrichedLines]);
 
   const selectedWordKey = popup ? normalizeToken(popup.word.word) : '';
   const selectedWordSaved = selectedWordKey ? vocabWords.includes(selectedWordKey) : false;
@@ -340,7 +353,10 @@ export function GeneratedPracticeSessionModal({
     try {
       const { sound } = await Audio.Sound.createAsync(
         { uri: sourceUri },
-        { shouldPlay: false },
+        {
+          shouldPlay: false,
+          progressUpdateIntervalMillis: 120,
+        },
         (status: AVPlaybackStatus) => {
           if (requestId !== playbackRequestRef.current) {
             return;
@@ -374,6 +390,7 @@ export function GeneratedPracticeSessionModal({
 
       soundRef.current = sound;
       activeTrackKeyRef.current = normalized;
+      await sound.setProgressUpdateIntervalAsync(120);
       await sound.playAsync();
       setIsPlaying(true);
       options.onStart?.();
@@ -557,7 +574,7 @@ export function GeneratedPracticeSessionModal({
             />
             <PracticeTranscriptPanel
               lines={enrichedLines}
-              currentTime={playbackSeconds}
+              currentTime={alignedPlaybackSeconds}
               maxHeight={220}
               renderLine={({ line, isActive }) => (
                 <View style={[styles.nativeTranscriptLine, isActive && styles.nativeTranscriptLineActive]}>
@@ -608,12 +625,12 @@ export function GeneratedPracticeSessionModal({
             <Text style={styles.sentenceHelper}>{t('practiceSession.englishDrillBody')}</Text>
             <PracticeTranscriptPanel
               lines={enrichedLines}
-              currentTime={playbackSeconds}
+              currentTime={alignedPlaybackSeconds}
               maxHeight={340}
               renderLine={({ line, index, isActive }) => (
                 <WordLine
                   line={line}
-                  currentTime={isActive ? playbackSeconds : 0}
+                  currentTime={isActive ? alignedPlaybackSeconds : 0}
                   isActive={isActive}
                   showZh={false}
                   compact
@@ -713,7 +730,7 @@ export function GeneratedPracticeSessionModal({
             />
             <PracticeTranscriptPanel
               lines={enrichedLines}
-              currentTime={playbackSeconds}
+              currentTime={alignedPlaybackSeconds}
               maxHeight={360}
               renderLine={({ line, index, isActive }) => {
                 const fadeTokens = buildFadeText(line, fadeTargetWords);

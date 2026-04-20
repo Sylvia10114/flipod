@@ -42,7 +42,7 @@ function restorePunctuation(words: ClipLineWord[], fullText: string) {
   });
 }
 
-export function WordLine({
+function WordLineComponent({
   line,
   currentTime,
   isActive,
@@ -76,7 +76,10 @@ export function WordLine({
     );
   }
 
-  const enriched = restorePunctuation(line.words, line.en || '');
+  const enriched = React.useMemo(
+    () => restorePunctuation(line.words || [], line.en || ''),
+    [line.en, line.words]
+  );
 
   return (
     <View style={styles.container}>
@@ -109,6 +112,8 @@ export function WordLine({
     </View>
   );
 }
+
+export const WordLine = React.memo(WordLineComponent);
 
 function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
   return StyleSheet.create({
