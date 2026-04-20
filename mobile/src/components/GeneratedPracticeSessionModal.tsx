@@ -1,18 +1,21 @@
 import * as FileSystem from 'expo-file-system';
 import { Audio, type AVPlaybackStatus } from 'expo-av';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { api } from '../services/api';
-import { ActionButton, GlassCard, StepDots } from './AppChrome';
+import { ActionButton, GlassCard, StatBlock } from './AppChrome';
 import { ChallengeWordPills } from './ChallengeWordPills';
-import { ProgressBar } from './ProgressBar';
+import { PracticeCardHeader } from './generated-practice/PracticeCardHeader';
+import { PracticeInlineWordInspector } from './generated-practice/PracticeInlineWordInspector';
+import { PracticeSegmentMeter } from './generated-practice/PracticeSegmentMeter';
+import { PracticeStudioShell } from './generated-practice/PracticeStudioShell';
+import { PracticeTranscriptPanel } from './generated-practice/PracticeTranscriptPanel';
 import { WordLine } from './WordLine';
-import { WordPopup } from './WordPopup';
 import { radii, spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
 import { useUiI18n } from '../i18n';
-import { useResponsiveLayout } from '../responsive';
+import { getLocalizedTopicLabel } from '../i18n/helpers';
 import { useAppTheme } from '../theme';
 import type {
   ChallengeWord,
@@ -124,6 +127,26 @@ function buildFadeText(line: ClipLine, targetWords: Set<string>) {
   });
 }
 
+function shiftLineToZero(line: ClipLine): ClipLine {
+  return {
+    ...line,
+    start: 0,
+    end: Math.max(0.01, line.end - line.start),
+    words: (line.words || []).map(word => ({
+      ...word,
+      start: Math.max(0, word.start - line.start),
+      end: Math.max(0.01, word.end - line.start),
+    })),
+  };
+}
+
+function stepLabel(step: Step, t: (key: string, params?: Record<string, string | number>) => string) {
+  if (step === 1) return t('practiceSession.stepNativeLanguage');
+  if (step === 2) return t('practiceSession.stepEnglish');
+  if (step === 3) return t('practiceSession.stepFade');
+  return t('practiceSession.stepBlind');
+}
+
 export function GeneratedPracticeSessionModal({
   visible,
   practice,
@@ -140,21 +163,24 @@ export function GeneratedPracticeSessionModal({
 }: Props) {
   const { colors } = useAppTheme();
   const { t } = useUiI18n();
-  const metrics = useResponsiveLayout();
-  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const soundRef = useRef<Audio.Sound | null>(null);
   const cachedAudioRef = useRef<Map<string, string>>(new Map());
   const playbackRequestRef = useRef(0);
   const completionSavedRef = useRef(false);
+  const activeTrackKeyRef = useRef('');
+  const blindPulse = useRef(new Animated.Value(0)).current;
 
   const [step, setStep] = useState<Step>(1);
   const [sentenceIndex, setSentenceIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [positionMillis, setPositionMillis] = useState(0);
+  const [durationMillis, setDurationMillis] = useState(0);
   const [hasPlayedStep1, setHasPlayedStep1] = useState(false);
+  const [hasPlayedStep2, setHasPlayedStep2] = useState(false);
   const [hasPlayedStep3, setHasPlayedStep3] = useState(false);
   const [hasPlayedStep4, setHasPlayedStep4] = useState(false);
   const [quizSelection, setQuizSelection] = useState<number | null>(null);
@@ -179,11 +205,44 @@ export function GeneratedPracticeSessionModal({
   }, [practice]);
 
   const currentSentence = enrichedLines[sentenceIndex] || null;
-  const transcriptCardHeight = metrics.isTablet ? 320 : 264;
-  const canShowQuiz = Boolean(practice?.mcq) && hasPlayedStep4;
-  const canShowReview = quizAnswered;
+  const fadeTargetWords = useMemo(
+    () => new Set((practice?.target_words || []).map(word => word.toLowerCase())),
+    [practice?.target_words]
+  );
+  const lineProgress = enrichedLines.length > 0 ? (sentenceIndex + 1) / enrichedLines.length : 0;
+  const completedSentenceIndexes = useMemo(
+    () => Array.from({ length: sentenceIndex }, (_, index) => index),
+    [sentenceIndex]
+  );
+  const isReviewReady = step === 4 && hasPlayedStep4 && (!practice?.mcq || quizAnswered);
+  const playbackSeconds = positionMillis / 1000;
+  const activePlaybackLineIndex = useMemo(() => {
+    if (!enrichedLines.length || playbackSeconds <= 0) return -1;
+    const index = enrichedLines.findIndex(line => playbackSeconds >= line.start && playbackSeconds < line.end);
+    if (index >= 0) return index;
+    if (playbackSeconds >= enrichedLines[enrichedLines.length - 1].end) return enrichedLines.length - 1;
+    return -1;
+  }, [enrichedLines, playbackSeconds]);
+
+  const selectedWordKey = popup ? normalizeToken(popup.word.word) : '';
+  const selectedWordSaved = selectedWordKey ? vocabWords.includes(selectedWordKey) : false;
+  const selectedWordKnown = selectedWordKey ? knownWords.includes(selectedWordKey) : false;
+  const selectedWordInfo = useMemo(() => {
+    if (!practice || !popup) return null;
+    const normalized = normalizeToken(popup.word.word);
+    const direct = (practice.vocabulary || []).find(item => normalizeToken(item.word) === normalized);
+    const context = (practice.target_word_contexts || []).find(item => normalizeToken(item.word) === normalized);
+    const inText = (practice.vocab_in_text || []).find(item => normalizeToken(item.word) === normalized);
+
+    return {
+      cefr: direct?.cefr || context?.cefr || inText?.cefr || popup.word.cefr || '',
+      ipa: direct?.ipa || context?.ipa || inText?.ipa || '',
+      definition: direct?.definition_zh || context?.definition_zh || inText?.zh || popup.contextZh,
+    };
+  }, [popup, practice]);
 
   const unloadSound = useCallback(async () => {
+    activeTrackKeyRef.current = '';
     if (!soundRef.current) return;
     try {
       await soundRef.current.unloadAsync();
@@ -193,6 +252,17 @@ export function GeneratedPracticeSessionModal({
     soundRef.current = null;
     setIsPlaying(false);
     setIsLoading(false);
+    setPositionMillis(0);
+    setDurationMillis(0);
+  }, []);
+
+  const pausePlayback = useCallback(async () => {
+    if (!soundRef.current) return;
+    try {
+      await soundRef.current.pauseAsync();
+      setIsPlaying(false);
+    } catch {
+    }
   }, []);
 
   const prepareAudioUri = useCallback(async (text: string) => {
@@ -226,14 +296,37 @@ export function GeneratedPracticeSessionModal({
     options: {
       onFinish?: () => void;
       onStart?: () => void;
+      fromStart?: boolean;
     } = {}
   ) => {
     const normalized = text.trim();
     if (!normalized) return;
+    const existingSound = activeTrackKeyRef.current === normalized ? soundRef.current : null;
+    if (existingSound) {
+      try {
+        const shouldRestart = options.fromStart || (
+          durationMillis > 0 && positionMillis >= Math.max(0, durationMillis - 200)
+        );
+        if (shouldRestart) {
+          await existingSound.setPositionAsync(0);
+          setPositionMillis(0);
+        }
+        setErrorMessage(null);
+        setIsLoading(false);
+        await existingSound.playAsync();
+        setIsPlaying(true);
+        options.onStart?.();
+        return;
+      } catch {
+        await unloadSound();
+      }
+    }
     const requestId = playbackRequestRef.current + 1;
     playbackRequestRef.current = requestId;
     setErrorMessage(null);
     setIsLoading(true);
+    setPositionMillis(0);
+    setDurationMillis(0);
 
     const sourceUri = await prepareAudioUri(normalized);
     if (!sourceUri || requestId !== playbackRequestRef.current) {
@@ -261,6 +354,8 @@ export function GeneratedPracticeSessionModal({
           }
           setIsLoading(false);
           setIsPlaying(status.isPlaying);
+          setPositionMillis(status.positionMillis || 0);
+          setDurationMillis(status.durationMillis || 0);
           if (status.didJustFinish) {
             setIsPlaying(false);
             options.onFinish?.();
@@ -269,6 +364,7 @@ export function GeneratedPracticeSessionModal({
       );
 
       soundRef.current = sound;
+      activeTrackKeyRef.current = normalized;
       setIsPlaying(true);
       options.onStart?.();
     } catch {
@@ -276,7 +372,7 @@ export function GeneratedPracticeSessionModal({
       setIsPlaying(false);
       setErrorMessage(t('practiceSession.loadError'));
     }
-  }, [prepareAudioUri, t, unloadSound]);
+  }, [durationMillis, positionMillis, prepareAudioUri, t, unloadSound]);
 
   useEffect(() => {
     if (!visible || !practice) return;
@@ -286,6 +382,7 @@ export function GeneratedPracticeSessionModal({
     setQuizSelection(null);
     setQuizAnswered(false);
     setHasPlayedStep1(false);
+    setHasPlayedStep2(false);
     setHasPlayedStep3(false);
     setHasPlayedStep4(false);
     setPopup(null);
@@ -294,6 +391,8 @@ export function GeneratedPracticeSessionModal({
     setErrorMessage(null);
     setIsLoading(false);
     setIsPlaying(false);
+    setPositionMillis(0);
+    setDurationMillis(0);
   }, [practice, visible]);
 
   useEffect(() => {
@@ -303,9 +402,53 @@ export function GeneratedPracticeSessionModal({
   }, [unloadSound, visible]);
 
   useEffect(() => {
-    if (!visible || !practice || step !== 2 || !currentSentence) return;
-    void playText(currentSentence.en);
-  }, [currentSentence, playText, practice, step, visible]);
+    if (!visible || !practice || step !== 2) return;
+    void playText(practice.text, {
+      fromStart: true,
+      onFinish: () => {
+        setHasPlayedStep2(true);
+        setSentenceIndex(Math.max(0, enrichedLines.length - 1));
+      },
+    });
+  }, [enrichedLines.length, playText, practice, step, visible]);
+
+  useEffect(() => {
+    setPopup(null);
+  }, [sentenceIndex, step]);
+
+  useEffect(() => {
+    if (step !== 2 || activePlaybackLineIndex < 0 || activePlaybackLineIndex === sentenceIndex) return;
+    setSentenceIndex(activePlaybackLineIndex);
+  }, [activePlaybackLineIndex, sentenceIndex, step]);
+
+  useEffect(() => {
+    if (!visible || step !== 4 || hasPlayedStep4) {
+      blindPulse.stopAnimation();
+      blindPulse.setValue(0);
+      return;
+    }
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(blindPulse, {
+          toValue: 1,
+          duration: 950,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(blindPulse, {
+          toValue: 0,
+          duration: 950,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    animation.start();
+    return () => {
+      animation.stop();
+      blindPulse.setValue(0);
+    };
+  }, [blindPulse, hasPlayedStep4, step, visible]);
 
   const handleDismiss = useCallback(() => {
     playbackRequestRef.current += 1;
@@ -338,617 +481,705 @@ export function GeneratedPracticeSessionModal({
     }, practice);
   }, [hardSentences.length, lookedWords.length, onComplete, practice]);
 
-  const handleSentenceFeedback = useCallback((difficulty: 'easy' | 'hard') => {
-    if (!practice) return;
-    if (difficulty === 'hard') {
-      setHardSentences(prev => (prev.includes(sentenceIndex) ? prev : [...prev, sentenceIndex]));
-    }
-    if (sentenceIndex >= enrichedLines.length - 1) {
-      setStep(3);
-      return;
-    }
-    setSentenceIndex(prev => Math.min(prev + 1, enrichedLines.length - 1));
-  }, [enrichedLines.length, practice, sentenceIndex]);
+  if (!practice) return null;
 
-  const renderTranscriptCard = useCallback((
-    mode: 'translation' | 'sentence' | 'fade' | 'review'
-  ) => {
-    if (!practice) return null;
-    const targetSet = new Set((practice.target_words || []).map(word => word.toLowerCase()));
+  const localizedTopic = practice.tag ? getLocalizedTopicLabel(practice.tag, t) : '';
+  const mcq = practice.mcq;
+  const currentStepLabel = stepLabel(step, t);
+  const stepHeroTitle = step === 1
+    ? t('practiceSession.previewTitle')
+    : step === 2
+      ? t('practiceSession.englishDrillTitle')
+      : step === 3
+        ? t('practiceSession.fadeTitle')
+        : isReviewReady
+          ? t('practiceSession.summaryTitle')
+          : t('practiceSession.blindTitle');
+  const stepHeroBody = step === 1
+    ? (
+      nativeLanguage === 'english'
+        ? t('practiceSession.previewFallbackBody')
+        : t('practiceSession.previewBody')
+    )
+    : step === 2
+      ? t('practiceSession.englishDrillBody')
+      : step === 3
+        ? t('practiceSession.fadeBody')
+        : isReviewReady
+          ? t('practiceSession.afterListenCheck')
+          : t('practiceSession.blindBody');
 
-    return (
-      <GlassCard style={[styles.transcriptCard, { height: transcriptCardHeight }]}>
-        <ScrollView
-          style={styles.transcriptScroll}
-          contentContainerStyle={styles.transcriptScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {mode === 'translation'
-            ? (practice.lines || []).map((line, index) => (
-                <View key={`translation-${index}`} style={styles.translationBlock}>
-                  <Text style={styles.translationLine}>{line.zh}</Text>
-                  <Text style={styles.translationSubline}>{line.en}</Text>
+  return (
+    <PracticeStudioShell
+      visible={visible}
+      title={practice.title}
+      cefr={practice.cefr}
+      step={step}
+      stepLabel={currentStepLabel}
+      stepTitle={stepHeroTitle}
+      stepBody={stepHeroBody}
+      onClose={handleDismiss}
+    >
+      {step === 1 ? (
+        <>
+          <GlassCard style={styles.sourceCard}>
+            <Text style={styles.sourceTitle}>{practice.title}</Text>
+            <Text style={styles.sourceMeta}>
+              {[localizedTopic, practice.cefr].filter(Boolean).join(' · ')}
+            </Text>
+            {challengeWords.length > 0 ? (
+              <View style={styles.challengeWrap}>
+                <PracticeCardHeader label={t('practiceSession.challengeWordsTitle')} />
+                <ChallengeWordPills words={challengeWords} tone="practice" singleRow />
+              </View>
+            ) : null}
+          </GlassCard>
+
+          <GlassCard style={styles.meaningCard}>
+            <PracticeCardHeader
+              label={t('practiceSession.previewTitle')}
+              hint={durationMillis > 0 ? `${Math.ceil(durationMillis / 1000)}s` : t('common.play')}
+            />
+            <PracticeTranscriptPanel
+              lines={enrichedLines}
+              currentTime={playbackSeconds}
+              maxHeight={220}
+              renderLine={({ line, isActive }) => (
+                <View style={[styles.nativeTranscriptLine, isActive && styles.nativeTranscriptLineActive]}>
+                  <Text style={styles.nativeTranscriptText}>{line.zh || line.en}</Text>
                 </View>
-              ))
-            : null}
+              )}
+            />
+          </GlassCard>
 
-          {mode === 'sentence'
-            ? enrichedLines.map((line, index) => (
-                <Pressable
-                  key={`sentence-${index}`}
-                  onPress={() => setSentenceIndex(index)}
-                  style={[
-                    styles.sentenceBlock,
-                    index === sentenceIndex && styles.sentenceBlockActive,
-                  ]}
-                >
-                  <WordLine
-                    line={line}
-                    currentTime={0}
-                    isActive={index === sentenceIndex}
-                    showZh
-                    subtitleSize="sm"
-                    onWordTap={(word, activeLine) => handleWordTap(word, activeLine, index)}
-                  />
-                </Pressable>
-              ))
-            : null}
+          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
-          {mode === 'fade'
-            ? enrichedLines.map((line, index) => {
-                const fadeTokens = buildFadeText(line, targetSet);
+          <View style={styles.actionRow}>
+            <ActionButton
+              label={isLoading ? t('feed.preparingPlayback') : isPlaying ? t('common.pause') : t('common.play')}
+              onPress={() => {
+                if (isPlaying) {
+                  void pausePlayback();
+                  return;
+                }
+                void playText(practice.text, {
+                  onFinish: () => setHasPlayedStep1(true),
+                });
+              }}
+              loading={isLoading}
+              style={styles.primaryAction}
+            />
+            <ActionButton
+              label={t('common.continue')}
+              onPress={() => {
+                triggerUiFeedback('primary');
+                setStep(2);
+              }}
+              variant="secondary"
+              disabled={!hasPlayedStep1}
+              style={styles.secondaryAction}
+            />
+          </View>
+        </>
+      ) : null}
+
+      {step === 2 && currentSentence ? (
+        <>
+          <GlassCard style={styles.sentenceCard}>
+            <PracticeCardHeader
+              label={t('practiceSession.englishDrillTitle')}
+              hint={practice.cefr}
+            />
+            <Text style={styles.sentenceHelper}>{t('practiceSession.englishDrillBody')}</Text>
+            <PracticeTranscriptPanel
+              lines={enrichedLines}
+              currentTime={playbackSeconds}
+              maxHeight={340}
+              renderLine={({ line, index, isActive }) => (
+                <WordLine
+                  line={line}
+                  currentTime={isActive ? playbackSeconds : 0}
+                  isActive={isActive}
+                  showZh={false}
+                  compact
+                  subtitleSize="sm"
+                  onWordTap={(word, lineData) => handleWordTap(word, lineData, index)}
+                />
+              )}
+            />
+          </GlassCard>
+
+          {selectedWordInfo && popup ? (
+            <PracticeInlineWordInspector
+              word={popup.word.word}
+              cefr={selectedWordInfo.cefr}
+              ipa={selectedWordInfo.ipa}
+              definition={selectedWordInfo.definition}
+              context={popup.contextEn}
+              saved={selectedWordSaved}
+              known={selectedWordKnown}
+              saveLabel={t('wordPopup.save')}
+              savedLabel={t('wordPopup.saved')}
+              markKnownLabel={t('wordPopup.markKnown')}
+              knownLabel={t('wordPopup.known')}
+              onClose={() => setPopup(null)}
+              onSave={() => {
+                onSaveVocab({
+                  word: selectedWordKey,
+                  cefr: selectedWordInfo.cefr || popup.word.cefr,
+                  context: popup.contextEn,
+                  contextZh: popup.contextZh,
+                  contentKey: practice.contentKey,
+                  lineIndex: popup.lineIndex,
+                  clipTitle: practice.title,
+                  tag: practice.tag,
+                  sourceType: 'practice',
+                  practiced: true,
+                });
+              }}
+              onMarkKnown={() => onMarkKnown(selectedWordKey)}
+            />
+          ) : null}
+
+          <GlassCard style={styles.progressCard}>
+            <PracticeCardHeader
+              label={t('practiceSession.sentenceProgress', {
+                current: sentenceIndex + 1,
+                total: enrichedLines.length,
+              })}
+              hint={`${sentenceIndex + 1}/${Math.max(1, enrichedLines.length)}`}
+            />
+            <PracticeSegmentMeter
+              total={enrichedLines.length}
+              activeIndex={sentenceIndex}
+              completedIndexes={completedSentenceIndexes}
+              caption={`${Math.round(lineProgress * 100)}%`}
+            />
+          </GlassCard>
+
+          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
+          <View style={styles.step2Controls}>
+            <View style={styles.dualRow}>
+              <ActionButton
+                label={t('common.replay')}
+                onPress={() => {
+                  void playText(practice.text, {
+                    fromStart: true,
+                    onFinish: () => {
+                      setHasPlayedStep2(true);
+                      setSentenceIndex(Math.max(0, enrichedLines.length - 1));
+                    },
+                  });
+                }}
+                variant="secondary"
+                loading={isLoading}
+                style={styles.dualAction}
+              />
+              <ActionButton
+                label={isPlaying ? t('common.pause') : t('common.play')}
+                onPress={() => {
+                  if (isPlaying) {
+                    void pausePlayback();
+                    return;
+                  }
+                  void playText(practice.text, {
+                    onFinish: () => {
+                      setHasPlayedStep2(true);
+                      setSentenceIndex(Math.max(0, enrichedLines.length - 1));
+                    },
+                  });
+                }}
+                loading={isLoading}
+                style={styles.dualAction}
+              />
+            </View>
+            <View style={styles.dualRow}>
+              <ActionButton
+                label={t('practiceSession.easy')}
+                onPress={() => {
+                  const targetIndex = activePlaybackLineIndex >= 0 ? activePlaybackLineIndex : sentenceIndex;
+                  setHardSentences(prev => prev.filter(index => index !== targetIndex));
+                }}
+                variant="success"
+                style={styles.dualAction}
+              />
+              <ActionButton
+                label={t('practiceSession.hard')}
+                onPress={() => {
+                  const targetIndex = activePlaybackLineIndex >= 0 ? activePlaybackLineIndex : sentenceIndex;
+                  setHardSentences(prev => (prev.includes(targetIndex) ? prev : [...prev, targetIndex]));
+                }}
+                variant="danger"
+                style={styles.dualAction}
+              />
+            </View>
+            <ActionButton
+              label={t('common.continue')}
+              onPress={() => setStep(3)}
+              variant="secondary"
+              disabled={!hasPlayedStep2}
+            />
+          </View>
+        </>
+      ) : null}
+
+      {step === 3 ? (
+        <>
+          <GlassCard style={styles.fadeCard}>
+            <PracticeCardHeader
+              label={t('practiceSession.fadeTitle')}
+              hint={`${challengeWords.length} words`}
+            />
+            {challengeWords.length > 0 ? (
+              <ChallengeWordPills words={challengeWords} tone="practice" singleRow />
+            ) : null}
+            <Text style={styles.fadeHint}>{t('practiceSession.fadeBody')}</Text>
+          </GlassCard>
+
+          <GlassCard style={styles.fadeTranscriptCard}>
+            <PracticeCardHeader
+              label={t('practiceSession.fadeTitle')}
+              hint={durationMillis > 0 ? `${Math.ceil(durationMillis / 1000)}s` : null}
+            />
+            <PracticeTranscriptPanel
+              lines={enrichedLines}
+              currentTime={playbackSeconds}
+              maxHeight={360}
+              renderLine={({ line, index, isActive }) => {
+                const fadeTokens = buildFadeText(line, fadeTargetWords);
                 return (
-                  <View key={`fade-${index}`} style={styles.fadeBlock}>
-                    <Text style={styles.fadeLine}>
+                  <View style={styles.fadeLineBlock}>
+                    <Text
+                      style={[
+                        styles.fadeTranscriptLine,
+                        !isActive && styles.fadeTranscriptLineIdle,
+                      ]}
+                    >
                       {fadeTokens.map(token => (
                         <Text
                           key={token.key}
                           style={[
-                            token.emphasis && styles.fadeWordTarget,
-                            !token.visible && styles.fadeWordMasked,
-                            token.visible && !token.emphasis && styles.fadeWordVisible,
+                            styles.fadeToken,
+                            token.emphasis && styles.fadeTokenEmphasis,
+                            !token.visible && styles.fadeTokenMasked,
                           ]}
                         >
                           {token.visible ? token.text : '····'}
                         </Text>
                       ))}
                     </Text>
-                    <Text style={styles.fadeZh}>{line.zh}</Text>
                   </View>
                 );
-              })
-            : null}
-
-          {mode === 'review'
-            ? enrichedLines.map((line, index) => (
-                <View key={`review-${index}`} style={styles.reviewBlock}>
-                  <WordLine
-                    line={line}
-                    currentTime={0}
-                    isActive={false}
-                    showZh
-                    practiced={hardSentences.includes(index)}
-                    subtitleSize="sm"
-                    onWordTap={(word, activeLine) => handleWordTap(word, activeLine, index)}
-                  />
-                </View>
-              ))
-            : null}
-        </ScrollView>
-      </GlassCard>
-    );
-  }, [enrichedLines, handleWordTap, hardSentences, practice, sentenceIndex, transcriptCardHeight]);
-
-  if (!practice) return null;
-
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="fullScreen"
-      onRequestClose={handleDismiss}
-    >
-      <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
-        <View
-          style={[
-            styles.header,
-            {
-              paddingTop: Math.max(insets.top + 10, 18),
-              paddingHorizontal: metrics.pageHorizontalPadding,
-            },
-          ]}
-        >
-          <View style={[styles.headerInner, { maxWidth: metrics.contentMaxWidth }]}>
-            <Pressable
-              onPress={handleDismiss}
-              hitSlop={12}
-              style={styles.closeButton}
-            >
-              <Text style={styles.closeButtonText}>×</Text>
-            </Pressable>
-            <View style={styles.headerCopy}>
-              <Text style={styles.headerLabel}>{step === 1
-                ? t('practiceSession.stepNativeLanguage')
-                : step === 2
-                  ? t('practiceSession.stepEnglish')
-                  : step === 3
-                    ? t('practiceSession.stepFade')
-                    : t('practiceSession.stepBlind')}</Text>
-              <Text style={styles.headerTitle}>{practice.title}</Text>
-            </View>
-            <View style={styles.headerSpacer} />
-          </View>
-        </View>
-
-        <ScrollView
-          contentContainerStyle={[
-            styles.body,
-            {
-              paddingHorizontal: metrics.pageHorizontalPadding,
-              maxWidth: metrics.contentMaxWidth,
-              alignSelf: 'center',
-              width: '100%',
-            },
-          ]}
-        >
-          <StepDots active={step} count={4} accent={colors.accentPractice} />
-
-          <View style={styles.heroBlock}>
-            <Text style={styles.heroTitle}>
-              {step === 1
-                ? t('practiceSession.previewTitle')
-                : step === 2
-                  ? t('practiceSession.englishDrillTitle')
-                  : step === 3
-                    ? t('practiceSession.fadeTitle')
-                    : t('practiceSession.blindTitle')}
-            </Text>
-            <Text style={styles.heroBody}>
-              {step === 1
-                ? (
-                  nativeLanguage === 'english'
-                    ? t('practiceSession.previewFallbackBody')
-                    : t('practiceSession.previewBody')
-                )
-                : step === 2
-                  ? t('practiceSession.englishDrillBody')
-                  : step === 3
-                    ? t('practiceSession.fadeBody')
-                    : t('practiceSession.blindBody')}
-            </Text>
-          </View>
-
-          {challengeWords.length > 0 ? (
-            <View style={styles.challengeSection}>
-              <Text style={styles.challengeTitle}>{t('practiceSession.challengeWordsTitle')}</Text>
-              <ChallengeWordPills words={challengeWords} tone="practice" />
-            </View>
-          ) : null}
-
-          {step === 1 ? renderTranscriptCard('translation') : null}
-          {step === 2 ? renderTranscriptCard('sentence') : null}
-          {step === 3 ? renderTranscriptCard('fade') : null}
-
-          {step === 2 ? (
-            <View style={styles.progressBlock}>
-              <Text style={styles.progressLabel}>
-                {t('practiceSession.sentenceProgress', {
-                  current: sentenceIndex + 1,
-                  total: enrichedLines.length,
-                })}
-              </Text>
-              <ProgressBar
-                progress={(sentenceIndex + 1) / Math.max(1, enrichedLines.length)}
-                onSeek={() => {}}
-              />
-            </View>
-          ) : null}
+              }}
+            />
+          </GlassCard>
 
           {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
-          {step === 1 ? (
-            <View style={styles.actions}>
-              <ActionButton
-                label={isPlaying ? t('common.pause') : t('common.play')}
-                onPress={() => {
-                  if (isPlaying) {
-                    playbackRequestRef.current += 1;
-                    void unloadSound();
-                    return;
-                  }
-                  void playText(practice.text, {
-                    onFinish: () => setHasPlayedStep1(true),
-                  });
-                }}
-                variant="primary"
+          <View style={styles.actionRow}>
+            <ActionButton
+              label={isLoading ? t('feed.preparingPlayback') : isPlaying ? t('common.pause') : t('common.play')}
+              onPress={() => {
+                if (isPlaying) {
+                  void pausePlayback();
+                  return;
+                }
+                void playText(practice.text, {
+                  onFinish: () => setHasPlayedStep3(true),
+                });
+              }}
+              loading={isLoading}
+              style={styles.primaryAction}
+            />
+            <ActionButton
+              label={t('common.continue')}
+              onPress={() => setStep(4)}
+              variant="secondary"
+              disabled={!hasPlayedStep3}
+              style={styles.secondaryAction}
+            />
+          </View>
+        </>
+      ) : null}
+
+      {step === 4 && !hasPlayedStep4 ? (
+        <>
+          <GlassCard style={styles.blindCard}>
+            <Pressable
+              onPress={() => {
+                if (isPlaying) {
+                  void pausePlayback();
+                  return;
+                }
+                void playText(practice.text, {
+                  onFinish: () => setHasPlayedStep4(true),
+                });
+              }}
+              style={styles.blindButton}
+            >
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.blindPulseRing,
+                  {
+                    opacity: blindPulse.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.18, 0.38],
+                    }),
+                    transform: [
+                      {
+                        scale: blindPulse.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [1, 1.08],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
               />
-              <ActionButton
-                label={t('common.continue')}
-                onPress={() => {
-                  triggerUiFeedback('primary');
-                  setStep(2);
-                }}
-                variant="secondary"
-                disabled={!hasPlayedStep1 && !isLoading}
-              />
-            </View>
+              <View style={styles.blindOrb}>
+                <View style={styles.blindBars}>
+                  {[24, 44, 30, 56, 18].map((height, index) => (
+                    <View
+                      key={`blind-${index}`}
+                      style={[
+                        styles.blindBar,
+                        {
+                          height,
+                          opacity: isPlaying ? 0.98 : 0.58 + ((index % 2) * 0.14),
+                        },
+                      ]}
+                    />
+                  ))}
+                </View>
+                <View style={styles.blindIconBadge}>
+                  <Ionicons
+                    name={isPlaying ? 'pause' : 'play'}
+                    size={28}
+                    color={colors.textOnAccent}
+                  />
+                </View>
+              </View>
+            </Pressable>
+            <Text style={styles.blindCaption}>{t('practiceSession.blindBody')}</Text>
+          </GlassCard>
+
+          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
+          <View style={styles.actionRow}>
+            <ActionButton
+              label={isLoading ? t('feed.preparingPlayback') : isPlaying ? t('common.pause') : t('common.play')}
+              onPress={() => {
+                if (isPlaying) {
+                  void pausePlayback();
+                  return;
+                }
+                void playText(practice.text, {
+                  onFinish: () => setHasPlayedStep4(true),
+                });
+              }}
+              loading={isLoading}
+              style={styles.primaryAction}
+            />
+          </View>
+        </>
+      ) : null}
+
+      {step === 4 && hasPlayedStep4 ? (
+        <>
+          {mcq ? (
+            <GlassCard style={styles.quizCard}>
+              <PracticeCardHeader label={t('practiceSession.afterListenQuiz')} />
+              <Text style={styles.quizQuestion}>{mcq.q}</Text>
+              <View style={styles.quizOptions}>
+                {mcq.options.map((option, index) => {
+                  const selected = quizSelection === index;
+                  const isCorrect = quizAnswered && index === mcq.correct;
+                  const isWrong = quizAnswered && selected && !isCorrect;
+                  return (
+                    <Pressable
+                      key={`mcq-${index}`}
+                      disabled={quizAnswered}
+                      onPress={() => {
+                        if (quizAnswered) return;
+                        triggerUiFeedback(index === mcq.correct ? 'correct' : 'error');
+                        setQuizSelection(index);
+                        setQuizAnswered(true);
+                      }}
+                      style={[
+                        styles.quizOption,
+                        selected && styles.quizOptionSelected,
+                        isCorrect && styles.quizOptionCorrect,
+                        isWrong && styles.quizOptionWrong,
+                      ]}
+                    >
+                      <Text style={styles.quizOptionText}>{option}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {quizAnswered ? (
+                <Text style={styles.quizExplanation}>{mcq.explanation}</Text>
+              ) : null}
+            </GlassCard>
           ) : null}
 
-          {step === 2 && currentSentence ? (
-            <View style={styles.actionsColumn}>
-              <ActionButton
-                label={t('common.replay')}
-                onPress={() => {
-                  void playText(currentSentence.en);
-                }}
-                variant="secondary"
-              />
-              <View style={styles.dualRow}>
+          {isReviewReady ? (
+            <>
+              <View style={styles.reviewStatsRow}>
+                <GlassCard style={styles.statCard}>
+                  <StatBlock
+                    value={lookedWords.length}
+                    label={t('practiceSession.summaryWords')}
+                  />
+                </GlassCard>
+                <GlassCard style={styles.statCard}>
+                  <StatBlock
+                    value={hardSentences.length}
+                    label={t('practiceSession.summaryHard')}
+                    accent="#F59E0B"
+                  />
+                </GlassCard>
+              </View>
+
+              <GlassCard style={styles.reviewCard}>
+                <PracticeCardHeader label={t('practiceSession.summaryTitle')} />
+                <View style={styles.reviewTranscript}>
+                  {enrichedLines.map((line, index) => (
+                    <View
+                      key={`review-${index}`}
+                      style={[
+                        styles.reviewLine,
+                        hardSentences.includes(index) && styles.reviewLineHard,
+                      ]}
+                    >
+                      <Text style={styles.reviewLineEn}>{line.en}</Text>
+                      <Text style={styles.reviewLineZh}>{line.zh}</Text>
+                      {hardSentences.includes(index) ? (
+                        <Text style={styles.reviewLineHint}>{t('practiceSession.hard')}</Text>
+                      ) : null}
+                    </View>
+                  ))}
+                </View>
+              </GlassCard>
+
+              <View style={styles.actionRow}>
                 <ActionButton
-                  label={t('practiceSession.easy')}
-                  onPress={() => handleSentenceFeedback('easy')}
-                  variant="secondary"
-                  style={styles.dualButton}
+                  label={t('practiceSession.finishPractice')}
+                  onPress={() => {
+                    finishPractice();
+                    handleDismiss();
+                  }}
+                  style={styles.primaryAction}
                 />
                 <ActionButton
-                  label={t('practiceSession.hard')}
-                  onPress={() => handleSentenceFeedback('hard')}
-                  variant="primary"
-                  style={styles.dualButton}
+                  label={t('practiceSession.practiceAnother')}
+                  onPress={() => {
+                    finishPractice();
+                    onPracticeAgain();
+                  }}
+                  variant="secondary"
+                  style={styles.secondaryAction}
                 />
               </View>
-            </View>
-          ) : null}
 
-          {step === 3 ? (
-            <View style={styles.actions}>
               <ActionButton
-                label={isPlaying ? t('common.pause') : t('common.play')}
+                label={t('practiceSession.backToFeed')}
                 onPress={() => {
-                  if (isPlaying) {
-                    playbackRequestRef.current += 1;
-                    void unloadSound();
-                    return;
-                  }
-                  void playText(practice.text, {
-                    onFinish: () => setHasPlayedStep3(true),
-                  });
+                  finishPractice();
+                  onReturnFeed();
                 }}
-                variant="primary"
-              />
-              <ActionButton
-                label={t('common.continue')}
-                onPress={() => setStep(4)}
                 variant="secondary"
-                disabled={!hasPlayedStep3 && !isLoading}
               />
-            </View>
+            </>
           ) : null}
-
-          {step === 4 ? (
-            <View style={styles.actionsColumn}>
-              {!hasPlayedStep4 ? (
-                <ActionButton
-                  label={isPlaying ? t('common.pause') : t('common.play')}
-                  onPress={() => {
-                    if (isPlaying) {
-                      playbackRequestRef.current += 1;
-                      void unloadSound();
-                      return;
-                    }
-                    void playText(practice.text, {
-                      onFinish: () => setHasPlayedStep4(true),
-                    });
-                  }}
-                  variant="primary"
-                />
-              ) : null}
-
-              {canShowQuiz && practice.mcq ? (
-                <GlassCard style={styles.quizCard}>
-                  <Text style={styles.quizLabel}>{t('practiceSession.afterListenQuiz')}</Text>
-                  <Text style={styles.quizQuestion}>{practice.mcq.q}</Text>
-                  <View style={styles.quizOptions}>
-                    {practice.mcq.options.map((option, index) => {
-                      const selected = quizSelection === index;
-                      const isCorrect = quizAnswered && index === practice.mcq?.correct;
-                      const isWrong = quizAnswered && selected && !isCorrect;
-                      return (
-                        <Pressable
-                          key={`mcq-${index}`}
-                          disabled={quizAnswered}
-                          onPress={() => {
-                            if (!practice.mcq || quizAnswered) return;
-                            setQuizSelection(index);
-                            setQuizAnswered(true);
-                          }}
-                          style={[
-                            styles.quizOption,
-                            selected && styles.quizOptionSelected,
-                            isCorrect && styles.quizOptionCorrect,
-                            isWrong && styles.quizOptionWrong,
-                          ]}
-                        >
-                          <Text style={styles.quizOptionText}>{option}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  {quizAnswered ? (
-                    <Text style={styles.quizExplanation}>{practice.mcq.explanation}</Text>
-                  ) : null}
-                </GlassCard>
-              ) : null}
-
-              {canShowReview ? (
-                <>
-                  {renderTranscriptCard('review')}
-                  <GlassCard style={styles.reviewSummaryCard}>
-                    <Text style={styles.reviewSummaryTitle}>{t('practiceSession.summaryTitle')}</Text>
-                    <View style={styles.reviewStats}>
-                      <Text style={styles.reviewStatText}>
-                        {lookedWords.length} · {t('practiceSession.summaryWords')}
-                      </Text>
-                      <Text style={styles.reviewStatText}>
-                        {hardSentences.length} · {t('practiceSession.summaryHard')}
-                      </Text>
-                    </View>
-                  </GlassCard>
-                  <View style={styles.actionsColumn}>
-                    <ActionButton
-                      label={t('practiceSession.finishPractice')}
-                      onPress={() => {
-                        finishPractice();
-                        handleDismiss();
-                      }}
-                      variant="primary"
-                    />
-                    <View style={styles.dualRow}>
-                      <ActionButton
-                        label={t('practiceSession.practiceAnother')}
-                        onPress={() => {
-                          finishPractice();
-                          onPracticeAgain();
-                        }}
-                        variant="secondary"
-                        style={styles.dualButton}
-                      />
-                      <ActionButton
-                        label={t('practiceSession.backToFeed')}
-                        onPress={() => {
-                          finishPractice();
-                          onReturnFeed();
-                        }}
-                        variant="secondary"
-                        style={styles.dualButton}
-                      />
-                    </View>
-                  </View>
-                </>
-              ) : null}
-            </View>
-          ) : null}
-        </ScrollView>
-
-        {popup ? (
-          <WordPopup
-            word={popup.word}
-            contextEn={popup.contextEn}
-            contextZh={popup.contextZh}
-            isSaved={vocabWords.includes(popup.word.word.toLowerCase())}
-            isKnown={knownWords.includes(popup.word.word.toLowerCase())}
-            onSave={() => {
-              onSaveVocab({
-                word: popup.word.word.toLowerCase(),
-                cefr: popup.word.cefr,
-                context: popup.contextEn,
-                contextZh: popup.contextZh,
-                contentKey: practice.contentKey,
-                lineIndex: popup.lineIndex,
-                clipTitle: practice.title,
-                tag: practice.tag,
-                sourceType: 'practice',
-                practiced: true,
-              });
-            }}
-            onMarkKnown={() => onMarkKnown(popup.word.word.toLowerCase())}
-            onDismiss={() => setPopup(null)}
-          />
-        ) : null}
-      </SafeAreaView>
-    </Modal>
+        </>
+      ) : null}
+    </PracticeStudioShell>
   );
 }
 
 function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
   return StyleSheet.create({
-    safeArea: {
-      flex: 1,
-      backgroundColor: colors.bgApp,
-    },
-    header: {
-      paddingBottom: spacing.sm,
-      zIndex: 2,
-    },
-    headerInner: {
-      width: '100%',
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+    sourceCard: {
       gap: spacing.md,
-      alignSelf: 'center',
+      backgroundColor: 'rgba(168,85,247,0.10)',
+      borderColor: 'rgba(168,85,247,0.22)',
     },
-    closeButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.bgSurface2,
-      borderWidth: 1,
-      borderColor: colors.strokeStrong,
-    },
-    closeButtonText: {
-      color: colors.textPrimary,
-      fontSize: 28,
-      lineHeight: 30,
-      fontWeight: '500',
-    },
-    headerCopy: {
-      flex: 1,
-      alignItems: 'center',
-      gap: 4,
-    },
-    headerLabel: {
-      color: colors.textSecondary,
-      fontSize: typography.caption,
-      fontWeight: '700',
-      textTransform: 'uppercase',
-      letterSpacing: 0.8,
-    },
-    headerTitle: {
+    sourceTitle: {
       color: colors.textPrimary,
       fontSize: typography.title,
       fontWeight: '700',
-      textAlign: 'center',
     },
-    headerSpacer: {
-      width: 44,
-      height: 44,
-    },
-    body: {
-      paddingBottom: spacing.xxl,
-      gap: spacing.lg,
-    },
-    heroBlock: {
-      gap: spacing.xs,
-    },
-    heroTitle: {
-      color: colors.textPrimary,
-      fontSize: typography.hero,
-      fontWeight: '800',
-      textAlign: 'center',
-    },
-    heroBody: {
+    sourceMeta: {
       color: colors.textSecondary,
-      fontSize: typography.body,
-      lineHeight: 22,
-      textAlign: 'center',
+      fontSize: typography.caption,
     },
-    challengeSection: {
+    challengeWrap: {
       gap: spacing.sm,
-    },
-    challengeTitle: {
-      color: colors.textSecondary,
-      fontSize: typography.caption,
-      fontWeight: '700',
-      textTransform: 'uppercase',
-      letterSpacing: 0.8,
-    },
-    transcriptCard: {
-      padding: 0,
-      overflow: 'hidden',
-    },
-    transcriptScroll: {
-      flex: 1,
-    },
-    transcriptScrollContent: {
-      padding: spacing.lg,
-      gap: spacing.md,
-    },
-    translationBlock: {
-      gap: spacing.xs,
-    },
-    translationLine: {
-      color: colors.textPrimary,
-      fontSize: typography.body,
-      lineHeight: 22,
-    },
-    translationSubline: {
-      color: colors.textSecondary,
-      fontSize: typography.caption,
-      lineHeight: 18,
-    },
-    sentenceBlock: {
-      padding: spacing.md,
-      borderRadius: radii.lg,
-      borderWidth: 1,
-      borderColor: colors.stroke,
-      backgroundColor: colors.bgSurface2,
-    },
-    sentenceBlockActive: {
-      borderColor: colors.accentPractice,
-      backgroundColor: colors.bgOverlay,
-    },
-    fadeBlock: {
-      gap: spacing.xs,
-    },
-    fadeLine: {
-      color: colors.textPrimary,
-      fontSize: typography.body,
-      lineHeight: 24,
-    },
-    fadeWordVisible: {
-      color: colors.textPrimary,
-    },
-    fadeWordTarget: {
-      color: colors.accentPractice,
-      fontWeight: '700',
-    },
-    fadeWordMasked: {
-      color: colors.textTertiary,
-    },
-    fadeZh: {
-      color: colors.textSecondary,
-      fontSize: typography.caption,
-      lineHeight: 18,
-    },
-    reviewBlock: {
       paddingBottom: spacing.sm,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.stroke,
     },
-    progressBlock: {
+    meaningCard: {
       gap: spacing.sm,
+      backgroundColor: colors.bgSurface1,
     },
-    progressLabel: {
-      color: colors.textSecondary,
-      fontSize: typography.caption,
-      fontWeight: '700',
+    nativeTranscriptLine: {
+      paddingVertical: spacing.xs,
+      alignItems: 'center',
+    },
+    nativeTranscriptLineActive: {
+      opacity: 1,
+    },
+    nativeTranscriptText: {
+      color: colors.textPrimary,
+      fontSize: typography.body,
+      lineHeight: 22,
       textAlign: 'center',
+      fontWeight: '600',
     },
-    errorText: {
-      color: colors.accentError,
-      fontSize: typography.caption,
-      textAlign: 'center',
-    },
-    actions: {
+    actionRow: {
       flexDirection: 'row',
       gap: spacing.md,
     },
-    actionsColumn: {
+    primaryAction: {
+      flex: 1,
+    },
+    secondaryAction: {
+      minWidth: 108,
+    },
+    sentenceCard: {
+      gap: spacing.md,
+      backgroundColor: 'rgba(168,85,247,0.10)',
+      borderColor: 'rgba(168,85,247,0.22)',
+    },
+    sentenceHelper: {
+      color: colors.textTertiary,
+      fontSize: typography.caption,
+      lineHeight: 18,
+      textAlign: 'center',
+    },
+    progressCard: {
+      gap: spacing.sm,
+      backgroundColor: colors.bgSurface1,
+    },
+    step2Controls: {
       gap: spacing.md,
     },
     dualRow: {
       flexDirection: 'row',
       gap: spacing.md,
     },
-    dualButton: {
+    dualAction: {
       flex: 1,
+    },
+    fadeCard: {
+      gap: spacing.md,
+      backgroundColor: 'rgba(168,85,247,0.10)',
+      borderColor: 'rgba(168,85,247,0.22)',
+    },
+    fadeTranscriptCard: {
+      gap: spacing.md,
+      backgroundColor: colors.bgSurface1,
+    },
+    fadeLineBlock: {
+      gap: spacing.xs,
+      alignItems: 'center',
+    },
+    fadeTranscriptLine: {
+      color: colors.textPrimary,
+      fontSize: 18,
+      lineHeight: 28,
+      textAlign: 'center',
+    },
+    fadeTranscriptLineIdle: {
+      opacity: 0.92,
+    },
+    fadeSentence: {
+      color: colors.textPrimary,
+      fontSize: 24,
+      lineHeight: 34,
+      fontWeight: '700',
+      textAlign: 'center',
+    },
+    fadeToken: {
+      color: colors.textPrimary,
+    },
+    fadeTokenEmphasis: {
+      color: '#D8B4FE',
+    },
+    fadeTokenMasked: {
+      color: colors.textTertiary,
+    },
+    fadeHint: {
+      color: colors.textSecondary,
+      fontSize: typography.caption,
+      lineHeight: 18,
+      textAlign: 'center',
+    },
+    blindCard: {
+      gap: spacing.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 320,
+      backgroundColor: colors.bgSurface1,
+    },
+    blindButton: {
+      width: 188,
+      height: 188,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    blindPulseRing: {
+      position: 'absolute',
+      width: 184,
+      height: 184,
+      borderRadius: 92,
+      backgroundColor: 'rgba(168,85,247,0.16)',
+    },
+    blindOrb: {
+      width: 168,
+      height: 168,
+      borderRadius: 84,
+      backgroundColor: 'rgba(168,85,247,0.14)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: colors.accentPractice,
+      shadowOpacity: 0.22,
+      shadowRadius: 24,
+      shadowOffset: { width: 0, height: 6 },
+    },
+    blindBars: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    blindIconBadge: {
+      position: 'absolute',
+      width: 58,
+      height: 58,
+      borderRadius: 29,
+      backgroundColor: colors.accentPractice,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    blindBar: {
+      width: 6,
+      borderRadius: radii.pill,
+      backgroundColor: '#FFFFFF',
+    },
+    blindCaption: {
+      color: colors.textSecondary,
+      fontSize: typography.body,
+      textAlign: 'center',
     },
     quizCard: {
       gap: spacing.md,
-    },
-    quizLabel: {
-      color: colors.textSecondary,
-      fontSize: typography.caption,
-      fontWeight: '700',
-      textTransform: 'uppercase',
-      letterSpacing: 0.8,
+      backgroundColor: colors.bgSurface1,
     },
     quizQuestion: {
       color: colors.textPrimary,
-      fontSize: typography.body,
+      fontSize: typography.bodyLg,
       lineHeight: 22,
       fontWeight: '600',
     },
@@ -967,38 +1198,72 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       borderColor: colors.accentPractice,
     },
     quizOptionCorrect: {
-      borderColor: colors.accentSuccess,
-      backgroundColor: colors.bgOverlay,
+      borderColor: 'rgba(34,197,94,0.32)',
+      backgroundColor: 'rgba(34,197,94,0.16)',
     },
     quizOptionWrong: {
-      borderColor: colors.accentError,
-      backgroundColor: colors.bgOverlay,
+      borderColor: 'rgba(239,68,68,0.32)',
+      backgroundColor: 'rgba(239,68,68,0.16)',
     },
     quizOptionText: {
       color: colors.textPrimary,
       fontSize: typography.body,
-      lineHeight: 22,
+      lineHeight: 20,
+      fontWeight: '500',
     },
     quizExplanation: {
       color: colors.textSecondary,
       fontSize: typography.caption,
       lineHeight: 18,
     },
-    reviewSummaryCard: {
+    reviewStatsRow: {
+      flexDirection: 'row',
+      gap: spacing.md,
+    },
+    statCard: {
+      flex: 1,
+      backgroundColor: colors.bgSurface1,
+    },
+    reviewCard: {
+      gap: spacing.md,
+      backgroundColor: colors.bgSurface1,
+    },
+    reviewTranscript: {
       gap: spacing.sm,
     },
-    reviewSummaryTitle: {
+    reviewLine: {
+      padding: spacing.md,
+      borderRadius: radii.lg,
+      backgroundColor: colors.bgSurface2,
+      gap: 6,
+    },
+    reviewLineHard: {
+      borderWidth: 1,
+      borderColor: 'rgba(245,158,11,0.32)',
+      backgroundColor: 'rgba(245,158,11,0.12)',
+    },
+    reviewLineEn: {
       color: colors.textPrimary,
-      fontSize: typography.title,
-      fontWeight: '700',
+      fontSize: typography.body,
+      lineHeight: 21,
+      fontWeight: '600',
     },
-    reviewStats: {
-      gap: spacing.xs,
-    },
-    reviewStatText: {
+    reviewLineZh: {
       color: colors.textSecondary,
       fontSize: typography.caption,
       lineHeight: 18,
+    },
+    reviewLineHint: {
+      color: '#FCD34D',
+      fontSize: typography.micro,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+    },
+    errorText: {
+      color: colors.accentError,
+      fontSize: typography.caption,
+      textAlign: 'center',
     },
   });
 }

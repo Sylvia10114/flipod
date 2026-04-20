@@ -7,7 +7,7 @@ import {
   ScreenSurface,
 } from '../components/AppChrome';
 import { ChallengeWordPills } from '../components/ChallengeWordPills';
-import { spacing, typography } from '../design';
+import { radii, spacing, typography } from '../design';
 import {
   buildGeneratedPracticeReason,
   PRACTICE_MAX_PENDING,
@@ -20,7 +20,6 @@ import { useAppTheme } from '../theme';
 import type {
   GeneratedPractice,
   GeneratedPracticeState,
-  Level,
   Profile,
   VocabEntry,
 } from '../types';
@@ -64,6 +63,27 @@ function createProgressLabel(count: number, t: (key: string, params?: Record<str
   return t('practice.unlockProgress', { count, total: PRACTICE_UNLOCK_COUNT });
 }
 
+function buildPracticeMeta(
+  practice: GeneratedPractice,
+  t: (key: string, params?: Record<string, string | number>) => string
+) {
+  const pieces = [
+    practice.tag ? getLocalizedTopicLabel(practice.tag, t) : getLocalizedTopicLabel('story', t),
+    practice.cefr || '',
+    practiceDurationLabel(practice),
+  ].filter(Boolean);
+  return pieces.join(' · ');
+}
+
+function buildPracticeReasonText(
+  practice: GeneratedPractice,
+  t: (key: string, params?: Record<string, string | number>) => string
+) {
+  return t('practice.generatedReason', {
+    words: buildGeneratedPracticeReason((practice.target_words || []).map(word => ({ word } as VocabEntry))),
+  });
+}
+
 export function PracticeScreen({
   practiceState,
   pendingPractices,
@@ -87,6 +107,9 @@ export function PracticeScreen({
   const introBody = profile.nativeLanguage === 'english'
     ? t('practice.generatedIntroBody')
     : t('practice.generatedIntroBodyLocalized');
+  const featuredPractice = pendingPractices[0] || null;
+  const queuePractices = pendingPractices.slice(1);
+  const completedPreview = completedPractices.slice(-3).reverse();
 
   return (
     <ScreenSurface edges={['left', 'right', 'bottom']}>
@@ -132,7 +155,7 @@ export function PracticeScreen({
           </GlassCard>
         ) : null}
 
-        {isUnlocked && pendingPractices.length === 0 && practiceState.generating ? (
+        {isUnlocked && !featuredPractice && practiceState.generating ? (
           <GlassCard tone="practice" style={styles.loadingCard}>
             <ActivityIndicator size="small" color={colors.accentPractice} />
             <Text style={styles.loadingTitle}>{t('practice.generatingTitle')}</Text>
@@ -140,81 +163,126 @@ export function PracticeScreen({
           </GlassCard>
         ) : null}
 
-        {isUnlocked ? (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{t('practice.pendingTitle')}</Text>
+        {isUnlocked && featuredPractice ? (
+          <GlassCard tone="practice" style={styles.featuredCard}>
+            <View style={styles.featuredTopRow}>
+              <View style={styles.featuredBadge}>
+                <Text style={styles.featuredBadgeText}>{t('practice.pendingTitle')}</Text>
+              </View>
+              <Text style={styles.featuredCount}>{createProgressLabel(vocabCount, t)}</Text>
+            </View>
+
+            <Text style={styles.featuredTitle}>{featuredPractice.title}</Text>
+            <Text style={styles.featuredMeta}>{buildPracticeMeta(featuredPractice, t)}</Text>
+
+            <Text style={styles.featuredReason}>{buildPracticeReasonText(featuredPractice, t)}</Text>
+
+            {toChallengeWords(featuredPractice).length > 0 ? (
+              <View style={styles.challengeWrap}>
+                <Text style={styles.challengeLabel}>{t('practiceSession.challengeWordsTitle')}</Text>
+                <ChallengeWordPills words={toChallengeWords(featuredPractice)} tone="practice" />
+              </View>
+            ) : null}
+
+            {practiceState.generating ? (
+              <View style={styles.generatingRow}>
+                <ActivityIndicator size="small" color={colors.accentPractice} />
+                <Text style={styles.generatingText}>{t('practice.generatingBody')}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.featuredActions}>
+              <ActionButton
+                label={t('practice.startGeneratedPractice')}
+                onPress={() => onStartPractice(featuredPractice.id)}
+                style={styles.featuredPrimaryAction}
+              />
               {canGenerateMore ? (
                 <ActionButton
                   label={t('practice.generateMore')}
                   onPress={onGenerateMore}
                   variant="secondary"
-                  style={styles.generateButton}
+                  style={styles.featuredSecondaryAction}
                 />
               ) : null}
             </View>
+          </GlassCard>
+        ) : null}
 
-            {pendingPractices.length > 0 ? (
-              pendingPractices.map(practice => {
-                const challengeWords = toChallengeWords(practice);
-                return (
-                  <GlassCard key={practice.id} tone="practice" style={styles.practiceCard}>
-                    <View style={styles.practiceHead}>
-                      <View style={styles.practiceCopy}>
-                        <Text style={styles.cardTitle}>{practice.title}</Text>
-                        <Text style={styles.cardMeta}>
-                          {practice.tag ? getLocalizedTopicLabel(practice.tag, t) : getLocalizedTopicLabel('story', t)}
-                          {practice.cefr ? ` · ${practice.cefr}` : ''}
-                          {practiceDurationLabel(practice) ? ` · ${practiceDurationLabel(practice)}` : ''}
-                        </Text>
-                      </View>
+        {isUnlocked && !featuredPractice && !practiceState.generating ? (
+          <EmptyState
+            title={t('practice.pendingEmptyTitle')}
+            body={
+              practiceState.lastGenerationError?.msg
+                ? `${t('practice.pendingEmptyBody')} ${practiceState.lastGenerationError.msg}`
+                : t('practice.pendingEmptyBody')
+            }
+          />
+        ) : null}
+
+        {isUnlocked && queuePractices.length > 0 ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{t('practice.pendingTitle')}</Text>
+              <Text style={styles.sectionMeta}>{queuePractices.length}</Text>
+            </View>
+
+            {queuePractices.map(practice => {
+              const challengeWords = toChallengeWords(practice);
+              return (
+                <GlassCard key={practice.id} style={styles.queueCard}>
+                  <View style={styles.queueHead}>
+                    <View style={styles.queueCopy}>
+                      <Text style={styles.queueTitle}>{practice.title}</Text>
+                      <Text style={styles.queueMeta}>{buildPracticeMeta(practice, t)}</Text>
                     </View>
+                  </View>
 
-                    {challengeWords.length > 0 ? (
-                      <View style={styles.challengeWrap}>
-                        <Text style={styles.challengeLabel}>{t('practiceSession.challengeWordsTitle')}</Text>
-                        <ChallengeWordPills words={challengeWords} tone="practice" />
-                      </View>
-                    ) : null}
+                  <Text style={styles.queueReason}>{buildPracticeReasonText(practice, t)}</Text>
 
-                    <Text style={styles.reason}>
-                      {t('practice.generatedReason', { words: buildGeneratedPracticeReason(
-                        (practice.target_words || []).map(word => ({ word } as VocabEntry))
-                      ) })}
-                    </Text>
+                  {challengeWords.length > 0 ? (
+                    <View style={styles.queuePills}>
+                      <ChallengeWordPills words={challengeWords.slice(0, 2)} tone="practice" />
+                    </View>
+                  ) : null}
 
-                    <ActionButton
-                      label={t('practice.startGeneratedPractice')}
-                      onPress={() => onStartPractice(practice.id)}
-                    />
-                  </GlassCard>
-                );
-              })
-            ) : (
-              <EmptyState
-                title={t('practice.pendingEmptyTitle')}
-                body={
-                  practiceState.lastGenerationError?.msg
-                    ? `${t('practice.pendingEmptyBody')} ${practiceState.lastGenerationError.msg}`
-                    : t('practice.pendingEmptyBody')
-                }
-              />
-            )}
+                  <ActionButton
+                    label={t('practice.startGeneratedPractice')}
+                    onPress={() => onStartPractice(practice.id)}
+                    variant="secondary"
+                  />
+                </GlassCard>
+              );
+            })}
           </View>
         ) : null}
 
-        {completedPractices.length > 0 ? (
+        {completedPreview.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('practice.completedTitle')}</Text>
-            {completedPractices.slice(-3).reverse().map(practice => (
-              <GlassCard key={`completed-${practice.id}`} style={styles.completedCard}>
-                <Text style={styles.cardTitle}>{practice.title}</Text>
-                <Text style={styles.cardMeta}>
-                  {practice.tag ? getLocalizedTopicLabel(practice.tag, t) : ''}
-                  {practice.completedAt ? ` · ${new Date(practice.completedAt).toLocaleDateString()}` : ''}
-                </Text>
-              </GlassCard>
-            ))}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{t('practice.completedTitle')}</Text>
+              <Text style={styles.sectionMeta}>{completedPreview.length}</Text>
+            </View>
+
+            <GlassCard style={styles.completedPanel}>
+              {completedPreview.map((practice, index) => (
+                <View
+                  key={`completed-${practice.id}`}
+                  style={[
+                    styles.completedRow,
+                    index < completedPreview.length - 1 && styles.completedRowBorder,
+                  ]}
+                >
+                  <View style={styles.completedCopy}>
+                    <Text style={styles.completedTitle}>{practice.title}</Text>
+                    <Text style={styles.completedMeta}>
+                      {practice.tag ? getLocalizedTopicLabel(practice.tag, t) : ''}
+                      {practice.completedAt ? ` · ${new Date(practice.completedAt).toLocaleDateString()}` : ''}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </GlassCard>
           </View>
         ) : null}
       </ScrollView>
@@ -298,6 +366,84 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: typography.body,
       lineHeight: 22,
     },
+    featuredCard: {
+      gap: spacing.md,
+      backgroundColor: 'rgba(168,85,247,0.12)',
+      borderColor: 'rgba(168,85,247,0.22)',
+    },
+    featuredTopRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: spacing.md,
+    },
+    featuredBadge: {
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: radii.pill,
+      backgroundColor: 'rgba(168,85,247,0.16)',
+      borderWidth: 1,
+      borderColor: 'rgba(216,180,254,0.24)',
+    },
+    featuredBadgeText: {
+      color: '#E9D5FF',
+      fontSize: typography.micro,
+      fontWeight: '700',
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
+    },
+    featuredCount: {
+      color: colors.textSecondary,
+      fontSize: typography.caption,
+      fontWeight: '600',
+    },
+    featuredTitle: {
+      color: colors.textPrimary,
+      fontSize: 24,
+      lineHeight: 30,
+      fontWeight: '800',
+    },
+    featuredMeta: {
+      color: colors.textSecondary,
+      fontSize: typography.caption,
+    },
+    featuredReason: {
+      color: colors.textPrimary,
+      fontSize: typography.body,
+      lineHeight: 21,
+    },
+    challengeWrap: {
+      gap: spacing.sm,
+    },
+    challengeLabel: {
+      color: colors.textSecondary,
+      fontSize: typography.caption,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+    },
+    generatingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingVertical: spacing.xs,
+    },
+    generatingText: {
+      color: colors.textSecondary,
+      fontSize: typography.caption,
+      flex: 1,
+    },
+    featuredActions: {
+      flexDirection: 'row',
+      gap: spacing.md,
+      alignItems: 'center',
+    },
+    featuredPrimaryAction: {
+      flex: 1,
+    },
+    featuredSecondaryAction: {
+      minWidth: 132,
+    },
     section: {
       gap: spacing.md,
     },
@@ -312,48 +458,65 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: typography.title,
       fontWeight: '700',
     },
-    generateButton: {
-      minWidth: 124,
+    sectionMeta: {
+      color: colors.textSecondary,
+      fontSize: typography.caption,
+      fontWeight: '600',
     },
-    practiceCard: {
+    queueCard: {
       gap: spacing.md,
+      backgroundColor: colors.bgSurface1,
     },
-    practiceHead: {
+    queueHead: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'flex-start',
       gap: spacing.md,
     },
-    practiceCopy: {
+    queueCopy: {
       flex: 1,
       gap: spacing.xs,
     },
-    cardTitle: {
+    queueTitle: {
       color: colors.textPrimary,
       fontSize: typography.title,
       fontWeight: '700',
     },
-    cardMeta: {
+    queueMeta: {
       color: colors.textSecondary,
       fontSize: typography.caption,
     },
-    challengeWrap: {
-      gap: spacing.sm,
-    },
-    challengeLabel: {
-      color: colors.textSecondary,
-      fontSize: typography.caption,
-      fontWeight: '700',
-      textTransform: 'uppercase',
-      letterSpacing: 0.8,
-    },
-    reason: {
+    queueReason: {
       color: colors.textSecondary,
       fontSize: typography.body,
-      lineHeight: 22,
+      lineHeight: 20,
     },
-    completedCard: {
+    queuePills: {
+      marginTop: -2,
+    },
+    completedPanel: {
+      paddingVertical: 4,
+      gap: 0,
+    },
+    completedRow: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+    },
+    completedRowBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: colors.stroke,
+    },
+    completedCopy: {
       gap: spacing.xs,
+    },
+    completedTitle: {
+      color: colors.textPrimary,
+      fontSize: typography.body,
+      fontWeight: '600',
+    },
+    completedMeta: {
+      color: colors.textSecondary,
+      fontSize: typography.caption,
     },
   });
 }

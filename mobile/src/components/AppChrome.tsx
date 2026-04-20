@@ -1,5 +1,5 @@
 import React, { type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { radii, spacing, typography } from '../design';
 import { useResponsiveLayout } from '../responsive';
@@ -98,6 +98,7 @@ type ActionButtonProps = {
   label: string;
   onPress?: () => void;
   disabled?: boolean;
+  loading?: boolean;
   variant?: 'primary' | 'secondary' | 'success' | 'danger';
   style?: StyleProp<ViewStyle>;
 };
@@ -106,6 +107,7 @@ export function ActionButton({
   label,
   onPress,
   disabled = false,
+  loading = false,
   variant = 'primary',
   style,
 }: ActionButtonProps) {
@@ -114,7 +116,7 @@ export function ActionButton({
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   return (
     <Pressable
-      disabled={disabled}
+      disabled={disabled || loading}
       onPress={onPress}
       hitSlop={6}
       style={({ pressed }) => [
@@ -123,7 +125,7 @@ export function ActionButton({
         variant === 'secondary' && styles.actionButtonSecondary,
         variant === 'success' && styles.actionButtonSuccess,
         variant === 'danger' && styles.actionButtonDanger,
-        pressed && !disabled && styles.actionButtonPressed,
+        pressed && !(disabled || loading) && styles.actionButtonPressed,
         pressed && variant === 'secondary' && styles.actionButtonSecondaryPressed,
         pressed && variant === 'success' && styles.actionButtonSuccessPressed,
         pressed && variant === 'danger' && styles.actionButtonDangerPressed,
@@ -131,15 +133,23 @@ export function ActionButton({
         style,
       ]}
     >
-      <Text
-        style={[
-          styles.actionButtonText,
-          variant === 'secondary' && styles.actionButtonTextSecondary,
-          disabled && styles.actionButtonTextDisabled,
-        ]}
-      >
-        {label}
-      </Text>
+      <View style={styles.actionButtonContent}>
+        {loading ? (
+          <ActivityIndicator
+            size="small"
+            color={variant === 'secondary' ? colors.textPrimary : colors.textOnAccent}
+          />
+        ) : null}
+        <Text
+          style={[
+            styles.actionButtonText,
+            variant === 'secondary' && styles.actionButtonTextSecondary,
+            disabled && styles.actionButtonTextDisabled,
+          ]}
+        >
+          {label}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -339,6 +349,12 @@ return StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.accentFeed,
+  },
+  actionButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
   },
   actionButtonSecondary: {
     backgroundColor: 'transparent',
