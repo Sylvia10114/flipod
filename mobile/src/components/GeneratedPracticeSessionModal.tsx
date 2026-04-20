@@ -8,7 +8,6 @@ import { ActionButton, GlassCard, StatBlock } from './AppChrome';
 import { ChallengeWordPills } from './ChallengeWordPills';
 import { PracticeCardHeader } from './generated-practice/PracticeCardHeader';
 import { PracticeInlineWordInspector } from './generated-practice/PracticeInlineWordInspector';
-import { PracticeSegmentMeter } from './generated-practice/PracticeSegmentMeter';
 import { PracticeStudioShell } from './generated-practice/PracticeStudioShell';
 import { PracticeTranscriptPanel } from './generated-practice/PracticeTranscriptPanel';
 import { WordLine } from './WordLine';
@@ -183,7 +182,6 @@ export function GeneratedPracticeSessionModal({
   const [positionMillis, setPositionMillis] = useState(0);
   const [durationMillis, setDurationMillis] = useState(0);
   const [hasPlayedStep1, setHasPlayedStep1] = useState(false);
-  const [hasPlayedStep2, setHasPlayedStep2] = useState(false);
   const [hasPlayedStep3, setHasPlayedStep3] = useState(false);
   const [hasPlayedStep4, setHasPlayedStep4] = useState(false);
   const [quizSelection, setQuizSelection] = useState<number | null>(null);
@@ -211,11 +209,6 @@ export function GeneratedPracticeSessionModal({
   const fadeTargetWords = useMemo(
     () => new Set((practice?.target_words || []).map(word => word.toLowerCase())),
     [practice?.target_words]
-  );
-  const lineProgress = enrichedLines.length > 0 ? (sentenceIndex + 1) / enrichedLines.length : 0;
-  const completedSentenceIndexes = useMemo(
-    () => Array.from({ length: sentenceIndex }, (_, index) => index),
-    [sentenceIndex]
   );
   const isReviewReady = step === 4 && hasPlayedStep4 && (!practice?.mcq || quizAnswered);
   const playbackSeconds = positionMillis / 1000;
@@ -404,7 +397,6 @@ export function GeneratedPracticeSessionModal({
     setQuizSelection(null);
     setQuizAnswered(false);
     setHasPlayedStep1(false);
-    setHasPlayedStep2(false);
     setHasPlayedStep3(false);
     setHasPlayedStep4(false);
     setPopup(null);
@@ -432,12 +424,8 @@ export function GeneratedPracticeSessionModal({
     step2AutoplayKeyRef.current = autoplayKey;
     void playText(practice.text, {
       fromStart: true,
-      onFinish: () => {
-        setHasPlayedStep2(true);
-        setSentenceIndex(Math.max(0, enrichedLines.length - 1));
-      },
     });
-  }, [enrichedLines.length, playText, practice, step, visible]);
+  }, [playText, practice, step, visible]);
 
   useEffect(() => {
     setPopup(null);
@@ -668,22 +656,6 @@ export function GeneratedPracticeSessionModal({
             />
           ) : null}
 
-          <GlassCard style={styles.progressCard}>
-            <PracticeCardHeader
-              label={t('practiceSession.sentenceProgress', {
-                current: sentenceIndex + 1,
-                total: enrichedLines.length,
-              })}
-              hint={`${sentenceIndex + 1}/${Math.max(1, enrichedLines.length)}`}
-            />
-            <PracticeSegmentMeter
-              total={enrichedLines.length}
-              activeIndex={sentenceIndex}
-              completedIndexes={completedSentenceIndexes}
-              caption={`${Math.round(lineProgress * 100)}%`}
-            />
-          </GlassCard>
-
           {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
           <View style={styles.step2Controls}>
@@ -693,10 +665,6 @@ export function GeneratedPracticeSessionModal({
                 onPress={() => {
                   void playText(practice.text, {
                     fromStart: true,
-                    onFinish: () => {
-                      setHasPlayedStep2(true);
-                      setSentenceIndex(Math.max(0, enrichedLines.length - 1));
-                    },
                   });
                 }}
                 variant="secondary"
@@ -710,34 +678,9 @@ export function GeneratedPracticeSessionModal({
                     void pausePlayback();
                     return;
                   }
-                  void playText(practice.text, {
-                    onFinish: () => {
-                      setHasPlayedStep2(true);
-                      setSentenceIndex(Math.max(0, enrichedLines.length - 1));
-                    },
-                  });
+                  void playText(practice.text);
                 }}
                 loading={isLoading}
-                style={styles.dualAction}
-              />
-            </View>
-            <View style={styles.dualRow}>
-              <ActionButton
-                label={t('practiceSession.easy')}
-                onPress={() => {
-                  const targetIndex = activePlaybackLineIndex >= 0 ? activePlaybackLineIndex : sentenceIndex;
-                  setHardSentences(prev => prev.filter(index => index !== targetIndex));
-                }}
-                variant="success"
-                style={styles.dualAction}
-              />
-              <ActionButton
-                label={t('practiceSession.hard')}
-                onPress={() => {
-                  const targetIndex = activePlaybackLineIndex >= 0 ? activePlaybackLineIndex : sentenceIndex;
-                  setHardSentences(prev => (prev.includes(targetIndex) ? prev : [...prev, targetIndex]));
-                }}
-                variant="danger"
                 style={styles.dualAction}
               />
             </View>
@@ -745,7 +688,6 @@ export function GeneratedPracticeSessionModal({
               label={t('common.continue')}
               onPress={() => setStep(3)}
               variant="secondary"
-              disabled={!hasPlayedStep2}
             />
           </View>
         </>
