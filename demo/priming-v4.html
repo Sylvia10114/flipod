@@ -1,0 +1,1011 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Flipod · Priming v4</title>
+<style>
+  :root{
+    --bg:#0C0C0E;
+    --text:#F0EEF2;
+    --text-mute:#B8B5C0;
+    --zh:#9A97A3;
+    --meta:#7A7885;
+    --hint:#4A4955;
+    --holdtip:#6A6875;
+    --accent:#8B9CF7;
+    --accent-soft:rgba(139,156,247,0.12);
+    --word-dim:rgba(255,255,255,0.22);
+    --word-bright:rgba(255,255,255,0.93);
+    --ctrl:rgba(255,255,255,0.55);
+    --ring-track:#1E2029;
+    --paused:#4A4955;
+    --prog-bg:rgba(255,255,255,0.12);
+    --mask:rgba(255,255,255,0.10);
+    --hair-from:rgba(42,42,51,0);
+    --hair-mid:rgba(42,42,51,0.9);
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:#060709;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",system-ui,sans-serif;
+    color:var(--text);
+    -webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent;
+    overflow:hidden;
+    touch-action:none;
+  }
+  button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+
+  .stage{
+    position:fixed;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    gap:56px;padding:24px;
+  }
+
+  /* ─── Phone frame ─── */
+  .phone-wrap{flex:0 0 auto}
+  .phone{
+    width:390px;height:844px;
+    position:relative;
+    background:var(--bg);
+    border-radius:44px;
+    overflow:hidden;
+    box-shadow:0 30px 80px rgba(0,0,0,0.55),0 0 0 1px #14161D;
+  }
+  .phone::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(ellipse 62% 62% at 50% 22%,
+      rgba(139,156,247,0.11) 0%,
+      rgba(139,156,247,0.03) 55%,
+      rgba(139,156,247,0) 100%);
+  }
+
+  /* ─── View switching ─── */
+  .view{position:absolute;inset:0;display:none}
+  .view.active{display:block}
+
+  /* ─── Top bar ─── */
+  .top-bar{
+    position:absolute;top:34px;left:0;right:0;height:24px;
+    display:flex;align-items:center;justify-content:flex-end;
+    padding:0 30px;z-index:4;
+  }
+  .gear-btn{
+    width:24px;height:24px;display:grid;place-items:center;
+    color:var(--meta);
+  }
+  .gear-btn svg{width:20px;height:20px;display:block}
+
+  /* ─── Priming view layers ─── */
+  .priming-content{
+    position:absolute;inset:0;
+    opacity:1;transition:opacity .28s ease,transform .28s ease;
+    transform:translateY(0);
+  }
+  .priming-content.enter-up{opacity:0;transform:translateY(28px)}
+  .priming-content.enter-down{opacity:0;transform:translateY(-28px)}
+
+  .meta{
+    position:absolute;top:95px;left:0;right:0;text-align:center;
+    font-size:11px;font-weight:400;letter-spacing:0.6px;color:var(--meta);
+    line-height:1;
+  }
+  .summary{
+    position:absolute;top:128px;left:0;right:0;text-align:center;
+    font-size:15px;font-weight:400;letter-spacing:0.1px;color:var(--text-mute);
+    line-height:1;
+    white-space:nowrap;
+    padding:0 24px;
+  }
+  .hairline{
+    position:absolute;top:175px;left:105px;width:180px;height:1px;
+    background:linear-gradient(90deg,var(--hair-from) 0%,var(--hair-mid) 50%,var(--hair-from) 100%);
+  }
+
+  /* Keywords block (visual hero) */
+  .keywords{
+    position:absolute;left:0;right:0;top:200px;bottom:205px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:50px;
+  }
+  .kw{text-align:center;line-height:1}
+  .kw .en{
+    font-size:44px;font-weight:600;letter-spacing:-0.6px;
+    color:var(--text);
+    line-height:1;
+  }
+  .kw .zh{
+    margin-top:13px;
+    font-size:14px;font-weight:400;letter-spacing:0.3px;
+    color:var(--zh);
+    line-height:1;
+  }
+  .keywords.dense{gap:22px}
+  .keywords.dense .kw .en{font-size:32px;letter-spacing:-0.4px}
+  .keywords.dense .kw .zh{margin-top:10px;font-size:13px}
+
+  /* Hint */
+  .hint{
+    position:absolute;top:670px;left:0;right:0;text-align:center;
+    font-size:11px;letter-spacing:0.5px;color:var(--hint);line-height:1;
+  }
+
+  /* Countdown ring */
+  .countdown-ring{
+    position:absolute;top:708px;left:50%;transform:translateX(-50%);
+    width:54px;height:54px;display:grid;place-items:center;
+    border-radius:50%;
+  }
+  .countdown-ring svg{
+    position:absolute;inset:0;width:54px;height:54px;transform:rotate(-90deg);
+    transform-origin:center;
+  }
+  .ring-track{fill:none;stroke:var(--ring-track);stroke-width:3}
+  .ring-progress{
+    fill:none;stroke:var(--accent);stroke-width:3;
+    stroke-linecap:round;
+    transition:stroke .2s ease;
+  }
+  .paused .ring-progress{stroke:var(--paused)}
+  .ring-num{
+    position:relative;z-index:1;
+    font-size:18px;font-weight:600;color:var(--text);
+    font-variant-numeric:tabular-nums;
+    line-height:1;
+  }
+
+  /* Hold tip */
+  .hold-tip{
+    position:absolute;top:780px;left:0;right:0;text-align:center;
+    font-size:11px;letter-spacing:0.5px;color:var(--holdtip);line-height:1;
+    transition:opacity .15s ease;
+  }
+
+  /* ─── Clip (player mock) view ─── */
+  .view-clip{background:var(--bg)}
+  .clip-top{
+    position:absolute;top:28px;left:20px;right:20px;height:28px;
+    display:flex;align-items:center;justify-content:space-between;z-index:5;
+  }
+  .clip-top .icon-btn{
+    width:28px;height:28px;display:grid;place-items:center;color:rgba(255,255,255,0.75);
+  }
+  .clip-top .icon-btn.hidden{visibility:hidden}
+  .clip-top .icon-btn svg{width:22px;height:22px;display:block}
+  .clip-header{
+    position:absolute;top:68px;left:22px;right:22px;
+  }
+  .p-title{
+    font-size:20px;font-weight:600;letter-spacing:-0.3px;
+    color:#fff;line-height:1.35;
+  }
+  .p-source{
+    margin-top:6px;text-align:center;
+    font-size:13px;letter-spacing:0.1px;color:rgba(255,255,255,0.45);
+    line-height:1.4;
+  }
+  .p-source .tag{color:var(--accent);font-weight:500}
+  /* Center caption with current-word highlight */
+  .p-caption-wrap{
+    position:absolute;left:0;right:0;top:54%;transform:translateY(-50%);
+    padding:0 26px;
+  }
+  .p-caption{
+    font-size:24px;font-weight:500;letter-spacing:-0.2px;
+    color:var(--word-bright);line-height:1.35;
+    text-align:left;
+  }
+  .p-caption .w-dim{color:var(--word-dim)}
+  .p-caption .w-active{color:var(--accent)}
+  .p-mask{
+    margin-top:22px;height:22px;
+    background:var(--mask);border-radius:6px;
+    width:72%;
+  }
+  /* Right floating actions */
+  .p-actions{
+    position:absolute;right:18px;top:62%;
+    display:flex;flex-direction:column;gap:24px;
+  }
+  .p-actions button{
+    width:32px;height:32px;display:grid;place-items:center;
+    color:rgba(255,255,255,0.55);
+  }
+  .p-actions button svg{width:22px;height:22px;display:block}
+  /* Progress */
+  .p-progress-wrap{
+    position:absolute;left:22px;right:22px;bottom:168px;
+  }
+  .p-progress{
+    position:relative;height:3px;border-radius:2px;background:var(--prog-bg);overflow:hidden;
+  }
+  .p-progress .bar{
+    position:absolute;left:0;top:0;bottom:0;width:22%;background:var(--accent);border-radius:2px;
+  }
+  .p-time{
+    margin-top:8px;display:flex;justify-content:space-between;
+    font-size:11px;color:rgba(255,255,255,0.45);
+    font-variant-numeric:tabular-nums;
+  }
+  /* Main controls */
+  .p-controls{
+    position:absolute;left:0;right:0;bottom:92px;
+    display:flex;align-items:center;justify-content:center;gap:56px;
+  }
+  .p-ctrl{
+    width:38px;height:38px;display:grid;place-items:center;
+    color:rgba(255,255,255,0.55);
+  }
+  .p-ctrl svg{width:24px;height:24px;display:block}
+  .p-play{
+    width:62px;height:62px;border-radius:50%;
+    background:var(--accent);color:#fff;
+    display:grid;place-items:center;
+    box-shadow:0 10px 28px rgba(139,156,247,0.32);
+  }
+  .p-play svg{width:22px;height:22px;display:block}
+  /* Bottom utility bar */
+  .p-util{
+    position:absolute;left:0;right:0;bottom:32px;
+    display:flex;align-items:center;justify-content:center;gap:22px;
+    color:rgba(255,255,255,0.45);
+  }
+  .p-util button{
+    height:28px;display:grid;place-items:center;
+    color:inherit;
+  }
+  .p-util .speed-pill{
+    padding:3px 10px;border:1px solid rgba(255,255,255,0.18);
+    border-radius:999px;font-size:11px;letter-spacing:0.3px;
+    color:rgba(255,255,255,0.6);
+  }
+  .back-btn{display:none} /* legacy */
+
+  /* ─── Settings view ─── */
+  .view-settings{padding:88px 28px 28px;overflow-y:auto}
+  .view-settings h2{
+    margin:0 0 28px;font-size:24px;font-weight:600;letter-spacing:-0.3px;color:var(--text);
+  }
+  .set-row{
+    display:flex;align-items:flex-start;gap:16px;
+    padding:20px 0;border-top:1px solid #1A1C23;
+  }
+  .set-row:first-of-type{border-top:none}
+  .set-row .txt{flex:1}
+  .set-label{font-size:15px;color:var(--text);margin-bottom:6px;letter-spacing:-0.1px}
+  .set-note{font-size:12px;color:#8A8892;line-height:1.55;letter-spacing:0.1px}
+  .switch{
+    position:relative;display:inline-block;width:44px;height:26px;flex:0 0 auto;margin-top:2px;
+  }
+  .switch input{opacity:0;width:0;height:0}
+  .switch-bg{
+    position:absolute;inset:0;background:#2A2C35;border-radius:999px;
+    transition:background .2s ease;
+  }
+  .switch-bg::after{
+    content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;
+    background:#F0EEF2;border-radius:50%;
+    transition:transform .2s ease;
+  }
+  .switch input:checked + .switch-bg{background:var(--accent)}
+  .switch input:checked + .switch-bg::after{transform:translateX(18px)}
+  .set-footer{
+    margin-top:36px;font-size:11px;color:#6A6875;line-height:1.6;letter-spacing:0.2px;
+  }
+
+  /* ─── Legend panel (desktop only) ─── */
+  .legend{
+    flex:0 1 340px;max-width:340px;
+    font-size:12px;line-height:1.6;color:#8A8892;
+    max-height:844px;overflow-y:auto;
+    padding:4px 4px 4px 0;
+  }
+  .legend h3{
+    font-size:11px;letter-spacing:1.2px;text-transform:uppercase;
+    color:#6A6875;margin:18px 0 8px;font-weight:600;
+  }
+  .legend h3:first-child{margin-top:0}
+  .legend ul{margin:0;padding:0;list-style:none}
+  .legend li{
+    padding:4px 0;padding-left:14px;position:relative;
+  }
+  .legend li::before{
+    content:"";position:absolute;left:0;top:13px;width:4px;height:4px;
+    border-radius:50%;background:#3A3A44;
+  }
+  .legend kbd{
+    font-family:ui-monospace,monospace;font-size:10.5px;
+    background:#1A1C23;border:1px solid #2A2C35;padding:1px 5px;border-radius:4px;
+    color:#B8B5C0;
+  }
+  .legend strong{color:#C4C1CA;font-weight:600}
+
+  @media (max-width: 900px){
+    .stage{gap:0;padding:0}
+    .legend{display:none}
+    .phone{
+      box-shadow:none;border-radius:0;
+      width:100vw;height:100vh;
+      transform:none;
+    }
+    .phone-wrap{width:100vw;height:100vh}
+  }
+
+  /* Keyboard hint only when space held (desktop affordance) */
+  .phone.space-held .hold-tip{opacity:0}
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <div class="phone-wrap">
+    <div class="phone" id="phone">
+
+      <!-- Priming view ─────────────────────────────── -->
+      <section class="view view-priming active" id="view-priming">
+
+        <div class="top-bar">
+          <button class="gear-btn" id="gearBtn" aria-label="设置">
+            <svg viewBox="-10 -10 20 20" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="0" cy="0" r="3.6"/>
+              <circle cx="0" cy="0" r="9" stroke-dasharray="1.5 2.4"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="priming-content" id="primingContent">
+          <div class="meta" id="meta"></div>
+          <div class="summary" id="summary"></div>
+          <div class="hairline"></div>
+          <div class="keywords" id="keywords"></div>
+        </div>
+
+        <div class="hint">↑ 上滑换一条</div>
+
+        <button class="countdown-ring" id="countdownRing" aria-label="进入 clip">
+          <svg viewBox="-27 -27 54 54">
+            <circle class="ring-track" cx="0" cy="0" r="24"/>
+            <circle class="ring-progress" id="ringProgress" cx="0" cy="0" r="24"/>
+          </svg>
+          <span class="ring-num" id="ringNum">3</span>
+        </button>
+
+        <div class="hold-tip" id="holdTip">长按任意处暂停</div>
+      </section>
+
+      <!-- Clip (mock player) view ───────────────────── -->
+      <section class="view view-clip" id="view-clip">
+        <div class="clip-top">
+          <button class="icon-btn" id="clipBack" aria-label="返回">
+            <!-- Hamburger / menu — this is the "back" affordance when priming is home -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <path d="M4 7h16M4 13h10"/>
+            </svg>
+          </button>
+          <button class="icon-btn" aria-label="更多" id="clipMore">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="clip-header">
+          <div class="p-title" id="pTitle"></div>
+          <div class="p-source" id="pSource"></div>
+        </div>
+
+        <div class="p-caption-wrap">
+          <div class="p-caption" id="pCaption">
+            <span>I think </span><span>one </span><span>thing </span><span class="w-active">to </span><span class="w-dim">understand</span>
+          </div>
+          <div class="p-mask"></div>
+        </div>
+
+        <div class="p-actions">
+          <button aria-label="收藏">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+              <path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>
+            </svg>
+          </button>
+          <button aria-label="书签">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+              <path d="M7 4h10v17l-5-3-5 3V4z"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="p-progress-wrap">
+          <div class="p-progress"><div class="bar"></div></div>
+          <div class="p-time"><span>0:12</span><span id="pDur">1:30</span></div>
+        </div>
+
+        <div class="p-controls">
+          <button class="p-ctrl" aria-label="后退 5 秒">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 10V5M4 10h5"/>
+              <path d="M4 10a8 8 0 1 1-1.2 4.3"/>
+            </svg>
+          </button>
+          <button class="p-play" id="playBtn" aria-label="暂停">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <rect x="7" y="5" width="4" height="14" rx="1"/>
+              <rect x="13" y="5" width="4" height="14" rx="1"/>
+            </svg>
+          </button>
+          <button class="p-ctrl" aria-label="前进 5 秒">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 10V5M20 10h-5"/>
+              <path d="M20 10a8 8 0 1 0 1.2 4.3"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="p-util">
+          <button aria-label="显示">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="2.8"/>
+            </svg>
+          </button>
+          <button aria-label="自动">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M8 15l4-8 4 8M9.5 13h5"/>
+            </svg>
+          </button>
+          <span class="speed-pill">1.0x</span>
+          <button aria-label="更多">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>
+            </svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- Settings view ─────────────────────────────── -->
+      <section class="view view-settings" id="view-settings">
+        <button class="back-btn" id="settingsBack" aria-label="返回">←</button>
+        <h2>Settings</h2>
+
+        <div class="set-row">
+          <div class="txt">
+            <div class="set-label">默认显示 priming</div>
+            <div class="set-note">Priming 是 clip 前的轻脚手架。关掉后首屏直接是 clip，上滑换下一条。新用户默认开启。</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="togglePriming" checked>
+            <span class="switch-bg"></span>
+          </label>
+        </div>
+
+        <div class="set-footer">这是原型演示。切换后回首屏，从第一条重新开始。</div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- Right legend (desktop review helper) -->
+  <aside class="legend" id="legend">
+    <h3>核心架构</h3>
+    <ul>
+      <li>打开 app 直接就是 priming，<strong>不是 splash，不是 list</strong></li>
+      <li>Priming 是 feed 的内容单元：上滑 = 下一条 priming</li>
+      <li>点倒计时环 = 进入这条的 clip</li>
+      <li>整体是 priming+clip 的竖滑无限流</li>
+    </ul>
+
+    <h3>Priming 交互</h3>
+    <ul>
+      <li><strong>倒计时</strong>：≤2 词→3s / 3 词→4s / 4-5 词→5s，rAF 驱动</li>
+      <li><strong>长按暂停</strong>：任意处按住 ≥160ms，环变灰，hold-tip 切换"松开继续"；松开 250ms 内吞 click 避免误跳</li>
+      <li><strong>竖滑换条</strong>：|dy| > min(90, H·0.18) 或速度 > 0.35 px/ms；首尾橡皮筋 ×0.35；横向手势优先让长按</li>
+      <li><strong>点环进 clip</strong>：任意剩余时间点环立刻进入；倒计时 0 也自动进</li>
+    </ul>
+
+    <h3>三层信息</h3>
+    <ul>
+      <li><strong>Meta</strong>：source · CEFR · duration（11px，弱色）</li>
+      <li><strong>Summary</strong>：中文"听力锚"≤16 字单行，不剧透结论</li>
+      <li><strong>Keywords</strong>：EN 44 / ZH 14，4-5 词自动 dense（EN 32）</li>
+    </ul>
+
+    <h3>定位锁"轻预热"</h3>
+    <ul>
+      <li>关键词不可点击（不展开例句/词根/发音）</li>
+      <li>priming 内不做收藏（收藏留给 clip）</li>
+      <li>不暴露"一共 N 条 / 今天几条 / 还剩几条"</li>
+      <li>不做 dots / skip-once 按钮 / 周报式进度</li>
+    </ul>
+
+    <h3>Settings</h3>
+    <ul>
+      <li>单开关"默认显示 priming"，默认 ON</li>
+      <li>ON：home = priming，clip 有 back 按钮</li>
+      <li>OFF：home = clip player，上滑换下一条 clip，back 隐藏</li>
+      <li>切换后 bootHome() 从第一条重新开始</li>
+    </ul>
+
+    <h3>键盘映射（桌面）</h3>
+    <ul>
+      <li><kbd>↑</kbd> / <kbd>↓</kbd> 换条（priming 或 player-as-home）</li>
+      <li><kbd>space</kbd> 按住 = 长按暂停</li>
+      <li><kbd>esc</kbd> 返回（settings / clip）</li>
+      <li><kbd>Enter</kbd> 立刻进 clip（priming 模式）</li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   Flipod · Priming v4  — single-file prototype
+   ─────────────────────────────────────────────────────────────── */
+
+/* ── Data mock ─────────────────────────────────────────────── */
+const PRIMING_DATA = [
+  {
+    id:'ep-001', title:'The economy under rate pressure',
+    source:'Planet Money', cefr:'B1', durationSec:90,
+    summary:'加息为什么没带来衰退：三个支撑点',
+    words:[
+      {en:'resilience', zh:'韧性'},
+      {en:'monetary',   zh:'货币的'},
+      {en:'hike',       zh:'加息'},
+    ],
+  },
+  {
+    id:'ep-002', title:'How Patagonia almost pivoted everything',
+    source:'How I Built This', cefr:'B1', durationSec:75,
+    summary:'一个险些改头换面的户外品牌故事',
+    words:[
+      {en:'entrepreneur', zh:'创业者'},
+      {en:'pivot',        zh:'转型'},
+    ],
+  },
+  {
+    id:'ep-003', title:'The cognitive pattern behind resilience',
+    source:'Hidden Brain', cefr:'B1+', durationSec:100,
+    summary:'韧性强的人脑内发生了什么',
+    words:[
+      {en:'cognitive',  zh:'认知的'},
+      {en:'adapt',      zh:'适应'},
+      {en:'resilience', zh:'韧性'},
+      {en:'pattern',    zh:'模式'},
+    ],
+  },
+  {
+    id:'ep-004', title:'What is quantum entanglement, really?',
+    source:'Radiolab', cefr:'C1', durationSec:120,
+    summary:'两个粒子如何跨越距离感应彼此',
+    words:[
+      {en:'quantum',       zh:'量子'},
+      {en:'entangle',      zh:'纠缠'},
+      {en:'observation',   zh:'观察'},
+      {en:'measurement',   zh:'测量'},
+      {en:'superposition', zh:'叠加'},
+    ],
+  },
+];
+
+const STREAM_LENGTH = 24;
+function getClipAt(streamIdx){
+  const n = PRIMING_DATA.length;
+  return PRIMING_DATA[((streamIdx % n) + n) % n];
+}
+function formatDuration(sec){
+  if (sec < 60) return `${sec}s`;
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return s === 0 ? `${m}min` : `${m}:${String(s).padStart(2,'0')}`;
+}
+function countdownSecForWordCount(n){
+  if (n <= 2) return 3;
+  if (n === 3) return 4;
+  return 5;
+}
+
+/* ── State ─────────────────────────────────────────────────── */
+const state = {
+  view: 'priming',          // 'priming' | 'clip' | 'settings'
+  streamIdx: 0,
+  primingDefault: true,     // settings toggle
+  total: 3000,
+  remaining: 3000,
+  paused: false,
+  lastTick: 0,
+  rafId: 0,
+};
+window._suppressClickUntil = 0;
+
+/* ── Elements ──────────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+const phone       = $('phone');
+const viewPriming = $('view-priming');
+const viewClip    = $('view-clip');
+const viewSetting = $('view-settings');
+const metaEl      = $('meta');
+const summaryEl   = $('summary');
+const keywordsEl  = $('keywords');
+const ringEl      = $('countdownRing');
+const ringProg    = $('ringProgress');
+const ringNum     = $('ringNum');
+const holdTip     = $('holdTip');
+const primingContent = $('primingContent');
+
+const CIRC = 2 * Math.PI * 24;                // ≈150.796
+ringProg.setAttribute('stroke-dasharray', CIRC.toFixed(3));
+ringProg.setAttribute('stroke-dashoffset', '0');
+
+/* ── Render ────────────────────────────────────────────────── */
+function renderPriming(animDir /* 'up' | 'down' | null */){
+  const clip = getClipAt(state.streamIdx);
+
+  // content swap with small slide+fade
+  if (animDir){
+    primingContent.classList.add(animDir === 'up' ? 'enter-up' : 'enter-down');
+    requestAnimationFrame(() => {
+      fillPrimingFields(clip);
+      requestAnimationFrame(() => {
+        primingContent.classList.remove('enter-up','enter-down');
+      });
+    });
+  } else {
+    fillPrimingFields(clip);
+  }
+}
+
+function fillPrimingFields(clip){
+  metaEl.textContent = `${clip.source}  ·  ${clip.cefr}  ·  ${formatDuration(clip.durationSec)}`;
+  summaryEl.textContent = clip.summary;
+
+  const dense = clip.words.length >= 4;
+  keywordsEl.className = 'keywords' + (dense ? ' dense' : '');
+  keywordsEl.innerHTML = clip.words.map(w => `
+    <div class="kw">
+      <div class="en">${w.en}</div>
+      <div class="zh">${w.zh}</div>
+    </div>
+  `).join('');
+}
+
+function renderClip(){
+  const clip = getClipAt(state.streamIdx);
+  $('pTitle').textContent = clip.title;
+  $('pSource').innerHTML =
+    `${clip.source}  ·  <span class="tag">${clip.cefr}</span>`;
+  $('pDur').textContent = formatDuration(clip.durationSec);
+  // "Back" (hamburger) button visibility: only shown when priming is default home
+  const backBtn = $('clipBack');
+  backBtn.classList.toggle('hidden', !state.primingDefault);
+}
+
+/* ── Countdown (rAF) ───────────────────────────────────────── */
+function startCountdownFor(streamIdx){
+  cancelAnimationFrame(state.rafId);
+  const clip = getClipAt(streamIdx);
+  const secs = countdownSecForWordCount(clip.words.length);
+  state.total = secs * 1000;
+  state.remaining = state.total;
+  state.paused = false;
+  state.lastTick = performance.now();
+  phone.classList.remove('paused');
+  ringNum.textContent = String(secs);
+  ringProg.setAttribute('stroke-dashoffset', '0');
+  state.rafId = requestAnimationFrame(tick);
+}
+function tick(now){
+  if (state.view !== 'priming'){ return; }
+  if (!state.paused){
+    const dt = now - state.lastTick;
+    state.lastTick = now;
+    state.remaining -= dt;
+  } else {
+    state.lastTick = now; // consume time while paused
+  }
+  const p = Math.max(0, state.remaining / state.total);
+  const offset = (1 - p) * CIRC;
+  ringProg.setAttribute('stroke-dashoffset', offset.toFixed(2));
+  ringNum.textContent = String(Math.max(0, Math.ceil(state.remaining / 1000)));
+
+  if (state.remaining <= 0){
+    enterClip('auto');
+    return;
+  }
+  state.rafId = requestAnimationFrame(tick);
+}
+function pauseCountdown(){
+  if (state.paused) return;
+  state.paused = true;
+  phone.classList.add('paused');
+  holdTip.textContent = '松开继续';
+}
+function resumeCountdown(){
+  if (!state.paused) return;
+  state.paused = false;
+  state.lastTick = performance.now();   // avoid dt jump
+  phone.classList.remove('paused');
+  holdTip.textContent = '长按任意处暂停';
+}
+
+/* ── View navigation ───────────────────────────────────────── */
+function show(viewName){
+  state.view = viewName;
+  [viewPriming, viewClip, viewSetting].forEach(v => v.classList.remove('active'));
+  if (viewName === 'priming')  viewPriming.classList.add('active');
+  if (viewName === 'clip')     viewClip.classList.add('active');
+  if (viewName === 'settings') viewSetting.classList.add('active');
+}
+
+function enterClip(/* trigger */){
+  cancelAnimationFrame(state.rafId);
+  renderClip();
+  show('clip');
+}
+
+function nextStream(){
+  if (state.streamIdx >= STREAM_LENGTH - 1){
+    // rubber-band already handled during drag; here just re-animate to indicate edge
+    bounce('up');
+    return;
+  }
+  state.streamIdx += 1;
+  if (state.view === 'priming'){
+    renderPriming('up');
+    startCountdownFor(state.streamIdx);
+  } else if (state.view === 'clip' && !state.primingDefault){
+    renderClip();
+  }
+}
+function prevStream(){
+  if (state.streamIdx <= 0){
+    bounce('down');
+    return;
+  }
+  state.streamIdx -= 1;
+  if (state.view === 'priming'){
+    renderPriming('down');
+    startCountdownFor(state.streamIdx);
+  } else if (state.view === 'clip' && !state.primingDefault){
+    renderClip();
+  }
+}
+function bounce(dir){
+  // subtle edge feedback (rubber band shake)
+  const target = state.view === 'priming' ? primingContent : viewClip.querySelector('.player');
+  if (!target) return;
+  const sign = dir === 'up' ? -1 : 1;
+  target.style.transition = 'transform .18s ease';
+  target.style.transform = `translateY(${sign * 10}px)`;
+  setTimeout(() => {
+    target.style.transform = 'translateY(0)';
+    setTimeout(() => { target.style.transition = ''; }, 200);
+  }, 160);
+}
+
+/* ── bootHome: apply settings toggle ───────────────────────── */
+function bootHome(){
+  state.streamIdx = 0;
+  if (state.primingDefault){
+    renderPriming(null);
+    show('priming');
+    startCountdownFor(state.streamIdx);
+  } else {
+    renderClip();
+    show('clip');
+    cancelAnimationFrame(state.rafId);
+  }
+}
+
+/* ── Gesture handling (pointer events) ─────────────────────── */
+const LONG_PRESS_MS   = 160;
+const SWIPE_DIST_CAP  = 90;
+const SWIPE_H_RATIO   = 0.18;
+const SWIPE_VEL       = 0.35;   // px/ms
+const HORIZ_DOMINANT  = 1.2;
+
+let g = null;   // current gesture state
+function resetGesture(){ g = null; }
+
+function gestureStart(e){
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  // Only handle gestures in priming view, or clip (when it's home)
+  const activeGesture = (state.view === 'priming')
+    || (state.view === 'clip' && !state.primingDefault);
+  if (!activeGesture) return;
+
+  const target = e.target;
+  // Exclude button & ring from long-press pause path (they have their own handlers)
+  const insideControl = target.closest('button, .countdown-ring, .switch, input, a');
+
+  g = {
+    startX: e.clientX, startY: e.clientY,
+    lastX: e.clientX,  lastY: e.clientY,
+    startT: performance.now(),
+    pointerId: e.pointerId,
+    longPressTimer: 0,
+    isLongPress: false,
+    isSwipe: false,
+    cancelled: false,
+    insideControl: !!insideControl,
+  };
+
+  if (!insideControl && state.view === 'priming'){
+    g.longPressTimer = window.setTimeout(() => {
+      if (!g || g.cancelled) return;
+      g.isLongPress = true;
+      pauseCountdown();
+    }, LONG_PRESS_MS);
+  }
+}
+
+function gestureMove(e){
+  if (!g || e.pointerId !== g.pointerId) return;
+  const dx = e.clientX - g.startX;
+  const dy = e.clientY - g.startY;
+  g.lastX = e.clientX; g.lastY = e.clientY;
+
+  // movement cancels long-press intent
+  if (!g.isLongPress && Math.hypot(dx, dy) > 10 && g.longPressTimer){
+    clearTimeout(g.longPressTimer); g.longPressTimer = 0;
+  }
+
+  // horizontal dominant → don't treat as vertical swipe
+  if (Math.abs(dx) > HORIZ_DOMINANT * Math.abs(dy)){
+    // do nothing; let long-press continue if it was scheduled
+    return;
+  }
+
+  // If vertical drag exceeds small delta, we live-translate for feel
+  if (!g.isLongPress && Math.abs(dy) > 6 && state.view === 'priming'){
+    g.isSwipe = true;
+    const H = phone.clientHeight;
+    let eff = dy;
+    // rubber band at edges
+    const atTop    = state.streamIdx <= 0 && dy > 0;
+    const atBottom = state.streamIdx >= STREAM_LENGTH - 1 && dy < 0;
+    if (atTop || atBottom) eff = dy * 0.35;
+    primingContent.style.transition = 'none';
+    primingContent.style.transform = `translateY(${eff}px)`;
+    primingContent.style.opacity = String(Math.max(0.4, 1 - Math.abs(eff)/600));
+  }
+}
+
+function gestureEnd(e){
+  if (!g || e.pointerId !== g.pointerId) return;
+  if (g.longPressTimer){ clearTimeout(g.longPressTimer); g.longPressTimer = 0; }
+
+  const dx = e.clientX - g.startX;
+  const dy = e.clientY - g.startY;
+  const dt = Math.max(1, performance.now() - g.startT);
+  const vel = Math.abs(dy) / dt;
+
+  const wasLong = g.isLongPress;
+  const wasSwipe = g.isSwipe;
+
+  // Release long-press → resume + eat tail-click
+  if (wasLong){
+    window._suppressClickUntil = Date.now() + 250;
+    resumeCountdown();
+  }
+
+  // Reset any live drag transform
+  if (state.view === 'priming'){
+    primingContent.style.transition = '';
+    primingContent.style.transform = '';
+    primingContent.style.opacity = '';
+  }
+
+  // Evaluate swipe
+  if (!wasLong && wasSwipe){
+    const H = phone.clientHeight;
+    const threshold = Math.min(SWIPE_DIST_CAP, H * SWIPE_H_RATIO);
+    const horizDom = Math.abs(dx) > HORIZ_DOMINANT * Math.abs(dy);
+    if (!horizDom && (Math.abs(dy) > threshold || vel > SWIPE_VEL)){
+      if (dy < 0) nextStream();
+      else        prevStream();
+    }
+    // if we dragged but didn't qualify, the transition-clear above snaps back
+  }
+
+  resetGesture();
+}
+function gestureCancel(e){
+  if (!g) return;
+  if (g.longPressTimer) clearTimeout(g.longPressTimer);
+  if (g.isLongPress) resumeCountdown();
+  if (state.view === 'priming'){
+    primingContent.style.transition = '';
+    primingContent.style.transform = '';
+    primingContent.style.opacity = '';
+  }
+  resetGesture();
+}
+
+phone.addEventListener('pointerdown', gestureStart);
+phone.addEventListener('pointermove', gestureMove);
+phone.addEventListener('pointerup',   gestureEnd);
+phone.addEventListener('pointercancel', gestureCancel);
+
+/* ── Ring click (enter clip) ──────────────────────────────── */
+ringEl.addEventListener('click', (e) => {
+  if (Date.now() < window._suppressClickUntil) return;
+  enterClip('tap');
+});
+
+/* ── Settings / clip back ─────────────────────────────────── */
+$('gearBtn').addEventListener('click', () => {
+  cancelAnimationFrame(state.rafId);
+  show('settings');
+});
+$('settingsBack').addEventListener('click', () => { bootHome(); });
+$('clipBack').addEventListener('click', () => {
+  if (!state.primingDefault) return;  // button is hidden anyway
+  renderPriming(null);
+  show('priming');
+  startCountdownFor(state.streamIdx);
+});
+$('togglePriming').addEventListener('change', (e) => {
+  state.primingDefault = e.target.checked;
+});
+const PLAY_ICON_PAUSE = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="5" width="4" height="14" rx="1"/><rect x="13" y="5" width="4" height="14" rx="1"/></svg>';
+const PLAY_ICON_PLAY  = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5l12 7-12 7z"/></svg>';
+let isPlayingMock = true;
+$('playBtn').addEventListener('click', () => {
+  isPlayingMock = !isPlayingMock;
+  $('playBtn').innerHTML = isPlayingMock ? PLAY_ICON_PAUSE : PLAY_ICON_PLAY;
+});
+
+/* ── Keyboard (desktop) ───────────────────────────────────── */
+let spaceHeld = false;
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape'){
+    if (state.view === 'settings' || state.view === 'clip'){
+      e.preventDefault();
+      if (state.view === 'settings'){ bootHome(); return; }
+      if (state.view === 'clip'){
+        if (state.primingDefault){
+          renderPriming(null); show('priming'); startCountdownFor(state.streamIdx);
+        }
+      }
+    }
+  }
+  if (state.view !== 'priming' && !(state.view === 'clip' && !state.primingDefault)) return;
+  if (e.key === 'ArrowUp'){ e.preventDefault(); nextStream(); }
+  else if (e.key === 'ArrowDown'){ e.preventDefault(); prevStream(); }
+  else if (e.key === ' ' && state.view === 'priming' && !spaceHeld){
+    e.preventDefault(); spaceHeld = true;
+    phone.classList.add('space-held');
+    pauseCountdown();
+  }
+  else if (e.key === 'Enter' && state.view === 'priming'){
+    e.preventDefault(); enterClip('keyboard');
+  }
+});
+window.addEventListener('keyup', (e) => {
+  if (e.key === ' ' && spaceHeld){
+    e.preventDefault(); spaceHeld = false;
+    phone.classList.remove('space-held');
+    resumeCountdown();
+  }
+});
+
+/* ── Responsive scaling on small viewports ────────────────── */
+function fitPhone(){
+  const wrap = document.querySelector('.phone-wrap');
+  if (window.innerWidth >= 900){
+    phone.style.transform = '';
+    wrap.style.width = ''; wrap.style.height = '';
+    return;
+  }
+  // On narrow screens CSS already makes it full-bleed — bail
+}
+window.addEventListener('resize', fitPhone);
+
+/* ── Boot ──────────────────────────────────────────────────── */
+bootHome();
+</script>
+</body>
+</html>
