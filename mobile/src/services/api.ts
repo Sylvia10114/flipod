@@ -15,15 +15,25 @@ import type {
 } from '../types';
 
 const runtimeEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+const LEGACY_CONTENT_BASE_URL = 'https://cdn.jsdelivr.net/gh/Sylvia10114/flipod@main';
 
 function normalizeBaseUrl(value: string) {
   return value.replace(/\/+$/, '');
 }
 
 const DEFAULT_API_BASE_URL = 'http://115.190.10.83/flipod-api';
+function resolveContentBaseUrl() {
+  const raw = runtimeEnv?.EXPO_PUBLIC_CONTENT_BASE_URL;
+  if (!raw) return API_BASE_URL;
+  const normalized = normalizeBaseUrl(raw);
+  if (normalized === LEGACY_CONTENT_BASE_URL) {
+    return API_BASE_URL;
+  }
+  return normalized;
+}
 
 export const API_BASE_URL = normalizeBaseUrl(runtimeEnv?.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL);
-export const CONTENT_BASE_URL = normalizeBaseUrl(runtimeEnv?.EXPO_PUBLIC_CONTENT_BASE_URL || API_BASE_URL);
+export const CONTENT_BASE_URL = resolveContentBaseUrl();
 
 type RequestOptions = {
   deviceId?: string;
