@@ -157,6 +157,10 @@ export type AppSettings = {
   homeMode: HomeMode;
   practiceIntroSeen: boolean;
   bookmarkPracticeHintSeen: boolean;
+  firstUseBridgeSeen: boolean;
+  feedCoachListenSeen: boolean;
+  feedCoachWordSeen: boolean;
+  feedCoachNavSeen: boolean;
 };
 
 export type SessionResponse = {

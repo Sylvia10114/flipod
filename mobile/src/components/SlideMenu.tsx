@@ -23,6 +23,7 @@ type Props = {
   clipsPlayed: number;
   onClose: () => void;
   onNavigate: (screen: MenuScreen) => void;
+  onOpenGuide: () => void;
   onToggleTheme: () => void;
   onResetOnboarding: () => void;
 };
@@ -56,6 +57,7 @@ export function SlideMenu({
   clipsPlayed,
   onClose,
   onNavigate,
+  onOpenGuide,
   onToggleTheme,
   onResetOnboarding,
 }: Props) {
@@ -128,6 +130,13 @@ export function SlideMenu({
                   onPress={() => {
                     triggerUiFeedback('menu');
                     onNavigate('vocab');
+                  }}
+                />
+                <MenuItem
+                  label={t('menu.howItWorks')}
+                  onPress={() => {
+                    triggerUiFeedback('menu');
+                    onOpenGuide();
                   }}
                 />
               </View>

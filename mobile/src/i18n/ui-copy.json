@@ -212,7 +212,8 @@
       "switchToLightMode": "Switch to light mode",
       "switchToLeftHanded": "Left-handed mode",
       "switchToRightHanded": "Switch back to right-handed mode",
-      "resetOnboarding": "Reset onboarding"
+      "resetOnboarding": "Reset onboarding",
+      "howItWorks": "How Flipod works"
     },
     "library": {
       "title": "Saved Clips",
@@ -357,6 +358,36 @@
     "home": {
       "listenTab": "Just Listen",
       "learnTab": "Guided Practice"
+    },
+    "starterGuide": {
+      "eyebrow": "How To Use Flipod",
+      "title": "Start with listening, not studying",
+      "subtitle": "Flipod works best when you keep moving and only slow down when something truly blocks you.",
+      "cardListenTitle": "Listen for the main idea first",
+      "cardListenBody": "You do not need every sentence. Start by following the gist.",
+      "cardTapTitle": "Tap words only when they block you",
+      "cardTapBody": "A quick tap is enough. Flipod will save the word for later.",
+      "cardPracticeTitle": "Go deeper only when you want to",
+      "cardPracticeBody": "Use Practice when you want to fully understand one clip.",
+      "primaryCta": "Start listening"
+    },
+    "feedCoach": {
+      "listenHint": "Listen once first. Show translation only if you need it.",
+      "navHint": "Swipe up when you are ready for the next clip.",
+      "wordHint": "Saved words will wait for you in Vocab."
+    },
+    "guide": {
+      "eyebrow": "Quick Guide",
+      "title": "How Flipod works",
+      "subtitle": "A quick refresher on what each part is for.",
+      "feedTitle": "Feed is for listening first",
+      "feedBody": "Stay in the flow. You do not need to study every line before moving on.",
+      "wordsTitle": "Tap words without breaking rhythm",
+      "wordsBody": "If one word blocks you, tap it, check it, then keep going.",
+      "vocabTitle": "Vocab is your review shelf",
+      "vocabBody": "Saved words live here so you can revisit them later. It is not the main task.",
+      "practiceTitle": "Practice is for depth",
+      "practiceBody": "Use Practice when you want to fully understand a clip, not every clip."
     }
   },
   "simplified_chinese": {
@@ -572,7 +603,8 @@
       "switchToLightMode": "切换浅色",
       "switchToLeftHanded": "左手模式",
       "switchToRightHanded": "切回右手模式",
-      "resetOnboarding": "重置引导"
+      "resetOnboarding": "重置引导",
+      "howItWorks": "Flipod 怎么用"
     },
     "library": {
       "title": "我的收藏",
@@ -717,6 +749,36 @@
     "home": {
       "listenTab": "随便听",
       "learnTab": "系统练"
+    },
+    "starterGuide": {
+      "eyebrow": "使用 Flipod",
+      "title": "先听，再学",
+      "subtitle": "当你保持往前刷，只在真正卡住时慢下来，Flipod 才最好用。",
+      "cardListenTitle": "先抓住大意",
+      "cardListenBody": "不用每句都听懂。先跟上整体意思就够了。",
+      "cardTapTitle": "被词卡住时再点",
+      "cardTapBody": "轻点一下就行，Flipod 会帮你把这个词收进词汇本。",
+      "cardPracticeTitle": "想深入时再练",
+      "cardPracticeBody": "当你想彻底听懂某一条 clip，再进入练习。",
+      "primaryCta": "开始听"
+    },
+    "feedCoach": {
+      "listenHint": "先听一遍，再决定要不要看翻译。",
+      "navHint": "准备好了就上滑切下一条。",
+      "wordHint": "保存的单词会在词汇本里等你。"
+    },
+    "guide": {
+      "eyebrow": "快速说明",
+      "title": "Flipod 怎么用",
+      "subtitle": "用最短的话把每个区域是干什么的讲清楚。",
+      "feedTitle": "Feed 用来先听内容",
+      "feedBody": "保持往前刷，不用每一句都停下来学习。",
+      "wordsTitle": "点词，但别打断节奏",
+      "wordsBody": "遇到卡住你的词，点一下，看一眼，然后继续听。",
+      "vocabTitle": "词汇本是回看区",
+      "vocabBody": "保存的词会留在这里，方便你之后回看，不是主线任务。",
+      "practiceTitle": "练习区是拿来深入理解的",
+      "practiceBody": "当你想彻底听懂某一条 clip 时再进练习，不是每条都要练。"
     }
   },
   "traditional_chinese": {
@@ -932,7 +994,8 @@
       "switchToLightMode": "切換淺色",
       "switchToLeftHanded": "左手模式",
       "switchToRightHanded": "切回右手模式",
-      "resetOnboarding": "重設引導"
+      "resetOnboarding": "重設引導",
+      "howItWorks": "Flipod 怎麼用"
     },
     "library": {
       "title": "我的收藏",
@@ -1077,6 +1140,36 @@
     "home": {
       "listenTab": "隨便聽",
       "learnTab": "系統練"
+    },
+    "starterGuide": {
+      "eyebrow": "使用 Flipod",
+      "title": "先聽，再學",
+      "subtitle": "當你持續往前刷，只在真正卡住時慢下來，Flipod 才最好用。",
+      "cardListenTitle": "先抓住大意",
+      "cardListenBody": "不用每句都聽懂。先跟上整體意思就夠了。",
+      "cardTapTitle": "被單字卡住時再點",
+      "cardTapBody": "輕點一下就行，Flipod 會幫你把這個詞收進詞彙本。",
+      "cardPracticeTitle": "想深入時再練",
+      "cardPracticeBody": "當你想徹底聽懂某一條 clip，再進入練習。",
+      "primaryCta": "開始聽"
+    },
+    "feedCoach": {
+      "listenHint": "先聽一遍，再決定要不要看翻譯。",
+      "navHint": "準備好了就上滑切下一條。",
+      "wordHint": "保存的單字會在詞彙本裡等你。"
+    },
+    "guide": {
+      "eyebrow": "快速說明",
+      "title": "Flipod 怎麼用",
+      "subtitle": "用最短的話把每個區域是做什麼的講清楚。",
+      "feedTitle": "Feed 用來先聽內容",
+      "feedBody": "保持往前刷，不用每一句都停下來學習。",
+      "wordsTitle": "點詞，但別打斷節奏",
+      "wordsBody": "遇到卡住你的詞，點一下，看一眼，然後繼續聽。",
+      "vocabTitle": "詞彙本是回看區",
+      "vocabBody": "保存的詞會留在這裡，方便你之後回看，不是主線任務。",
+      "practiceTitle": "練習區是拿來深入理解的",
+      "practiceBody": "當你想徹底聽懂某一條 clip 時再進練習，不是每條都要練。"
     }
   },
   "japanese": {
@@ -1292,7 +1385,8 @@
       "switchToLightMode": "ライトモードに切り替え",
       "switchToLeftHanded": "左手モード",
       "switchToRightHanded": "右手モードに戻す",
-      "resetOnboarding": "オンボーディングをやり直す"
+      "resetOnboarding": "オンボーディングをやり直す",
+      "howItWorks": "Flipodの使い方"
     },
     "library": {
       "title": "保存したクリップ",
@@ -1437,6 +1531,36 @@
     "home": {
       "listenTab": "気軽に聞く",
       "learnTab": "しっかり練習"
+    },
+    "starterGuide": {
+      "eyebrow": "Flipodの使い方",
+      "title": "まずは聞く、勉強はそのあと",
+      "subtitle": "本当に引っかかった時だけ立ち止まると、Flipod はいちばん使いやすくなります。",
+      "cardListenTitle": "まずは大意をつかむ",
+      "cardListenBody": "すべての文を理解する必要はありません。まずは全体の意味を追いましょう。",
+      "cardTapTitle": "詰まった単語だけタップ",
+      "cardTapBody": "軽くタップするだけで大丈夫です。Flipod があとで見返せるように保存します。",
+      "cardPracticeTitle": "深掘りしたい時だけ練習",
+      "cardPracticeBody": "1本の clip をしっかり理解したい時に Practice を使ってください。",
+      "primaryCta": "聞き始める"
+    },
+    "feedCoach": {
+      "listenHint": "まず一度聞いてから、必要なら翻訳を見ましょう。",
+      "navHint": "準備ができたら上にスワイプして次へ。",
+      "wordHint": "保存した単語は語彙帳であとから見返せます。"
+    },
+    "guide": {
+      "eyebrow": "クイックガイド",
+      "title": "Flipodの使い方",
+      "subtitle": "それぞれの場所が何のためにあるかを短くまとめました。",
+      "feedTitle": "Feed はまず聞く場所",
+      "feedBody": "ひとつひとつ勉強しすぎず、流れに乗って聞き進めましょう。",
+      "wordsTitle": "単語はリズムを止めずにタップ",
+      "wordsBody": "分からない単語が流れを止めた時だけタップして、確認したらまた聞き続けましょう。",
+      "vocabTitle": "Vocab はあとで見返す棚",
+      "vocabBody": "保存した単語はここに残ります。主役ではなく、あとで見返すための場所です。",
+      "practiceTitle": "Practice は深く理解したい時に使う",
+      "practiceBody": "すべての clip ではなく、1本をしっかり理解したい時に使ってください。"
     }
   },
   "korean": {
@@ -1652,7 +1776,8 @@
       "switchToLightMode": "라이트 모드로 전환",
       "switchToLeftHanded": "왼손 모드",
       "switchToRightHanded": "오른손 모드로 돌아가기",
-      "resetOnboarding": "온보딩 다시 하기"
+      "resetOnboarding": "온보딩 다시 하기",
+      "howItWorks": "Flipod 사용법"
     },
     "library": {
       "title": "저장한 클립",
@@ -1797,6 +1922,36 @@
     "home": {
       "listenTab": "가볍게 듣기",
       "learnTab": "체계적 연습"
+    },
+    "starterGuide": {
+      "eyebrow": "Flipod 사용법",
+      "title": "먼저 듣고, 공부는 나중에",
+      "subtitle": "정말 막히는 순간에만 잠깐 멈출 때 Flipod를 가장 편하게 쓸 수 있습니다.",
+      "cardListenTitle": "먼저 큰 뜻을 잡으세요",
+      "cardListenBody": "모든 문장을 다 이해할 필요는 없습니다. 먼저 전체 흐름을 따라가면 됩니다.",
+      "cardTapTitle": "막히는 단어만 탭하세요",
+      "cardTapBody": "가볍게 한 번 탭하면 충분합니다. Flipod가 나중에 볼 수 있게 저장해 둡니다.",
+      "cardPracticeTitle": "깊게 보고 싶을 때만 연습하세요",
+      "cardPracticeBody": "특정 clip을 완전히 이해하고 싶을 때 Practice로 들어가세요.",
+      "primaryCta": "듣기 시작"
+    },
+    "feedCoach": {
+      "listenHint": "먼저 한 번 듣고, 필요할 때만 번역을 보세요.",
+      "navHint": "준비되면 위로 스와이프해서 다음 clip으로 가세요.",
+      "wordHint": "저장한 단어는 단어장에서 다시 볼 수 있습니다."
+    },
+    "guide": {
+      "eyebrow": "빠른 안내",
+      "title": "Flipod 사용법",
+      "subtitle": "각 영역이 무엇을 위한 것인지 짧게 정리했습니다.",
+      "feedTitle": "Feed는 먼저 듣는 곳입니다",
+      "feedBody": "한 줄 한 줄 공부하기보다 흐름을 타고 계속 들어보세요.",
+      "wordsTitle": "리듬을 끊지 말고 단어만 탭하세요",
+      "wordsBody": "흐름을 막는 단어가 나오면 탭해서 확인하고, 다시 계속 들으세요.",
+      "vocabTitle": "Vocab은 나중에 다시 보는 서랍입니다",
+      "vocabBody": "저장한 단어는 여기 남아 있습니다. 메인 과제가 아니라 복습용 선반입니다.",
+      "practiceTitle": "Practice는 깊게 이해할 때 씁니다",
+      "practiceBody": "모든 clip에 쓰는 것이 아니라, 하나를 제대로 이해하고 싶을 때 사용하세요."
     }
   },
   "spanish": {
@@ -2012,7 +2167,8 @@
       "switchToLightMode": "Cambiar a modo claro",
       "switchToLeftHanded": "Modo zurdo",
       "switchToRightHanded": "Volver al modo diestro",
-      "resetOnboarding": "Reiniciar onboarding"
+      "resetOnboarding": "Reiniciar onboarding",
+      "howItWorks": "Cómo funciona Flipod"
     },
     "library": {
       "title": "Clips guardados",
@@ -2157,6 +2313,36 @@
     "home": {
       "listenTab": "Escuchar libremente",
       "learnTab": "Práctica guiada"
+    },
+    "starterGuide": {
+      "eyebrow": "Cómo usar Flipod",
+      "title": "Primero escucha, luego estudia",
+      "subtitle": "Flipod funciona mejor cuando sigues avanzando y solo te detienes si algo realmente te bloquea.",
+      "cardListenTitle": "Primero capta la idea general",
+      "cardListenBody": "No necesitas entender cada frase. Empieza siguiendo el sentido general.",
+      "cardTapTitle": "Toca palabras solo si te frenan",
+      "cardTapBody": "Un toque rápido basta. Flipod guardará la palabra para después.",
+      "cardPracticeTitle": "Profundiza solo cuando quieras",
+      "cardPracticeBody": "Usa Practice cuando quieras entender completamente un clip.",
+      "primaryCta": "Empezar a escuchar"
+    },
+    "feedCoach": {
+      "listenHint": "Escucha una vez primero. Mira la traducción solo si la necesitas.",
+      "navHint": "Cuando estés listo, desliza hacia arriba para el siguiente clip.",
+      "wordHint": "Las palabras guardadas te esperarán en Vocab."
+    },
+    "guide": {
+      "eyebrow": "Guía rápida",
+      "title": "Cómo funciona Flipod",
+      "subtitle": "Un recordatorio breve de para qué sirve cada parte.",
+      "feedTitle": "El feed es para escuchar primero",
+      "feedBody": "Sigue el flujo. No hace falta estudiar cada línea antes de avanzar.",
+      "wordsTitle": "Toca palabras sin romper el ritmo",
+      "wordsBody": "Si una palabra te bloquea, tócala, mírala rápido y sigue escuchando.",
+      "vocabTitle": "Vocab es tu estante de repaso",
+      "vocabBody": "Las palabras guardadas quedan aquí para volver a ellas después. No es la tarea principal.",
+      "practiceTitle": "Practice es para profundizar",
+      "practiceBody": "Usa Practice cuando quieras entender por completo un clip, no todos los clips."
     }
   },
   "french": {
@@ -2372,7 +2558,8 @@
       "switchToLightMode": "Passer en mode clair",
       "switchToLeftHanded": "Mode gaucher",
       "switchToRightHanded": "Revenir au mode droitier",
-      "resetOnboarding": "Recommencer l'onboarding"
+      "resetOnboarding": "Recommencer l'onboarding",
+      "howItWorks": "Comment fonctionne Flipod"
     },
     "library": {
       "title": "Clips enregistrés",
@@ -2517,6 +2704,36 @@
     "home": {
       "listenTab": "Écoute libre",
       "learnTab": "Pratique guidée"
+    },
+    "starterGuide": {
+      "eyebrow": "Utiliser Flipod",
+      "title": "Écoutez d'abord, étudiez ensuite",
+      "subtitle": "Flipod marche le mieux quand vous continuez d'avancer et ne ralentissez que si quelque chose vous bloque vraiment.",
+      "cardListenTitle": "Commencez par l'idée générale",
+      "cardListenBody": "Vous n'avez pas besoin de comprendre chaque phrase. Suivez d'abord le sens global.",
+      "cardTapTitle": "Touchez un mot seulement s'il vous bloque",
+      "cardTapBody": "Un simple toucher suffit. Flipod gardera le mot pour plus tard.",
+      "cardPracticeTitle": "Approfondissez seulement quand vous le voulez",
+      "cardPracticeBody": "Utilisez Practice quand vous voulez comprendre complètement un clip.",
+      "primaryCta": "Commencer à écouter"
+    },
+    "feedCoach": {
+      "listenHint": "Écoutez une fois d'abord. Affichez la traduction seulement si besoin.",
+      "navHint": "Quand vous êtes prêt, balayez vers le haut pour le clip suivant.",
+      "wordHint": "Les mots enregistrés vous attendront dans Vocab."
+    },
+    "guide": {
+      "eyebrow": "Guide rapide",
+      "title": "Comment fonctionne Flipod",
+      "subtitle": "Un rappel rapide du rôle de chaque partie.",
+      "feedTitle": "Le feed sert d'abord à écouter",
+      "feedBody": "Restez dans le flux. Pas besoin d'étudier chaque ligne avant d'avancer.",
+      "wordsTitle": "Touchez les mots sans casser le rythme",
+      "wordsBody": "Si un mot vous bloque, touchez-le, vérifiez-le rapidement, puis continuez.",
+      "vocabTitle": "Vocab est votre étagère de révision",
+      "vocabBody": "Les mots enregistrés restent ici pour plus tard. Ce n'est pas la tâche principale.",
+      "practiceTitle": "Practice sert à aller plus loin",
+      "practiceBody": "Utilisez Practice quand vous voulez vraiment comprendre un clip, pas chaque clip."
     }
   },
   "brazilian_portuguese": {
@@ -2732,7 +2949,8 @@
       "switchToLightMode": "Mudar para o modo claro",
       "switchToLeftHanded": "Modo canhoto",
       "switchToRightHanded": "Voltar para o modo destro",
-      "resetOnboarding": "Reiniciar onboarding"
+      "resetOnboarding": "Reiniciar onboarding",
+      "howItWorks": "Como o Flipod funciona"
     },
     "library": {
       "title": "Clipes salvos",
@@ -2877,6 +3095,36 @@
     "home": {
       "listenTab": "Ouvir livremente",
       "learnTab": "Prática guiada"
+    },
+    "starterGuide": {
+      "eyebrow": "Como usar o Flipod",
+      "title": "Primeiro ouça, depois estude",
+      "subtitle": "O Flipod funciona melhor quando você continua avançando e só desacelera quando algo realmente trava você.",
+      "cardListenTitle": "Primeiro pegue a ideia geral",
+      "cardListenBody": "Você não precisa entender cada frase. Comece acompanhando o sentido geral.",
+      "cardTapTitle": "Toque nas palavras só quando elas travarem você",
+      "cardTapBody": "Um toque rápido basta. O Flipod vai guardar a palavra para depois.",
+      "cardPracticeTitle": "Aprofunde só quando quiser",
+      "cardPracticeBody": "Use Practice quando quiser entender totalmente um clip.",
+      "primaryCta": "Começar a ouvir"
+    },
+    "feedCoach": {
+      "listenHint": "Ouça uma vez primeiro. Veja a tradução só se precisar.",
+      "navHint": "Quando estiver pronto, deslize para cima para o próximo clip.",
+      "wordHint": "As palavras salvas vão esperar por você em Vocab."
+    },
+    "guide": {
+      "eyebrow": "Guia rápido",
+      "title": "Como o Flipod funciona",
+      "subtitle": "Um lembrete rápido do papel de cada parte.",
+      "feedTitle": "O feed é para ouvir primeiro",
+      "feedBody": "Siga no fluxo. Você não precisa estudar cada linha antes de avançar.",
+      "wordsTitle": "Toque nas palavras sem quebrar o ritmo",
+      "wordsBody": "Se uma palavra travar você, toque, confira rápido e continue ouvindo.",
+      "vocabTitle": "Vocab é sua prateleira de revisão",
+      "vocabBody": "As palavras salvas ficam aqui para você rever depois. Não é a tarefa principal.",
+      "practiceTitle": "Practice é para aprofundar",
+      "practiceBody": "Use Practice quando quiser entender um clip por completo, não todos os clips."
     }
   },
   "italian": {
@@ -3092,7 +3340,8 @@
       "switchToLightMode": "Passa alla modalità chiara",
       "switchToLeftHanded": "Modalità mancino",
       "switchToRightHanded": "Torna alla modalità destrimano",
-      "resetOnboarding": "Reimposta onboarding"
+      "resetOnboarding": "Reimposta onboarding",
+      "howItWorks": "Come funziona Flipod"
     },
     "library": {
       "title": "Clip salvati",
@@ -3237,6 +3486,36 @@
     "home": {
       "listenTab": "Ascolto libero",
       "learnTab": "Pratica guidata"
+    },
+    "starterGuide": {
+      "eyebrow": "Come usare Flipod",
+      "title": "Prima ascolta, poi studia",
+      "subtitle": "Flipod funziona meglio quando continui ad andare avanti e rallenti solo quando qualcosa ti blocca davvero.",
+      "cardListenTitle": "Parti dal senso generale",
+      "cardListenBody": "Non serve capire ogni frase. Inizia seguendo l'idea generale.",
+      "cardTapTitle": "Tocca le parole solo se ti bloccano",
+      "cardTapBody": "Basta un tocco veloce. Flipod salverà la parola per dopo.",
+      "cardPracticeTitle": "Approfondisci solo quando vuoi",
+      "cardPracticeBody": "Usa Practice quando vuoi capire fino in fondo un clip.",
+      "primaryCta": "Inizia ad ascoltare"
+    },
+    "feedCoach": {
+      "listenHint": "Ascolta prima una volta. Mostra la traduzione solo se ti serve.",
+      "navHint": "Quando sei pronto, scorri in su per il clip successivo.",
+      "wordHint": "Le parole salvate ti aspetteranno in Vocab."
+    },
+    "guide": {
+      "eyebrow": "Guida rapida",
+      "title": "Come funziona Flipod",
+      "subtitle": "Un rapido promemoria su a cosa serve ogni parte.",
+      "feedTitle": "Il feed serve prima di tutto per ascoltare",
+      "feedBody": "Rimani nel flusso. Non serve studiare ogni riga prima di andare avanti.",
+      "wordsTitle": "Tocca le parole senza spezzare il ritmo",
+      "wordsBody": "Se una parola ti blocca, toccala, controllala al volo e continua ad ascoltare.",
+      "vocabTitle": "Vocab è il tuo scaffale di ripasso",
+      "vocabBody": "Le parole salvate restano qui per dopo. Non è il compito principale.",
+      "practiceTitle": "Practice serve per andare in profondità",
+      "practiceBody": "Usa Practice quando vuoi capire davvero un clip, non ogni clip."
     }
   },
   "german": {
@@ -3452,7 +3731,8 @@
       "switchToLightMode": "Zum Hellmodus wechseln",
       "switchToLeftHanded": "Linkshänder-Modus",
       "switchToRightHanded": "Zur Rechtshänder-Ansicht zurück",
-      "resetOnboarding": "Onboarding zurücksetzen"
+      "resetOnboarding": "Onboarding zurücksetzen",
+      "howItWorks": "So funktioniert Flipod"
     },
     "library": {
       "title": "Gespeicherte Clips",
@@ -3597,6 +3877,36 @@
     "home": {
       "listenTab": "Einfach hören",
       "learnTab": "Gezielt üben"
+    },
+    "starterGuide": {
+      "eyebrow": "So benutzt du Flipod",
+      "title": "Erst hören, dann lernen",
+      "subtitle": "Flipod funktioniert am besten, wenn du im Fluss bleibst und nur dann langsamer wirst, wenn dich etwas wirklich blockiert.",
+      "cardListenTitle": "Erfasse zuerst die Hauptidee",
+      "cardListenBody": "Du musst nicht jeden Satz verstehen. Folge zuerst dem Gesamtgedanken.",
+      "cardTapTitle": "Tippe Wörter nur an, wenn sie dich bremsen",
+      "cardTapBody": "Ein kurzes Tippen reicht. Flipod speichert das Wort für später.",
+      "cardPracticeTitle": "Geh nur tiefer, wenn du es willst",
+      "cardPracticeBody": "Nutze Practice, wenn du einen Clip wirklich vollständig verstehen willst.",
+      "primaryCta": "Jetzt hören"
+    },
+    "feedCoach": {
+      "listenHint": "Hör erst einmal zu. Zeig die Übersetzung nur, wenn du sie brauchst.",
+      "navHint": "Wenn du bereit bist, wisch nach oben zum nächsten Clip.",
+      "wordHint": "Gespeicherte Wörter warten in Vocab auf dich."
+    },
+    "guide": {
+      "eyebrow": "Kurzanleitung",
+      "title": "So funktioniert Flipod",
+      "subtitle": "Eine kurze Erinnerung daran, wofür jeder Bereich da ist.",
+      "feedTitle": "Der Feed ist zuerst zum Hören da",
+      "feedBody": "Bleib im Fluss. Du musst nicht jede Zeile lernen, bevor du weitergehst.",
+      "wordsTitle": "Tippe Wörter an, ohne den Rhythmus zu brechen",
+      "wordsBody": "Wenn dich ein Wort blockiert, tippe es an, schau kurz nach und hör weiter.",
+      "vocabTitle": "Vocab ist dein Wiederholungsregal",
+      "vocabBody": "Gespeicherte Wörter bleiben hier für später. Es ist nicht die Hauptaufgabe.",
+      "practiceTitle": "Practice ist für Tiefe da",
+      "practiceBody": "Nutze Practice, wenn du einen Clip wirklich vollständig verstehen willst, nicht jeden Clip."
     }
   }
 }

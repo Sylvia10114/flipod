@@ -42,6 +42,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   homeMode: 'listen',
   practiceIntroSeen: false,
   bookmarkPracticeHintSeen: false,
+  firstUseBridgeSeen: false,
+  feedCoachListenSeen: false,
+  feedCoachWordSeen: false,
+  feedCoachNavSeen: false,
 };
 
 export const DEFAULT_CALIBRATION_SIGNALS: CalibrationSignals = {

@@ -107,10 +107,16 @@ type Props = {
   vocabWords: string[];
   knownWords: string[];
   clipsPlayed: number;
+  showListenCoach: boolean;
+  showNavCoach: boolean;
+  showWordCoach: boolean;
   onToggleLike: (clip: Clip, index: number) => void;
   onToggleBookmark: (clip: Clip, index: number) => void;
   onSaveVocab: (entry: VocabEntry) => void;
   onMarkKnown: (word: string) => void;
+  onDismissListenCoach: () => void;
+  onDismissNavCoach: () => void;
+  onShowWordCoach: () => void;
   onRecordWordLookup: (cefr?: string, details?: { clip?: Clip | null; word?: string }) => void;
   onReviewAction: (word: string, action: 'remember' | 'forgot') => void;
   onLoadMoreClips: () => void;
@@ -207,10 +213,16 @@ export function FeedScreen({
   vocabWords,
   knownWords,
   clipsPlayed,
+  showListenCoach,
+  showNavCoach,
+  showWordCoach,
   onToggleLike,
   onToggleBookmark,
   onSaveVocab,
   onMarkKnown,
+  onDismissListenCoach,
+  onDismissNavCoach,
+  onShowWordCoach,
   onRecordWordLookup,
   onReviewAction,
   onLoadMoreClips,
@@ -239,6 +251,8 @@ export function FeedScreen({
   const [pendingAutoplayIndex, setPendingAutoplayIndex] = useState<number | null>(null);
   const [previewSession, setPreviewSession] = useState<PreviewSessionState | null>(null);
   const [previewNow, setPreviewNow] = useState(() => Date.now());
+  const [listenCoachVisible, setListenCoachVisible] = useState(false);
+  const [navCoachVisible, setNavCoachVisible] = useState(false);
   const listRef = useRef<FlatList<FeedPage> | null>(null);
   const startedRef = useRef<Set<string>>(new Set());
   const completedRef = useRef<Set<string>>(new Set());
@@ -255,6 +269,7 @@ export function FeedScreen({
   const lastStablePageIndexRef = useRef(0);
   const previewSessionRef = useRef<PreviewSessionState | null>(null);
   const previewHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const coachTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const previewTouchStartRef = useRef<{ x: number; y: number } | null>(null);
   const previewPausedRef = useRef(false);
   const previewRemainingMsRef = useRef(0);
@@ -312,6 +327,12 @@ export function FeedScreen({
     if (!previewHoldTimerRef.current) return;
     clearTimeout(previewHoldTimerRef.current);
     previewHoldTimerRef.current = null;
+  }, []);
+
+  const clearCoachTimers = useCallback(() => {
+    if (!coachTimersRef.current.length) return;
+    coachTimersRef.current.forEach(timer => clearTimeout(timer));
+    coachTimersRef.current = [];
   }, []);
 
   const setCurrentVisibleRequestId = useCallback((requestId: number | null) => {
@@ -816,9 +837,10 @@ export function FeedScreen({
       clearRestoreTimer();
       clearAutoplayTimer();
       clearPreviewHoldTimer();
+      clearCoachTimers();
       finalizeSession();
     };
-  }, [clearAutoplayTimer, clearPreviewHoldTimer, clearRestoreTimer, finalizeSession]);
+  }, [clearAutoplayTimer, clearCoachTimers, clearPreviewHoldTimer, clearRestoreTimer, finalizeSession]);
 
   React.useEffect(() => {
     if (!previewSession || previewSession.isPaused) return;
@@ -857,6 +879,9 @@ export function FeedScreen({
       latestViewablePageIndexRef.current = null;
       clearRestoreTimer();
       clearVisiblePageState();
+      clearCoachTimers();
+      setListenCoachVisible(false);
+      setNavCoachVisible(false);
       setTranscriptIndex(null);
       sessionRef.current = null;
       return;
@@ -902,6 +927,56 @@ export function FeedScreen({
       }, 180);
     }
   }, [activateVisibleClipPage, clearRestoreTimer, clearVisiblePageState, feedPages, isForeground]);
+
+  React.useEffect(() => {
+    const scheduleNavCoach = (delayMs: number) => {
+      coachTimersRef.current.push(setTimeout(() => {
+        setNavCoachVisible(true);
+      }, delayMs));
+      coachTimersRef.current.push(setTimeout(() => {
+        setNavCoachVisible(false);
+        onDismissNavCoach();
+      }, delayMs + 2600));
+    };
+
+    clearCoachTimers();
+    setListenCoachVisible(false);
+    setNavCoachVisible(false);
+
+    if (!isForeground || visibleClipIndex === null || popup || showPreviewOverlay) {
+      return;
+    }
+
+    if (showListenCoach) {
+      coachTimersRef.current.push(setTimeout(() => {
+        setListenCoachVisible(true);
+      }, 700));
+      coachTimersRef.current.push(setTimeout(() => {
+        setListenCoachVisible(false);
+        onDismissListenCoach();
+        if (showNavCoach) {
+          scheduleNavCoach(260);
+        }
+      }, 3300));
+      return () => clearCoachTimers();
+    }
+
+    if (showNavCoach) {
+      scheduleNavCoach(480);
+    }
+
+    return () => clearCoachTimers();
+  }, [
+    clearCoachTimers,
+    isForeground,
+    onDismissListenCoach,
+    onDismissNavCoach,
+    popup,
+    showListenCoach,
+    showNavCoach,
+    showPreviewOverlay,
+    visibleClipIndex,
+  ]);
 
   return (
     <ScreenSurface edges={['left', 'right', 'bottom']}>
@@ -1023,6 +1098,13 @@ export function FeedScreen({
                         {clip.tag ? ` · ${getLocalizedTopicLabel(clip.tag, t)}` : ''}
                       </Text>
                       {clip._aiReason ? <Text style={styles.clipReason}>{clip._aiReason}</Text> : null}
+                      {isVisible && listenCoachVisible ? (
+                        <View style={styles.coachHintWrap}>
+                          <GlassCard style={styles.coachHintCard}>
+                            <Text style={styles.coachHintText}>{t('feedCoach.listenHint')}</Text>
+                          </GlassCard>
+                        </View>
+                      ) : null}
                     </View>
                   </View>
                 }
@@ -1080,9 +1162,30 @@ export function FeedScreen({
                         onPlaybackRateChange(rate);
                       }}
                       onCycleSubtitleSize={onSubtitleSizeChange}
-                      onToggleZh={() => setShowZh(prev => !prev)}
+                      onToggleZh={() => {
+                        if (showListenCoach) {
+                          clearCoachTimers();
+                          setListenCoachVisible(false);
+                          onDismissListenCoach();
+                          if (showNavCoach) {
+                            coachTimersRef.current.push(setTimeout(() => {
+                              setNavCoachVisible(true);
+                            }, 180));
+                            coachTimersRef.current.push(setTimeout(() => {
+                              setNavCoachVisible(false);
+                              onDismissNavCoach();
+                            }, 2780));
+                          }
+                        }
+                        setShowZh(prev => !prev);
+                      }}
                       onToggleMask={() => setMasked(prev => !prev)}
                     />
+                    {isVisible && navCoachVisible ? (
+                      <View style={styles.navCoachWrap}>
+                        <Text style={styles.navCoachText}>{t('feedCoach.navHint')}</Text>
+                      </View>
+                    ) : null}
                   </View>
                 }
               >
@@ -1129,6 +1232,9 @@ export function FeedScreen({
                             clip,
                             word: word.word,
                           });
+                          if (showWordCoach) {
+                            onShowWordCoach();
+                          }
                           triggerUiFeedback('card');
                           setPopup({
                             word,
@@ -1469,6 +1575,22 @@ return StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
+  coachHintWrap: {
+    marginTop: spacing.xs,
+  },
+  coachHintCard: {
+    alignSelf: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: colors.bgSurface1,
+  },
+  coachHintText: {
+    color: colors.textSecondary,
+    fontSize: typography.caption,
+    lineHeight: 18,
+    textAlign: 'center',
+    maxWidth: 260,
+  },
   clipTitle: {
     color: colors.textPrimary,
     fontSize: typography.title,
@@ -1533,6 +1655,16 @@ return StyleSheet.create({
   },
   controlsWrap: {
     gap: spacing.md,
+  },
+  navCoachWrap: {
+    alignItems: 'center',
+  },
+  navCoachText: {
+    color: colors.textTertiary,
+    fontSize: typography.micro,
+    lineHeight: 18,
+    letterSpacing: 0.4,
+    textAlign: 'center',
   },
   contentStage: {
     minHeight: 260,
