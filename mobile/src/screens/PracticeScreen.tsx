@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   ActionButton,
   EmptyState,
@@ -35,6 +35,7 @@ type Props = {
   contentViewportHeight?: number;
   onGenerateMore: () => void;
   onStartPractice: (practiceId: string) => void;
+  onOpenCompletedPractice: (practiceId: string) => void;
 };
 
 function practiceDurationLabel(practice: GeneratedPractice) {
@@ -95,6 +96,7 @@ export function PracticeScreen({
   contentViewportHeight = 0,
   onGenerateMore,
   onStartPractice,
+  onOpenCompletedPractice,
 }: Props) {
   const { colors } = useAppTheme();
   const { t } = useUiI18n();
@@ -266,8 +268,9 @@ export function PracticeScreen({
 
             <GlassCard style={styles.completedPanel}>
               {completedPreview.map((practice, index) => (
-                <View
+                <Pressable
                   key={`completed-${practice.id}`}
+                  onPress={() => onOpenCompletedPractice(practice.id)}
                   style={[
                     styles.completedRow,
                     index < completedPreview.length - 1 && styles.completedRowBorder,
@@ -280,7 +283,8 @@ export function PracticeScreen({
                       {practice.completedAt ? ` · ${new Date(practice.completedAt).toLocaleDateString()}` : ''}
                     </Text>
                   </View>
-                </View>
+                  <Text style={styles.completedAction}>{t('practice.viewCompleted')}</Text>
+                </Pressable>
               ))}
             </GlassCard>
           </View>
@@ -499,8 +503,12 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       gap: 0,
     },
     completedRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.md,
+      gap: spacing.md,
     },
     completedRowBorder: {
       borderBottomWidth: 1,
@@ -517,6 +525,11 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
     completedMeta: {
       color: colors.textSecondary,
       fontSize: typography.caption,
+    },
+    completedAction: {
+      color: colors.accentPractice,
+      fontSize: typography.caption,
+      fontWeight: '600',
     },
   });
 }

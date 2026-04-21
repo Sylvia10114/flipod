@@ -1,10 +1,9 @@
 import * as FileSystem from 'expo-file-system';
 import { Audio, type AVPlaybackStatus } from 'expo-av';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Ionicons } from '@expo/vector-icons';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { api } from '../services/api';
-import { ActionButton, GlassCard, StatBlock } from './AppChrome';
+import { ActionButton, GlassCard } from './AppChrome';
 import { ChallengeWordPills } from './ChallengeWordPills';
 import { PracticeCardHeader } from './generated-practice/PracticeCardHeader';
 import { PracticeInlineWordInspector } from './generated-practice/PracticeInlineWordInspector';
@@ -38,6 +37,7 @@ type PopupState = {
 type Props = {
   visible: boolean;
   practice: GeneratedPractice | null;
+  readOnly?: boolean;
   nativeLanguage: NativeLanguage;
   vocabWords: string[];
   knownWords: string[];
@@ -139,17 +139,10 @@ function shiftLineToZero(line: ClipLine): ClipLine {
   };
 }
 
-function stepLabel(step: Step, t: (key: string, params?: Record<string, string | number>) => string) {
-  if (step === 1) return t('practiceSession.stepNativeLanguage');
-  if (step === 2) return t('practiceSession.stepEnglish');
-  if (step === 3) return t('practiceSession.stepFade');
-  return t('practiceSession.stepBlind');
-}
-
 export function GeneratedPracticeSessionModal({
   visible,
   practice,
-  nativeLanguage,
+  readOnly = false,
   vocabWords,
   knownWords,
   onSaveVocab,
@@ -188,8 +181,6 @@ export function GeneratedPracticeSessionModal({
   const [quizSelection, setQuizSelection] = useState<number | null>(null);
   const [quizAnswered, setQuizAnswered] = useState(false);
   const [popup, setPopup] = useState<PopupState>(null);
-  const [lookedWords, setLookedWords] = useState<string[]>([]);
-  const [hardSentences, setHardSentences] = useState<number[]>([]);
 
   const challengeWords = useMemo(() => (practice ? buildChallengeWords(practice) : []), [practice]);
 
@@ -419,8 +410,6 @@ export function GeneratedPracticeSessionModal({
     setHasPlayedStep3(false);
     setHasPlayedStep4(false);
     setPopup(null);
-    setLookedWords([]);
-    setHardSentences([]);
     setErrorMessage(null);
     setIsLoading(false);
     setIsPlaying(false);
@@ -501,9 +490,6 @@ export function GeneratedPracticeSessionModal({
 
   const handleWordTap = useCallback((word: ClipLineWord, line: ClipLine, lineIndex: number) => {
     const normalized = word.word.toLowerCase();
-    if (!lookedWords.includes(normalized)) {
-      setLookedWords(prev => [...prev, normalized]);
-    }
     onRecordWordLookup(word.cefr, { word: normalized });
     setPopup({
       word,
@@ -511,18 +497,18 @@ export function GeneratedPracticeSessionModal({
       contextZh: line.zh,
       lineIndex,
     });
-  }, [lookedWords, onRecordWordLookup]);
+  }, [onRecordWordLookup]);
 
   const finishPractice = useCallback(() => {
     if (!practice || completionSavedRef.current) return;
     completionSavedRef.current = true;
     onComplete(practice.id, {
       done: true,
-      words: lookedWords.length,
-      hard: hardSentences.length,
+      words: 0,
+      hard: 0,
       ts: Date.now(),
     }, practice);
-  }, [hardSentences.length, lookedWords.length, onComplete, practice]);
+  }, [onComplete, practice]);
 
   const finishAndPracticeAgain = useCallback(() => {
     finishPractice();
@@ -542,42 +528,48 @@ export function GeneratedPracticeSessionModal({
 
   const localizedTopic = practice.tag ? getLocalizedTopicLabel(practice.tag, t) : '';
   const mcq = practice.mcq;
-  const currentStepLabel = stepLabel(step, t);
-  const stepHeroTitle = step === 1
-    ? t('practiceSession.previewTitle')
-    : step === 2
-      ? t('practiceSession.englishDrillTitle')
-      : step === 3
-        ? t('practiceSession.fadeTitle')
-        : isReviewReady
-          ? t('practiceSession.summaryTitle')
-          : t('practiceSession.blindTitle');
-  const stepHeroBody = step === 1
-    ? (
-      nativeLanguage === 'english'
-        ? t('practiceSession.previewFallbackBody')
-        : t('practiceSession.previewBody')
-    )
-    : step === 2
-      ? t('practiceSession.englishDrillBody')
-      : step === 3
-        ? t('practiceSession.fadeBody')
-        : isReviewReady
-          ? t('practiceSession.afterListenCheck')
-          : t('practiceSession.blindBody');
 
   return (
     <PracticeStudioShell
       visible={visible}
-      title={practice.title}
-      cefr={practice.cefr}
-      step={step}
-      stepLabel={currentStepLabel}
-      stepTitle={stepHeroTitle}
-      stepBody={stepHeroBody}
+      step={readOnly ? 1 : step}
+      stepCount={readOnly ? 1 : 4}
+      closeLabel={t('common.close')}
       onClose={handleDismiss}
     >
-      {step === 1 ? (
+      {readOnly ? (
+        <>
+          <GlassCard style={styles.sourceCard}>
+            <Text style={styles.sourceTitle}>{practice.title}</Text>
+            <Text style={styles.sourceMeta}>
+              {[localizedTopic, practice.cefr].filter(Boolean).join(' · ')}
+            </Text>
+            {challengeWords.length > 0 ? (
+              <View style={styles.challengeWrap}>
+                <PracticeCardHeader label={t('practiceSession.challengeWordsTitle')} />
+                <ChallengeWordPills words={challengeWords} tone="practice" singleRow />
+              </View>
+            ) : null}
+          </GlassCard>
+
+          <GlassCard style={styles.reviewCard}>
+            <PracticeCardHeader label={t('common.menuTranscript')} />
+            <PracticeTranscriptPanel
+              lines={enrichedLines}
+              currentTime={0}
+              maxHeight={360}
+              renderLine={({ line }) => (
+                <View style={styles.reviewLine}>
+                  <Text style={styles.reviewLineEn}>{line.en}</Text>
+                  <Text style={styles.reviewLineZh}>{line.zh}</Text>
+                </View>
+              )}
+            />
+          </GlassCard>
+        </>
+      ) : null}
+
+      {!readOnly && step === 1 ? (
         <>
           <GlassCard style={styles.sourceCard}>
             <Text style={styles.sourceTitle}>{practice.title}</Text>
@@ -600,7 +592,7 @@ export function GeneratedPracticeSessionModal({
             <PracticeTranscriptPanel
               lines={enrichedLines}
               currentTime={alignedPlaybackSeconds}
-              maxHeight={220}
+              maxHeight={280}
               renderLine={({ line, isActive }) => (
                 <View style={[styles.nativeTranscriptLine, isActive && styles.nativeTranscriptLineActive]}>
                   <Text style={styles.nativeTranscriptText}>{line.zh || line.en}</Text>
@@ -640,7 +632,7 @@ export function GeneratedPracticeSessionModal({
         </>
       ) : null}
 
-      {step === 2 && currentSentence ? (
+      {!readOnly && step === 2 && currentSentence ? (
         <>
           <GlassCard style={styles.sentenceCard}>
             <PracticeCardHeader
@@ -658,8 +650,7 @@ export function GeneratedPracticeSessionModal({
                   currentTime={isActive ? alignedPlaybackSeconds : 0}
                   isActive={isActive}
                   showZh={false}
-                  compact
-                  subtitleSize="sm"
+                  subtitleSize="md"
                   onWordTap={(word, lineData) => handleWordTap(word, lineData, index)}
                 />
               )}
@@ -740,7 +731,7 @@ export function GeneratedPracticeSessionModal({
         </>
       ) : null}
 
-      {step === 3 ? (
+      {!readOnly && step === 3 ? (
         <>
           <GlassCard style={styles.fadeCard}>
             <PracticeCardHeader
@@ -819,21 +810,10 @@ export function GeneratedPracticeSessionModal({
         </>
       ) : null}
 
-      {step === 4 && !hasPlayedStep4 ? (
+      {!readOnly && step === 4 && !hasPlayedStep4 ? (
         <>
           <GlassCard style={styles.blindCard}>
-            <Pressable
-              onPress={() => {
-                if (isPlaying) {
-                  void pausePlayback();
-                  return;
-                }
-                void playText(practice.text, {
-                  onFinish: () => setHasPlayedStep4(true),
-                });
-              }}
-              style={styles.blindButton}
-            >
+            <View style={styles.blindButton}>
               <Animated.View
                 pointerEvents="none"
                 style={[
@@ -869,21 +849,9 @@ export function GeneratedPracticeSessionModal({
                     />
                   ))}
                 </View>
-                <View style={styles.blindIconBadge}>
-                  <Ionicons
-                    name={isPlaying ? 'pause' : 'play'}
-                    size={28}
-                    color={colors.textOnAccent}
-                  />
-                </View>
               </View>
-            </Pressable>
+            </View>
             <Text style={styles.blindCaption}>{t('practiceSession.blindBody')}</Text>
-          </GlassCard>
-
-          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-
-          <View style={styles.actionRow}>
             <ActionButton
               label={isLoading ? t('feed.preparingPlayback') : isPlaying ? t('common.pause') : t('common.play')}
               onPress={() => {
@@ -896,13 +864,15 @@ export function GeneratedPracticeSessionModal({
                 });
               }}
               loading={isLoading}
-              style={styles.primaryAction}
+              style={styles.blindAction}
             />
-          </View>
+          </GlassCard>
+
+          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
         </>
       ) : null}
 
-      {step === 4 && hasPlayedStep4 ? (
+      {!readOnly && step === 4 && hasPlayedStep4 ? (
         <>
           {mcq ? (
             <GlassCard style={styles.quizCard}>
@@ -943,41 +913,19 @@ export function GeneratedPracticeSessionModal({
 
           {isReviewReady ? (
             <>
-              <View style={styles.reviewStatsRow}>
-                <GlassCard style={styles.statCard}>
-                  <StatBlock
-                    value={lookedWords.length}
-                    label={t('practiceSession.summaryWords')}
-                  />
-                </GlassCard>
-                <GlassCard style={styles.statCard}>
-                  <StatBlock
-                    value={hardSentences.length}
-                    label={t('practiceSession.summaryHard')}
-                    accent="#F59E0B"
-                  />
-                </GlassCard>
-              </View>
-
               <GlassCard style={styles.reviewCard}>
                 <PracticeCardHeader label={t('practiceSession.summaryTitle')} />
-                <View style={styles.reviewTranscript}>
-                  {enrichedLines.map((line, index) => (
-                    <View
-                      key={`review-${index}`}
-                      style={[
-                        styles.reviewLine,
-                        hardSentences.includes(index) && styles.reviewLineHard,
-                      ]}
-                    >
+                <PracticeTranscriptPanel
+                  lines={enrichedLines}
+                  currentTime={0}
+                  maxHeight={320}
+                  renderLine={({ line }) => (
+                    <View style={styles.reviewLine}>
                       <Text style={styles.reviewLineEn}>{line.en}</Text>
                       <Text style={styles.reviewLineZh}>{line.zh}</Text>
-                      {hardSentences.includes(index) ? (
-                        <Text style={styles.reviewLineHint}>{t('practiceSession.hard')}</Text>
-                      ) : null}
                     </View>
-                  ))}
-                </View>
+                  )}
+                />
               </GlassCard>
 
               <View style={styles.actionRow}>
@@ -1043,10 +991,10 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
     },
     nativeTranscriptText: {
       color: colors.textPrimary,
-      fontSize: typography.body,
-      lineHeight: 22,
+      fontSize: 21,
+      lineHeight: 31,
       textAlign: 'center',
-      fontWeight: '600',
+      fontWeight: '700',
     },
     actionRow: {
       flexDirection: 'row',
@@ -1136,7 +1084,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
     },
     blindButton: {
       width: 188,
-      height: 188,
+      height: 176,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1164,15 +1112,6 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       alignItems: 'center',
       gap: 10,
     },
-    blindIconBadge: {
-      position: 'absolute',
-      width: 58,
-      height: 58,
-      borderRadius: 29,
-      backgroundColor: colors.accentPractice,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
     blindBar: {
       width: 6,
       borderRadius: radii.pill,
@@ -1182,6 +1121,10 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       color: colors.textSecondary,
       fontSize: typography.body,
       textAlign: 'center',
+    },
+    blindAction: {
+      width: '100%',
+      maxWidth: 240,
     },
     quizCard: {
       gap: spacing.md,
@@ -1226,20 +1169,9 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: typography.caption,
       lineHeight: 18,
     },
-    reviewStatsRow: {
-      flexDirection: 'row',
-      gap: spacing.md,
-    },
-    statCard: {
-      flex: 1,
-      backgroundColor: colors.bgSurface1,
-    },
     reviewCard: {
       gap: spacing.md,
       backgroundColor: colors.bgSurface1,
-    },
-    reviewTranscript: {
-      gap: spacing.sm,
     },
     reviewLine: {
       padding: spacing.md,
@@ -1247,28 +1179,16 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       backgroundColor: colors.bgSurface2,
       gap: 6,
     },
-    reviewLineHard: {
-      borderWidth: 1,
-      borderColor: 'rgba(245,158,11,0.32)',
-      backgroundColor: 'rgba(245,158,11,0.12)',
-    },
     reviewLineEn: {
       color: colors.textPrimary,
-      fontSize: typography.body,
-      lineHeight: 21,
+      fontSize: 19,
+      lineHeight: 28,
       fontWeight: '600',
     },
     reviewLineZh: {
       color: colors.textSecondary,
-      fontSize: typography.caption,
-      lineHeight: 18,
-    },
-    reviewLineHint: {
-      color: '#FCD34D',
-      fontSize: typography.micro,
-      fontWeight: '700',
-      textTransform: 'uppercase',
-      letterSpacing: 0.6,
+      fontSize: 15,
+      lineHeight: 23,
     },
     errorText: {
       color: colors.accentError,

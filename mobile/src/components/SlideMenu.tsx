@@ -8,7 +8,7 @@ import { useUiI18n } from '../i18n';
 import { joinLocalizedTopics } from '../i18n/helpers';
 import { useResponsiveLayout } from '../responsive';
 import { useAppTheme } from '../theme';
-import type { DominantHand, LinkedIdentity, Profile } from '../types';
+import type { LinkedIdentity, Profile } from '../types';
 
 export type MenuScreen = 'feed' | 'library' | 'practice' | 'vocab' | 'account';
 
@@ -16,7 +16,6 @@ type Props = {
   visible: boolean;
   profile: Profile;
   isGuest: boolean;
-  dominantHand: DominantHand;
   activeScreen: MenuScreen;
   linkedIdentities: LinkedIdentity[];
   bookmarksCount: number;
@@ -24,7 +23,6 @@ type Props = {
   clipsPlayed: number;
   onClose: () => void;
   onNavigate: (screen: MenuScreen) => void;
-  onToggleHand: () => void;
   onToggleTheme: () => void;
   onResetOnboarding: () => void;
 };
@@ -51,7 +49,6 @@ export function SlideMenu({
   visible,
   profile,
   isGuest,
-  dominantHand,
   activeScreen,
   linkedIdentities,
   bookmarksCount,
@@ -59,7 +56,6 @@ export function SlideMenu({
   clipsPlayed,
   onClose,
   onNavigate,
-  onToggleHand,
   onToggleTheme,
   onResetOnboarding,
 }: Props) {
@@ -82,7 +78,7 @@ export function SlideMenu({
         <SafeAreaView
           style={[
             styles.sheetWrap,
-            dominantHand === 'left' ? styles.sheetWrapRight : styles.sheetWrapLeft,
+            styles.sheetWrapLeft,
             { width: metrics.menuWidth, maxWidth: metrics.menuWidth },
             { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 20) },
           ]}
@@ -173,14 +169,6 @@ export function SlideMenu({
                   onPress={() => {
                     triggerUiFeedback('menu');
                     onToggleTheme();
-                  }}
-                />
-                <ActionButton
-                  label={dominantHand === 'left' ? t('menu.switchToRightHanded') : t('menu.switchToLeftHanded')}
-                  variant="secondary"
-                  onPress={() => {
-                    triggerUiFeedback('menu');
-                    onToggleHand();
                   }}
                 />
                 <ActionButton

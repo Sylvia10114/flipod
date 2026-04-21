@@ -9,7 +9,7 @@ import { getNativeLanguageOptions, useUiI18n } from '../i18n';
 import { joinLocalizedTopics } from '../i18n/helpers';
 import { useResponsiveLayout } from '../responsive';
 import { useAppTheme } from '../theme';
-import type { DominantHand, LinkedIdentity, NativeLanguage, Profile } from '../types';
+import type { LinkedIdentity, NativeLanguage, Profile } from '../types';
 
 type Props = {
   profile: Profile;
@@ -18,7 +18,6 @@ type Props = {
   bookmarksCount: number;
   vocabCount: number;
   practiceCount: number;
-  dominantHand: DominantHand;
   onBack: () => void;
   onLinkPhone: () => void;
   onLinkApple: () => void;
@@ -35,7 +34,6 @@ export function AccountScreen({
   bookmarksCount,
   vocabCount,
   practiceCount,
-  dominantHand,
   onBack,
   onLinkPhone,
   onLinkApple,
@@ -68,9 +66,6 @@ export function AccountScreen({
   const topicsValue = profile.interests.length > 0
     ? joinLocalizedTopics(profile.interests, t)
     : t('account.noTopicsSelected');
-  const dominantHandValue = dominantHand === 'left'
-    ? t('account.handPreferenceLeft')
-    : t('account.handPreferenceRight');
   const heroEyebrow = isGuest ? t('account.statusLabelGuest') : t('account.statusLabelRecovery');
   const heroBadge = isGuest ? (profile.level || 'B1') : `${linkedMethodCount} / 2`;
   const summaryTitle = isGuest
@@ -325,10 +320,6 @@ export function AccountScreen({
               <View style={styles.settingRowCompact}>
                 <Text style={styles.settingTitle}>{t('account.setupTopics')}</Text>
                 <Text style={styles.settingValueMuted}>{topicsValue}</Text>
-              </View>
-              <View style={styles.settingRowCompact}>
-                <Text style={styles.settingTitle}>{t('account.setupDominantHand')}</Text>
-                <Text style={styles.settingValueMuted}>{dominantHandValue}</Text>
               </View>
             </View>
           </GlassCard>

@@ -24,7 +24,7 @@ export function HomeModeTabs({ mode, onChangeMode }: Props) {
   ];
 
   return (
-    <View style={[styles.wrap, { paddingHorizontal: metrics.isTablet ? 8 : 6 }]}>
+    <View style={[styles.wrap, { paddingHorizontal: metrics.isTablet ? 8 : 4 }]}>
       {items.map(item => {
         const active = item.key === mode;
         return (
@@ -37,11 +37,11 @@ export function HomeModeTabs({ mode, onChangeMode }: Props) {
             }}
             style={({ pressed }) => [
               styles.tab,
-              active && styles.tabActive,
-              pressed && !active && styles.tabPressed,
+              pressed && styles.tabPressed,
             ]}
           >
             <Text style={[styles.tabText, active && styles.tabTextActive]}>{item.label}</Text>
+            <View style={[styles.tabUnderline, active && styles.tabUnderlineActive]} />
           </Pressable>
         );
       })}
@@ -56,25 +56,19 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
-      padding: 6,
-      borderRadius: radii.pill,
-      backgroundColor: colors.bgSurface1,
-      borderWidth: 1,
-      borderColor: colors.stroke,
+      paddingTop: 2,
     },
     tab: {
       flex: 1,
-      minHeight: 42,
-      borderRadius: radii.pill,
+      minHeight: 34,
       justifyContent: 'center',
       alignItems: 'center',
-      paddingHorizontal: spacing.md,
-    },
-    tabActive: {
-      backgroundColor: colors.accentFeed,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      gap: 6,
     },
     tabPressed: {
-      backgroundColor: colors.bgSurface2,
+      opacity: 0.78,
     },
     tabText: {
       color: colors.textSecondary,
@@ -82,7 +76,16 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       fontWeight: '700',
     },
     tabTextActive: {
-      color: colors.textOnAccent,
+      color: colors.textPrimary,
+    },
+    tabUnderline: {
+      width: '100%',
+      height: 2,
+      borderRadius: 999,
+      backgroundColor: 'transparent',
+    },
+    tabUnderlineActive: {
+      backgroundColor: colors.textPrimary,
     },
   });
 }
