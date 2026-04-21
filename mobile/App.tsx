@@ -25,6 +25,7 @@ import { AppToast } from './src/components/AppToast';
 import { CalibrationToast } from './src/components/CalibrationToast';
 import { GeneratedPracticeSessionModal } from './src/components/GeneratedPracticeSessionModal';
 import { HomeTopChrome } from './src/components/HomeTopChrome';
+import { HowItWorksSheet } from './src/components/HowItWorksSheet';
 import { type MenuScreen, SlideMenu } from './src/components/SlideMenu';
 import { demoClips } from './src/demo-clips';
 import {
@@ -56,6 +57,7 @@ import {
 } from './src/generated-practice';
 import { FeedScreen } from './src/screens/FeedScreen';
 import { AccountScreen } from './src/screens/AccountScreen';
+import { FirstUseBridgeScreen } from './src/screens/FirstUseBridgeScreen';
 import { LibraryScreen } from './src/screens/LibraryScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
@@ -286,6 +288,18 @@ function getHomeModeScreen(mode: HomeMode): MenuScreen {
   return 'feed';
 }
 
+function resetGuidanceSettings(settings: AppSettings): AppSettings {
+  return {
+    ...settings,
+    practiceIntroSeen: false,
+    bookmarkPracticeHintSeen: false,
+    firstUseBridgeSeen: false,
+    feedCoachListenSeen: false,
+    feedCoachWordSeen: false,
+    feedCoachNavSeen: false,
+  };
+}
+
 export default function App() {
   const [booting, setBooting] = useState(true);
   const [deviceId, setDeviceId] = useState('');
@@ -321,6 +335,7 @@ export default function App() {
   const [clipsPlayed, setClipsPlayed] = useState(0);
   const [activeScreen, setActiveScreen] = useState<MenuScreen>('feed');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [feedState, setFeedState] = useState<'loading' | 'normal' | 'rerank' | 'fallback'>('loading');
   const [activeGeneratedPracticeSession, setActiveGeneratedPracticeSession] = useState<{
     id: string;
@@ -1184,6 +1199,34 @@ export default function App() {
     setActiveScreen(getHomeModeScreen(settings.homeMode));
   };
 
+  const handleCompleteFirstUseBridge = useCallback(() => {
+    if (settings.firstUseBridgeSeen) return;
+    const nextSettings: AppSettings = {
+      ...settings,
+      firstUseBridgeSeen: true,
+    };
+    void persistSettings(nextSettings);
+  }, [persistSettings, settings]);
+
+  const markFeedCoachSeen = useCallback((key: 'feedCoachListenSeen' | 'feedCoachNavSeen') => {
+    if (settings[key]) return;
+    const nextSettings: AppSettings = {
+      ...settings,
+      [key]: true,
+    };
+    void persistSettings(nextSettings);
+  }, [persistSettings, settings]);
+
+  const handleShowWordCoach = useCallback(() => {
+    if (settings.feedCoachWordSeen) return;
+    const nextSettings: AppSettings = {
+      ...settings,
+      feedCoachWordSeen: true,
+    };
+    void persistSettings(nextSettings);
+    showToast(ui.t('feedCoach.wordHint'));
+  }, [persistSettings, settings, showToast, ui]);
+
   const boostInterestFromLike = async (tag: string, preserveThroughClipId?: number | null) => {
     const normalized = normalizeTopic(tag);
     if (!normalized) return;
@@ -1220,7 +1263,9 @@ export default function App() {
   };
 
   const handleResetProfile = async () => {
+    const nextSettings = resetGuidanceSettings(settings);
     setProfile(defaultProfile);
+    setShowHowItWorks(false);
     setActiveScreen(getHomeModeScreen(DEFAULT_SETTINGS.homeMode));
     setMenuOpen(false);
     setActiveGeneratedPracticeSession(null);
@@ -1229,7 +1274,11 @@ export default function App() {
     setSkippedClipIds([]);
     setVisibleFeedCount(FEED_BATCH_SIZE);
     lastFeedSignatureRef.current = null;
-    await saveProfile(defaultProfile);
+    await Promise.all([
+      saveProfile(defaultProfile),
+      saveSettings(nextSettings),
+    ]);
+    setSettings(nextSettings);
     if (authToken) {
       try {
         await api.saveProfile(authToken, defaultProfile);
@@ -1786,6 +1835,7 @@ export default function App() {
     setGuestMode(true);
     setAuthError('');
     setShowAuthSheet(false);
+    setShowHowItWorks(false);
     setMenuOpen(false);
     setActiveScreen(getHomeModeScreen(settings.homeMode));
   }, [settings.homeMode]);
@@ -1794,6 +1844,7 @@ export default function App() {
     await clearGuestMode();
     setGuestMode(false);
     setShowAuthSheet(false);
+    setShowHowItWorks(false);
     setMenuOpen(false);
     setActiveScreen(getHomeModeScreen(settings.homeMode));
     setAuthError('');
@@ -1840,6 +1891,7 @@ export default function App() {
     setActiveScreen(getHomeModeScreen(DEFAULT_SETTINGS.homeMode));
     setMenuOpen(false);
     setShowAuthSheet(false);
+    setShowHowItWorks(false);
     setActiveGeneratedPracticeSession(null);
     setAuthError('');
   }, [authToken]);
@@ -1886,6 +1938,7 @@ export default function App() {
     setActiveScreen(getHomeModeScreen(DEFAULT_SETTINGS.homeMode));
     setMenuOpen(false);
     setShowAuthSheet(false);
+    setShowHowItWorks(false);
     setActiveGeneratedPracticeSession(null);
     setAuthError('');
     showToast(ui.t('app.toastAccountDeleted'));
@@ -1913,6 +1966,8 @@ export default function App() {
     );
   } else if (!profile.onboardingDone) {
     content = <OnboardingScreen initialProfile={profile} onSubmit={handleProfileSubmit} />;
+  } else if (!settings.firstUseBridgeSeen) {
+    content = <FirstUseBridgeScreen onContinue={handleCompleteFirstUseBridge} />;
   } else if (activeScreen === 'library') {
     content = (
       <LibraryScreen
@@ -2012,10 +2067,16 @@ export default function App() {
               knownWords={knownWords}
               clipsPlayed={clipsPlayed}
               isForeground={settings.homeMode === 'listen'}
+              showListenCoach={!settings.feedCoachListenSeen}
+              showNavCoach={!settings.feedCoachNavSeen}
+              showWordCoach={!settings.feedCoachWordSeen}
               onToggleLike={handleToggleLike}
               onToggleBookmark={handleToggleBookmark}
               onSaveVocab={handleSaveVocab}
               onMarkKnown={handleMarkKnown}
+              onDismissListenCoach={() => markFeedCoachSeen('feedCoachListenSeen')}
+              onDismissNavCoach={() => markFeedCoachSeen('feedCoachNavSeen')}
+              onShowWordCoach={handleShowWordCoach}
               onRecordWordLookup={handleRecordWordLookup}
               onReviewAction={handleReviewAction}
               onLoadMoreClips={handleLoadMoreFeed}
@@ -2095,6 +2156,10 @@ export default function App() {
                     setActiveScreen(screen);
                     setMenuOpen(false);
                   }}
+                  onOpenGuide={() => {
+                    setMenuOpen(false);
+                    setShowHowItWorks(true);
+                  }}
                   onToggleTheme={() => {
                     setMenuOpen(false);
                     void handleToggleTheme();
@@ -2153,6 +2218,11 @@ export default function App() {
                 />
 
                 <AppToast message={toastMessage} visible={toastVisible} />
+
+                <HowItWorksSheet
+                  visible={showHowItWorks}
+                  onClose={() => setShowHowItWorks(false)}
+                />
               </>
             ) : null}
           </View>
