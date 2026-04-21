@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from agent.config import ensure_env
+from agent.config import CURATED_FEEDS
 from agent.rss import parse_rss
 from agent.pipeline import process_episode
 from agent.cefr import init_cefr_map, save_cefr_cache
@@ -88,6 +89,20 @@ def main():
     if args.feeds.strip():
         wanted = {name.strip() for name in args.feeds.split(",") if name.strip()}
         active_feeds = [feed for feed in HIGH_YIELD_FEEDS if feed["name"] in wanted]
+        known = {feed["name"] for feed in active_feeds}
+        for curated in CURATED_FEEDS:
+            if curated["name"] not in wanted or curated["name"] in known:
+                continue
+            active_feeds.append(
+                {
+                    "url": curated["url"],
+                    "name": curated["name"],
+                    "tier": curated["tier"],
+                }
+            )
+
+    if not active_feeds:
+        raise SystemExit("No matching feeds found for this batch.")
 
     for feed in active_feeds:
         if len(all_results) >= args.target_clips:

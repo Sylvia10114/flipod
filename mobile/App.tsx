@@ -686,7 +686,8 @@ export default function App() {
 
     async function loadClips() {
       try {
-        let data: { clips?: Clip[] } | null = null;
+        let bestData: { clips?: Clip[] } | null = null;
+        let bestUrl: string | null = null;
         let lastError: Error | null = null;
         for (const url of resolveDataUrls()) {
           try {
@@ -694,18 +695,35 @@ export default function App() {
             if (!response.ok) {
               throw new Error(`HTTP ${response.status}`);
             }
-            data = await response.json() as { clips?: Clip[] };
-            if (Array.isArray(data.clips) && data.clips.length > 0) {
-              break;
+            const candidate = await response.json() as { clips?: Clip[] };
+            const candidateCount = Array.isArray(candidate.clips) ? candidate.clips.length : 0;
+            console.log('[clips-load] loaded remote clips', {
+              url,
+              count: candidateCount,
+            });
+            if (
+              candidateCount > 0
+              && (!bestData || candidateCount > (bestData.clips?.length || 0))
+            ) {
+              bestData = candidate;
+              bestUrl = url;
             }
           } catch (error) {
             lastError = error instanceof Error ? error : new Error('Failed to load clips');
+            console.log('[clips-load] remote load failed', {
+              url,
+              error: lastError.message,
+            });
           }
         }
         if (cancelled) return;
 
-        if (data && Array.isArray(data.clips) && data.clips.length > 0) {
-          setClipsData(normalizeClips(data.clips));
+        if (bestData && Array.isArray(bestData.clips) && bestData.clips.length > 0) {
+          console.log('[clips-load] using remote clips source', {
+            url: bestUrl,
+            count: bestData.clips.length,
+          });
+          setClipsData(normalizeClips(bestData.clips));
           setClipsLoaded(true);
           return;
         }
@@ -715,10 +733,16 @@ export default function App() {
         }
         setClipsData(demoClips);
         setClipsLoaded(true);
+        console.log('[clips-load] falling back to bundled demo clips', {
+          count: demoClips.length,
+        });
       } catch {
         if (!cancelled) {
           setClipsData(demoClips);
           setClipsLoaded(true);
+          console.log('[clips-load] fatal fallback to bundled demo clips', {
+            count: demoClips.length,
+          });
         }
       }
     }
