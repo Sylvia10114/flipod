@@ -10,6 +10,15 @@ type ClipWindow = {
   durationSec: number;
 };
 
+function normalizeAudioRef(raw: string) {
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) {
+    return normalizeKeyUrl(trimmed);
+  }
+  return normalizeContentPath(trimmed).toLowerCase();
+}
+
 function getSourceObject(clip: Clip): ClipSourceObject | null {
   return typeof clip.source === 'object' && clip.source ? clip.source : null;
 }
@@ -84,6 +93,26 @@ export function getClipSourceExternalUrl(clip: Clip) {
 }
 
 export function getClipWindow(clip: Clip): ClipWindow {
+  const directAudio = normalizeAudioRef(clip.cdnAudio || clip.audio || '');
+  const sourceAudio = normalizeAudioRef(getSourceObject(clip)?.audio_url || '');
+  const usesDirectClipAudio = Boolean(directAudio) && (!sourceAudio || directAudio !== sourceAudio);
+
+  const durationFromField = typeof clip.duration === 'number' && Number.isFinite(clip.duration)
+    ? clip.duration
+    : undefined;
+  const durationFromLines = clip.lines?.length
+    ? clip.lines[clip.lines.length - 1].end
+    : 0;
+  const durationSec = Number(((durationFromField ?? durationFromLines) || 0).toFixed(2));
+
+  if (usesDirectClipAudio) {
+    return {
+      startSec: 0,
+      endSec: durationSec,
+      durationSec,
+    };
+  }
+
   const explicitStart = Number(clip.clip_start_sec);
   const explicitEnd = Number(clip.clip_end_sec);
   if (Number.isFinite(explicitStart) && Number.isFinite(explicitEnd) && explicitEnd > explicitStart) {
@@ -93,14 +122,6 @@ export function getClipWindow(clip: Clip): ClipWindow {
       durationSec: Number((explicitEnd - explicitStart).toFixed(2)),
     };
   }
-
-  const durationFromField = typeof clip.duration === 'number' && Number.isFinite(clip.duration)
-    ? clip.duration
-    : undefined;
-  const durationFromLines = clip.lines?.length
-    ? clip.lines[clip.lines.length - 1].end
-    : 0;
-  const durationSec = Number(((durationFromField ?? durationFromLines) || 0).toFixed(2));
   return {
     startSec: 0,
     endSec: durationSec,
