@@ -147,6 +147,12 @@ export async function ensureAuthSchema(env) {
   await ensureTableColumn(
     env,
     'vocab_entries',
+    'definition_zh',
+    'ALTER TABLE vocab_entries ADD COLUMN definition_zh TEXT'
+  );
+  await ensureTableColumn(
+    env,
+    'vocab_entries',
     'content_key',
     'ALTER TABLE vocab_entries ADD COLUMN content_key TEXT'
   );

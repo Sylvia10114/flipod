@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
   Linking,
   Modal,
@@ -11,6 +12,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type NativeTouchEvent,
   type ListRenderItemInfo,
   type ViewToken,
 } from 'react-native';
@@ -37,7 +39,7 @@ import { ChallengeWordPills } from '../components/ChallengeWordPills';
 import { WordLine } from '../components/WordLine';
 import { WordPopup } from '../components/WordPopup';
 import { radii, spacing, typography } from '../design';
-import { triggerUiFeedback } from '../feedback';
+import { triggerMediumHaptic, triggerUiFeedback } from '../feedback';
 import { useFeedPlayer } from '../hooks/useFeedPlayer';
 import { useUiI18n } from '../i18n';
 import { getLocalizedTopicLabel } from '../i18n/helpers';
@@ -58,6 +60,8 @@ import type {
 
 const ONE_DAY = 24 * 60 * 60 * 1000;
 const PREVIEW_MIN_DELAY_MS = 3000;
+const PREVIEW_HOLD_DELAY_MS = 320;
+const PREVIEW_HOLD_MOVE_TOLERANCE = 12;
 const DEBUG_FEED_RESTORE = __DEV__;
 
 function previewDurationMsForWordCount(count: number) {
@@ -149,6 +153,13 @@ type FeedProgressPage = {
 
 type FeedPage = FeedClipPage | FeedReviewPage | FeedProgressPage;
 
+type PreviewSessionState = {
+  clipIndex: number;
+  startedAt: number;
+  durationMs: number;
+  isPaused: boolean;
+};
+
 function buildPreviewChallengeWords(
   clip: Clip,
   level: Profile['level'],
@@ -226,11 +237,7 @@ export function FeedScreen({
   const [visibleClipIndex, setVisibleClipIndex] = useState<number | null>(null);
   const [visibleRequestId, setVisibleRequestId] = useState<number | null>(null);
   const [pendingAutoplayIndex, setPendingAutoplayIndex] = useState<number | null>(null);
-  const [previewSession, setPreviewSession] = useState<{
-    clipIndex: number;
-    startedAt: number;
-    durationMs: number;
-  } | null>(null);
+  const [previewSession, setPreviewSession] = useState<PreviewSessionState | null>(null);
   const [previewNow, setPreviewNow] = useState(() => Date.now());
   const listRef = useRef<FlatList<FeedPage> | null>(null);
   const startedRef = useRef<Set<string>>(new Set());
@@ -246,6 +253,12 @@ export function FeedScreen({
   const latestViewablePageIndexRef = useRef<number | null>(null);
   const lastScrollPageIndexRef = useRef(0);
   const lastStablePageIndexRef = useRef(0);
+  const previewSessionRef = useRef<PreviewSessionState | null>(null);
+  const previewHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const previewPausedRef = useRef(false);
+  const previewRemainingMsRef = useRef(0);
+  const previewPauseProgress = useRef(new Animated.Value(0)).current;
   const sessionRef = useRef<{
     clip: Clip;
     clipIndex: number;
@@ -295,6 +308,12 @@ export function FeedScreen({
     restoreTimerRef.current = null;
   }, []);
 
+  const clearPreviewHoldTimer = useCallback(() => {
+    if (!previewHoldTimerRef.current) return;
+    clearTimeout(previewHoldTimerRef.current);
+    previewHoldTimerRef.current = null;
+  }, []);
+
   const setCurrentVisibleRequestId = useCallback((requestId: number | null) => {
     visibleRequestIdRef.current = requestId;
     setVisibleRequestId(requestId);
@@ -304,6 +323,35 @@ export function FeedScreen({
     requestCounterRef.current += 1;
     return requestCounterRef.current;
   }, []);
+
+  const updatePreviewSession = useCallback((
+    value: PreviewSessionState | null | ((prev: PreviewSessionState | null) => PreviewSessionState | null)
+  ) => {
+    setPreviewSession(prev => {
+      const next = typeof value === 'function'
+        ? (value as (prev: PreviewSessionState | null) => PreviewSessionState | null)(prev)
+        : value;
+      previewSessionRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const clearPreviewSession = useCallback(() => {
+    previewPausedRef.current = false;
+    previewRemainingMsRef.current = 0;
+    previewTouchStartRef.current = null;
+    clearPreviewHoldTimer();
+    updatePreviewSession(null);
+  }, [clearPreviewHoldTimer, updatePreviewSession]);
+
+  const schedulePreviewAutoplay = useCallback((clipIndex: number, requestId: number, delayMs: number) => {
+    clearAutoplayTimer();
+    autoplayTimerRef.current = setTimeout(() => {
+      if (autoplayTargetRef.current !== clipIndex) return;
+      if (visibleRequestIdRef.current !== requestId) return;
+      void requestAutoplay(clipIndex, requestId);
+    }, delayMs);
+  }, [clearAutoplayTimer, requestAutoplay]);
 
   const logRestoreEvent = useCallback((event: string, details?: Record<string, unknown>) => {
     if (!DEBUG_FEED_RESTORE) return;
@@ -449,9 +497,14 @@ export function FeedScreen({
     && previewChallengeWords.length > 0
   );
   const previewRemainingMs = showPreviewOverlay && previewSession
-    ? Math.max(0, previewSession.durationMs - (previewNow - previewSession.startedAt))
+    ? (
+        previewSession.isPaused
+          ? previewSession.durationMs
+          : Math.max(0, previewSession.durationMs - (previewNow - previewSession.startedAt))
+      )
     : 0;
   const previewSeconds = Math.max(1, Math.ceil(previewRemainingMs / 1000));
+  const isPreviewPaused = Boolean(previewSession?.isPaused);
   const previewMeta = previewClip
     ? [
         getSourceLabel(previewClip.source),
@@ -459,6 +512,34 @@ export function FeedScreen({
         formatPreviewDurationLabel(previewClip),
       ].filter(Boolean).join('  ·  ')
     : '';
+  const previewPauseBackdropOpacity = previewPauseProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+  const previewPauseCardScale = previewPauseProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.985],
+  });
+  const previewPauseCardTranslateY = previewPauseProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -4],
+  });
+  const previewPauseBadgeOpacity = previewPauseProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+  const previewPauseBadgeTranslateY = previewPauseProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [8, 0],
+  });
+  const previewPauseRingScale = previewPauseProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.06],
+  });
+  const previewPauseRingWashOpacity = previewPauseProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
 
   const finalizeSession = useCallback(() => {
     const session = sessionRef.current;
@@ -474,7 +555,7 @@ export function FeedScreen({
 
   const clearVisiblePageState = useCallback(() => {
     autoplayTargetRef.current = null;
-    setPreviewSession(null);
+    clearPreviewSession();
     setHelpMenuIndex(null);
     setVisibleClipIndex(null);
     setCurrentVisibleRequestId(null);
@@ -482,7 +563,75 @@ export function FeedScreen({
     clearAutoplayTimer();
     finalizeSession();
     void stop();
-  }, [clearAutoplayTimer, finalizeSession, setCurrentVisibleRequestId, stop]);
+  }, [clearAutoplayTimer, clearPreviewSession, finalizeSession, setCurrentVisibleRequestId, stop]);
+
+  const pausePreviewCountdown = useCallback(() => {
+    const session = previewSessionRef.current;
+    if (!session || session.isPaused) return;
+    if (pendingAutoplayIndex !== session.clipIndex || visibleClipIndex !== session.clipIndex) return;
+    const remainingMs = Math.max(0, session.durationMs - (Date.now() - session.startedAt));
+    previewPausedRef.current = true;
+    previewRemainingMsRef.current = remainingMs;
+    triggerMediumHaptic();
+    clearAutoplayTimer();
+    setPreviewNow(Date.now());
+    updatePreviewSession({
+      ...session,
+      startedAt: Date.now(),
+      durationMs: remainingMs,
+      isPaused: true,
+    });
+  }, [clearAutoplayTimer, pendingAutoplayIndex, updatePreviewSession, visibleClipIndex]);
+
+  const resumePreviewCountdown = useCallback(() => {
+    const session = previewSessionRef.current;
+    const requestId = visibleRequestIdRef.current;
+    if (!session || !session.isPaused || requestId === null) return;
+    if (pendingAutoplayIndex !== session.clipIndex || visibleClipIndex !== session.clipIndex) return;
+    const remainingMs = Math.max(0, session.durationMs);
+    previewPausedRef.current = false;
+    previewRemainingMsRef.current = remainingMs;
+    if (remainingMs <= 0) {
+      void requestAutoplay(session.clipIndex, requestId);
+      return;
+    }
+    updatePreviewSession({
+      ...session,
+      startedAt: Date.now(),
+      isPaused: false,
+    });
+    setPreviewNow(Date.now());
+    schedulePreviewAutoplay(session.clipIndex, requestId, remainingMs);
+  }, [pendingAutoplayIndex, requestAutoplay, schedulePreviewAutoplay, updatePreviewSession, visibleClipIndex]);
+
+  const handlePreviewTouchStart = useCallback((event: NativeSyntheticEvent<NativeTouchEvent>) => {
+    if (!showPreviewOverlay) return;
+    previewTouchStartRef.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY };
+    clearPreviewHoldTimer();
+    previewHoldTimerRef.current = setTimeout(() => {
+      pausePreviewCountdown();
+    }, PREVIEW_HOLD_DELAY_MS);
+  }, [clearPreviewHoldTimer, pausePreviewCountdown, showPreviewOverlay]);
+
+  const handlePreviewTouchMove = useCallback((event: NativeSyntheticEvent<NativeTouchEvent>) => {
+    if (!showPreviewOverlay || previewPausedRef.current) return;
+    const start = previewTouchStartRef.current;
+    if (!start || !previewHoldTimerRef.current) return;
+    const dx = event.nativeEvent.pageX - start.x;
+    const dy = event.nativeEvent.pageY - start.y;
+    if (Math.hypot(dx, dy) > PREVIEW_HOLD_MOVE_TOLERANCE) {
+      clearPreviewHoldTimer();
+      previewTouchStartRef.current = null;
+    }
+  }, [clearPreviewHoldTimer, showPreviewOverlay]);
+
+  const handlePreviewTouchEnd = useCallback(() => {
+    clearPreviewHoldTimer();
+    previewTouchStartRef.current = null;
+    if (previewPausedRef.current) {
+      resumePreviewCountdown();
+    }
+  }, [clearPreviewHoldTimer, resumePreviewCountdown]);
 
   const activateVisibleClipPage = useCallback((page: FeedClipPage) => {
     logRestoreEvent('activate-visible-clip-page', {
@@ -504,7 +653,7 @@ export function FeedScreen({
     if (sameClipAlreadyStable) {
       autoplayTargetRef.current = page.clipIndex;
       setPendingAutoplayIndex(null);
-      setPreviewSession(null);
+      clearPreviewSession();
       clearAutoplayTimer();
       setCurrentVisibleRequestId(currentRequestId);
       return;
@@ -520,21 +669,20 @@ export function FeedScreen({
     const previewDurationMs = getAutoplayDelayMs(page.clip);
     setCurrentVisibleRequestId(requestId);
     setPendingAutoplayIndex(page.clipIndex);
-    setPreviewSession({
+    previewPausedRef.current = false;
+    previewRemainingMsRef.current = previewDurationMs;
+    updatePreviewSession({
       clipIndex: page.clipIndex,
       startedAt: Date.now(),
       durationMs: previewDurationMs,
+      isPaused: false,
     });
-    clearAutoplayTimer();
     void stop();
-    autoplayTimerRef.current = setTimeout(() => {
-      if (autoplayTargetRef.current !== page.clipIndex) return;
-      if (visibleRequestIdRef.current !== requestId) return;
-      void requestAutoplay(page.clipIndex, requestId);
-    }, previewDurationMs);
+    schedulePreviewAutoplay(page.clipIndex, requestId, previewDurationMs);
   }, [
     activeIndex,
     clearAutoplayTimer,
+    clearPreviewSession,
     createRequestId,
     currentRequestId,
     data.length,
@@ -546,9 +694,11 @@ export function FeedScreen({
     pendingAutoplayIndex,
     playbackPhase,
     requestAutoplay,
+    schedulePreviewAutoplay,
     setCurrentVisibleRequestId,
     stop,
     feedPages,
+    updatePreviewSession,
     logRestoreEvent,
   ]);
 
@@ -621,8 +771,8 @@ export function FeedScreen({
       return;
     }
     setPendingAutoplayIndex(null);
-    setPreviewSession(null);
-  }, [activeIndex, currentRequestId, pendingAutoplayIndex, playbackPhase]);
+    clearPreviewSession();
+  }, [activeIndex, clearPreviewSession, currentRequestId, pendingAutoplayIndex, playbackPhase]);
 
   React.useEffect(() => {
     if (!isCurrentlyPlaying) return;
@@ -665,17 +815,27 @@ export function FeedScreen({
     return () => {
       clearRestoreTimer();
       clearAutoplayTimer();
+      clearPreviewHoldTimer();
       finalizeSession();
     };
-  }, [clearAutoplayTimer, clearRestoreTimer, finalizeSession]);
+  }, [clearAutoplayTimer, clearPreviewHoldTimer, clearRestoreTimer, finalizeSession]);
 
   React.useEffect(() => {
-    if (!previewSession) return;
+    if (!previewSession || previewSession.isPaused) return;
     const timer = setInterval(() => {
       setPreviewNow(Date.now());
     }, 80);
     return () => clearInterval(timer);
   }, [previewSession]);
+
+  React.useEffect(() => {
+    Animated.spring(previewPauseProgress, {
+      toValue: isPreviewPaused ? 1 : 0,
+      useNativeDriver: true,
+      tension: 170,
+      friction: 18,
+    }).start();
+  }, [isPreviewPaused, previewPauseProgress]);
 
   React.useEffect(() => {
     if (wasForegroundRef.current && !isForeground) {
@@ -745,23 +905,30 @@ export function FeedScreen({
 
   return (
     <ScreenSurface edges={['left', 'right', 'bottom']}>
-      <FlatList
-        ref={listRef}
-        data={feedPages}
-        keyExtractor={item => item.key}
-        pagingEnabled
-        snapToInterval={pageHeight}
-        getItemLayout={(_, index) => ({
-          length: pageHeight,
-          offset: pageHeight * index,
-          index,
-        })}
-        decelerationRate="fast"
-        showsVerticalScrollIndicator={false}
-        onViewableItemsChanged={onViewableItemsChanged}
-        onMomentumScrollEnd={onMomentumScrollEnd}
-        viewabilityConfig={viewabilityConfig.current}
-        renderItem={({ item }: ListRenderItemInfo<FeedPage>) => {
+      <View
+        style={styles.screenBody}
+        onTouchStart={handlePreviewTouchStart}
+        onTouchMove={handlePreviewTouchMove}
+        onTouchEnd={handlePreviewTouchEnd}
+        onTouchCancel={handlePreviewTouchEnd}
+      >
+        <FlatList
+          ref={listRef}
+          data={feedPages}
+          keyExtractor={item => item.key}
+          pagingEnabled
+          snapToInterval={pageHeight}
+          getItemLayout={(_, index) => ({
+            length: pageHeight,
+            offset: pageHeight * index,
+            index,
+          })}
+          decelerationRate="fast"
+          showsVerticalScrollIndicator={false}
+          onViewableItemsChanged={onViewableItemsChanged}
+          onMomentumScrollEnd={onMomentumScrollEnd}
+          viewabilityConfig={viewabilityConfig.current}
+          renderItem={({ item }: ListRenderItemInfo<FeedPage>) => {
           if (item.type === 'review') {
             return (
               <View
@@ -828,7 +995,10 @@ export function FeedScreen({
           const challengeWords = challengeWordsByKey.get(clipKey) || [];
 
           return (
-            <View style={[styles.page, { height: pageHeight, paddingBottom: 18 + insets.bottom }]}>
+            <View
+              pointerEvents={showPreviewOverlay && isVisible ? 'none' : 'auto'}
+              style={[styles.page, { height: pageHeight, paddingBottom: 18 + insets.bottom }]}
+            >
               <PlayerLayout
                 header={
                   <View style={[styles.headerBlock, { width: playerWidth }]}>
@@ -980,197 +1150,252 @@ export function FeedScreen({
               </PlayerLayout>
             </View>
           );
-        }}
-      />
-
-      {showPreviewOverlay && previewClip ? (
-        <View pointerEvents="none" style={styles.previewOverlay}>
-          <View style={[styles.page, { height: pageHeight, paddingBottom: 18 + insets.bottom }]}>
-            <View style={[styles.primingPage, { width: playerWidth }]}>
-              <View style={styles.primingPageHeader} />
-
-              <View style={styles.primingPageBody}>
-                <View style={styles.primingTopInfo}>
-                  <Text style={styles.primingMetaLine}>{previewMeta}</Text>
-                  <Text style={styles.primingSummary}>{previewClip.title}</Text>
-                </View>
-
-                <GlassCard style={[styles.primingPreviewPageCard, { width: Math.min(playerWidth, 360) }]}>
-                  <Text style={styles.primingPreviewLabel}>
-                    {t('feed.primingPreview', { count: previewChallengeWords.length })}
-                  </Text>
-                  <ChallengeWordPills words={previewChallengeWords} tone="feed" variant="preview" />
-                </GlassCard>
-
-                <Text style={styles.primingSwipeHint}>{t('feed.previewSwipeHint')}</Text>
-
-                <View style={styles.primingCountdownWrap}>
-                  <View style={styles.primingCountdownRing}>
-                    <View style={styles.primingCountdownInner}>
-                      <Text style={styles.primingCountdownText}>{previewSeconds}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.primingHoldHint}>{t('feed.previewHoldHint')}</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
-      ) : null}
-
-      <Modal
-        visible={Boolean(helpMenuClip)}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setHelpMenuIndex(null)}
-      >
-        <View style={styles.helpMenuOverlay}>
-          <Pressable style={styles.helpMenuBackdrop} onPress={() => setHelpMenuIndex(null)} />
-          <View
-            style={[
-              styles.helpMenuSheetWrap,
-              {
-                paddingBottom: insets.bottom + 12,
-                paddingHorizontal: metrics.pageHorizontalPadding,
-              },
-            ]}
-          >
-            <GlassCard style={[styles.helpMenuCard, { maxWidth: metrics.modalMaxWidth }]}>
-              <Pressable
-                onPress={() => {
-                  if (helpMenuIndex === null) return;
-                  setHelpMenuIndex(null);
-                  triggerUiFeedback('menu');
-                  setTranscriptIndex(helpMenuIndex);
-                }}
-                style={({ pressed }) => [styles.helpMenuItem, pressed && styles.helpMenuItemPressed]}
-              >
-                <Text style={styles.helpMenuLabel}>{t('feed.menuTranscript')}</Text>
-              </Pressable>
-
-              <Pressable
-                disabled={!helpMenuClip || !getClipSourceExternalUrl(helpMenuClip)}
-                onPress={() => {
-                  if (!helpMenuClip) return;
-                  setHelpMenuIndex(null);
-                  void handleOpenSource(helpMenuClip);
-                }}
-                style={({ pressed }) => [
-                  styles.helpMenuItem,
-                  (!helpMenuClip || !getClipSourceExternalUrl(helpMenuClip)) ? styles.helpMenuItemDisabled : null,
-                  pressed && helpMenuClip && getClipSourceExternalUrl(helpMenuClip) ? styles.helpMenuItemPressed : null,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.helpMenuLabel,
-                    (!helpMenuClip || !getClipSourceExternalUrl(helpMenuClip)) ? styles.helpMenuLabelDisabled : null,
-                  ]}
-                >
-                  {t('feed.menuOriginalPodcast')}
-                </Text>
-                {!helpMenuClip || !getClipSourceExternalUrl(helpMenuClip) ? (
-                  <Text style={styles.helpMenuBadge}>{t('feed.menuUnavailable')}</Text>
-                ) : null}
-              </Pressable>
-
-              <Pressable style={[styles.helpMenuItem, styles.helpMenuItemDisabled]} disabled>
-                <Text style={[styles.helpMenuLabel, styles.helpMenuLabelDisabled]}>{t('feed.menuFeedback')}</Text>
-                <Text style={styles.helpMenuBadge}>{t('feed.comingSoon')}</Text>
-              </Pressable>
-            </GlassCard>
-          </View>
-        </View>
-      </Modal>
-
-      {popup ? (
-        <WordPopup
-          word={popup.word}
-          contextEn={popup.contextEn}
-          contextZh={popup.contextZh}
-          isSaved={vocabWords.includes(popup.word.word.toLowerCase())}
-          isKnown={knownWords.includes(popup.word.word.toLowerCase())}
-          onSave={() => {
-            onSaveVocab({
-              word: popup.word.word.toLowerCase(),
-              cefr: popup.word.cefr,
-              context: popup.contextEn,
-              contextZh: popup.contextZh,
-              contentKey: popup.contentKey,
-              lineIndex: popup.lineIndex,
-              clipKey: popup.clipKey,
-              clipTitle: popup.clipTitle,
-              tag: popup.tag,
-              sourceType: 'feed',
-              practiced: false,
-            });
           }}
-          onMarkKnown={() => onMarkKnown(popup.word.word.toLowerCase())}
-          onDismiss={() => setPopup(null)}
         />
-      ) : null}
 
-      <Modal
-        visible={Boolean(transcriptClip)}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setTranscriptIndex(null)}
-      >
-        <SafeAreaView style={styles.transcriptSafeArea}>
-          <View style={[styles.transcriptHeader, { paddingHorizontal: metrics.pageHorizontalPadding }]}>
-            <View style={[styles.transcriptHeaderInner, { maxWidth: metrics.modalMaxWidth }]}>
-              <View style={styles.transcriptHeaderCopy}>
-                <Text style={styles.transcriptTitle}>{transcriptClip?.title}</Text>
-                <Text style={styles.transcriptMeta}>
-                  {transcriptClip ? getSourceLabel(transcriptClip.source) : ''}
-                </Text>
+        {showPreviewOverlay && previewClip ? (
+          <View pointerEvents="none" style={styles.previewOverlay}>
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.previewPauseBackdrop, { opacity: previewPauseBackdropOpacity }]}
+            />
+            <View style={[styles.page, { height: pageHeight, paddingBottom: 18 + insets.bottom }]}>
+              <View style={[styles.primingPage, { width: playerWidth }]}>
+                <View style={styles.primingPageHeader} />
+
+                <View style={styles.primingPageBody}>
+                  <View style={styles.primingTopInfo}>
+                    <Text style={styles.primingMetaLine}>{previewMeta}</Text>
+                    <Text style={styles.primingSummary}>{previewClip.title}</Text>
+                  </View>
+
+                  <Animated.View
+                    style={{
+                      transform: [
+                        { scale: previewPauseCardScale },
+                        { translateY: previewPauseCardTranslateY },
+                      ],
+                    }}
+                  >
+                    <GlassCard style={[styles.primingPreviewPageCard, { width: Math.min(playerWidth, 360) }]}>
+                      <Animated.View
+                        style={[
+                          styles.primingPauseBadge,
+                          {
+                            opacity: previewPauseBadgeOpacity,
+                            transform: [{ translateY: previewPauseBadgeTranslateY }],
+                          },
+                        ]}
+                      >
+                        <Ionicons name="pause" size={12} color={colors.textPrimary} />
+                        <Text style={styles.primingPauseBadgeText}>{t('common.pause')}</Text>
+                      </Animated.View>
+                      <Animated.View
+                        pointerEvents="none"
+                        style={[styles.primingPreviewPauseWash, { opacity: previewPauseBackdropOpacity }]}
+                      />
+                      <Text style={styles.primingPreviewLabel}>
+                        {t('feed.primingPreview', { count: previewChallengeWords.length })}
+                      </Text>
+                      <ChallengeWordPills words={previewChallengeWords} tone="feed" variant="preview" />
+                    </GlassCard>
+                  </Animated.View>
+
+                  <Text style={styles.primingSwipeHint}>{t('feed.previewSwipeHint')}</Text>
+
+                  <View style={styles.primingCountdownWrap}>
+                    <Animated.View
+                      style={[
+                        styles.primingCountdownRing,
+                        { transform: [{ scale: previewPauseRingScale }] },
+                      ]}
+                    >
+                      <Animated.View
+                        pointerEvents="none"
+                        style={[styles.primingCountdownRingWash, { opacity: previewPauseRingWashOpacity }]}
+                      />
+                      <View style={styles.primingCountdownInner}>
+                        <Text style={styles.primingCountdownText}>{previewSeconds}</Text>
+                        <Animated.View
+                          style={[
+                            styles.primingCountdownPauseRow,
+                            { opacity: previewPauseBadgeOpacity },
+                          ]}
+                        >
+                          <Ionicons name="pause" size={10} color={colors.textPrimary} />
+                          <Text style={styles.primingCountdownPauseLabel}>{t('common.pause')}</Text>
+                        </Animated.View>
+                      </View>
+                    </Animated.View>
+                    <Text style={[styles.primingHoldHint, isPreviewPaused ? styles.primingHoldHintPaused : null]}>
+                      {isPreviewPaused ? t('menu.continueListening') : t('feed.previewHoldHint')}
+                    </Text>
+                  </View>
+                </View>
               </View>
-              <PillButton label={t('common.close')} onPress={() => setTranscriptIndex(null)} />
             </View>
           </View>
+        ) : null}
 
-          <ScrollView
-            contentContainerStyle={[
-              styles.transcriptBody,
-              {
-                paddingHorizontal: metrics.pageHorizontalPadding,
-                maxWidth: metrics.modalMaxWidth,
-                alignSelf: 'center',
-                width: '100%',
-              },
-            ]}
-          >
-            {(transcriptClip?.lines || []).map((entry, idx) => (
-              <GlassCard key={`${idx}-${entry.start}`} style={styles.transcriptLine}>
-                <Text
-                  style={[
-                    styles.transcriptEn,
-                    subtitleSize === 'sm' && styles.transcriptEnSmall,
-                    subtitleSize === 'lg' && styles.transcriptEnLarge,
+        <Modal
+          visible={Boolean(helpMenuClip)}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setHelpMenuIndex(null)}
+        >
+          <View style={styles.helpMenuOverlay}>
+            <Pressable style={styles.helpMenuBackdrop} onPress={() => setHelpMenuIndex(null)} />
+            <View
+              style={[
+                styles.helpMenuSheetWrap,
+                {
+                  paddingBottom: insets.bottom + 12,
+                  paddingHorizontal: metrics.pageHorizontalPadding,
+                },
+              ]}
+            >
+              <GlassCard style={[styles.helpMenuCard, { maxWidth: metrics.modalMaxWidth }]}>
+                <Pressable
+                  onPress={() => {
+                    if (helpMenuIndex === null) return;
+                    setHelpMenuIndex(null);
+                    triggerUiFeedback('menu');
+                    setTranscriptIndex(helpMenuIndex);
+                  }}
+                  style={({ pressed }) => [styles.helpMenuItem, pressed && styles.helpMenuItemPressed]}
+                >
+                  <Text style={styles.helpMenuLabel}>{t('feed.menuTranscript')}</Text>
+                </Pressable>
+
+                <Pressable
+                  disabled={!helpMenuClip || !getClipSourceExternalUrl(helpMenuClip)}
+                  onPress={() => {
+                    if (!helpMenuClip) return;
+                    setHelpMenuIndex(null);
+                    void handleOpenSource(helpMenuClip);
+                  }}
+                  style={({ pressed }) => [
+                    styles.helpMenuItem,
+                    (!helpMenuClip || !getClipSourceExternalUrl(helpMenuClip)) ? styles.helpMenuItemDisabled : null,
+                    pressed && helpMenuClip && getClipSourceExternalUrl(helpMenuClip) ? styles.helpMenuItemPressed : null,
                   ]}
                 >
-                  {entry.en}
-                </Text>
-                <Text
-                  style={[
-                    styles.transcriptZh,
-                    subtitleSize === 'sm' && styles.transcriptZhSmall,
-                    subtitleSize === 'lg' && styles.transcriptZhLarge,
-                  ]}
-                >
-                  {entry.zh}
-                </Text>
+                  <Text
+                    style={[
+                      styles.helpMenuLabel,
+                      (!helpMenuClip || !getClipSourceExternalUrl(helpMenuClip)) ? styles.helpMenuLabelDisabled : null,
+                    ]}
+                  >
+                    {t('feed.menuOriginalPodcast')}
+                  </Text>
+                  {!helpMenuClip || !getClipSourceExternalUrl(helpMenuClip) ? (
+                    <Text style={styles.helpMenuBadge}>{t('feed.menuUnavailable')}</Text>
+                  ) : null}
+                </Pressable>
+
+                <Pressable style={[styles.helpMenuItem, styles.helpMenuItemDisabled]} disabled>
+                  <Text style={[styles.helpMenuLabel, styles.helpMenuLabelDisabled]}>{t('feed.menuFeedback')}</Text>
+                  <Text style={styles.helpMenuBadge}>{t('feed.comingSoon')}</Text>
+                </Pressable>
               </GlassCard>
-            ))}
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
+            </View>
+          </View>
+        </Modal>
+
+        {popup ? (
+          <WordPopup
+            word={popup.word}
+            contextEn={popup.contextEn}
+            contextZh={popup.contextZh}
+            isSaved={vocabWords.includes(popup.word.word.toLowerCase())}
+            isKnown={knownWords.includes(popup.word.word.toLowerCase())}
+            onSave={info => {
+              onSaveVocab({
+                word: popup.word.word.toLowerCase(),
+                cefr: popup.word.cefr,
+                phonetic: info?.phonetic || '',
+                definitionZh: info?.definition || '',
+                context: popup.contextEn,
+                contextZh: popup.contextZh,
+                contentKey: popup.contentKey,
+                lineIndex: popup.lineIndex,
+                clipKey: popup.clipKey,
+                clipTitle: popup.clipTitle,
+                tag: popup.tag,
+                sourceType: 'feed',
+                practiced: false,
+              });
+            }}
+            onMarkKnown={() => onMarkKnown(popup.word.word.toLowerCase())}
+            onDismiss={() => setPopup(null)}
+          />
+        ) : null}
+
+        <Modal
+          visible={Boolean(transcriptClip)}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setTranscriptIndex(null)}
+        >
+          <SafeAreaView style={styles.transcriptSafeArea}>
+            <View style={[styles.transcriptHeader, { paddingHorizontal: metrics.pageHorizontalPadding }]}>
+              <View style={[styles.transcriptHeaderInner, { maxWidth: metrics.modalMaxWidth }]}>
+                <View style={styles.transcriptHeaderCopy}>
+                  <Text style={styles.transcriptTitle}>{transcriptClip?.title}</Text>
+                  <Text style={styles.transcriptMeta}>
+                    {transcriptClip ? getSourceLabel(transcriptClip.source) : ''}
+                  </Text>
+                </View>
+                <PillButton label={t('common.close')} onPress={() => setTranscriptIndex(null)} />
+              </View>
+            </View>
+
+            <ScrollView
+              contentContainerStyle={[
+                styles.transcriptBody,
+                {
+                  paddingHorizontal: metrics.pageHorizontalPadding,
+                  maxWidth: metrics.modalMaxWidth,
+                  alignSelf: 'center',
+                  width: '100%',
+                },
+              ]}
+            >
+              {(transcriptClip?.lines || []).map((entry, idx) => (
+                <GlassCard key={`${idx}-${entry.start}`} style={styles.transcriptLine}>
+                  <Text
+                    style={[
+                      styles.transcriptEn,
+                      subtitleSize === 'sm' && styles.transcriptEnSmall,
+                      subtitleSize === 'lg' && styles.transcriptEnLarge,
+                    ]}
+                  >
+                    {entry.en}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.transcriptZh,
+                      subtitleSize === 'sm' && styles.transcriptZhSmall,
+                      subtitleSize === 'lg' && styles.transcriptZhLarge,
+                    ]}
+                  >
+                    {entry.zh}
+                  </Text>
+                </GlassCard>
+              ))}
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
+      </View>
     </ScreenSurface>
   );
 }
 
 function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
 return StyleSheet.create({
+  screenBody: {
+    flex: 1,
+  },
   page: {
     justifyContent: 'space-between',
   },
@@ -1178,6 +1403,10 @@ return StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 5,
     backgroundColor: colors.bgApp,
+  },
+  previewPauseBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(7, 10, 18, 0.12)',
   },
   cardPage: {
     justifyContent: 'center',
@@ -1370,6 +1599,8 @@ return StyleSheet.create({
     gap: spacing.sm,
   },
   primingPreviewPageCard: {
+    position: 'relative',
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
@@ -1379,6 +1610,32 @@ return StyleSheet.create({
     borderWidth: 0,
     borderColor: 'transparent',
     borderRadius: 10,
+  },
+  primingPauseBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(10, 12, 20, 0.66)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  primingPauseBadgeText: {
+    color: colors.textPrimary,
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  primingPreviewPauseWash: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(148, 163, 255, 0.08)',
   },
   primingPreviewLabel: {
     color: colors.textSecondary,
@@ -1407,6 +1664,11 @@ return StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
+    overflow: 'hidden',
+  },
+  primingCountdownRingWash: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(155, 167, 232, 0.16)',
   },
   primingCountdownInner: {
     width: 42,
@@ -1415,6 +1677,7 @@ return StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.bgApp,
+    gap: 1,
   },
   primingCountdownText: {
     color: '#F0EEF2',
@@ -1423,12 +1686,28 @@ return StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
+  primingCountdownPauseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  primingCountdownPauseLabel: {
+    color: colors.textSecondary,
+    fontSize: 8,
+    lineHeight: 10,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
   primingHoldHint: {
     color: '#6A6875',
     fontSize: 11,
     lineHeight: 16,
     letterSpacing: 0.5,
     textAlign: 'center',
+  },
+  primingHoldHintPaused: {
+    color: colors.textPrimary,
   },
   loadingOverlayText: {
     color: colors.textPrimary,

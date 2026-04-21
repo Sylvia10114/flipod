@@ -1280,6 +1280,10 @@ export default function App() {
       ...existing,
       ...entry,
       word: entry.word.toLowerCase(),
+      phonetic: entry.phonetic || existing?.phonetic || '',
+      definitionZh: entry.definitionZh || existing?.definitionZh || '',
+      context: entry.context || existing?.context || '',
+      contextZh: entry.contextZh || existing?.contextZh || '',
       timestamp: existing?.timestamp || entry.timestamp || now,
       createdAt: existing?.createdAt || entry.createdAt || new Date(now).toISOString(),
       updatedAt: new Date(now).toISOString(),
@@ -1952,8 +1956,10 @@ export default function App() {
     content = (
       <VocabScreen
         vocabList={vocabList}
+        knownWords={knownWords}
         clips={localizedClipsData}
         onBack={() => setActiveScreen(getHomeModeScreen(settings.homeMode))}
+        onMarkKnown={handleMarkKnown}
       />
     );
   } else if (activeScreen === 'feed' || activeScreen === 'practice') {

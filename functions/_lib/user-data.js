@@ -106,7 +106,7 @@ export async function getBookmarksByUserId(env, userId) {
 
 export async function getVocabByUserId(env, userId) {
   const result = await env.DB.prepare(
-    `SELECT id, word, cefr, phonetic, context, context_zh AS contextZh, content_key AS contentKey,
+    `SELECT id, word, cefr, phonetic, definition_zh AS definitionZh, context, context_zh AS contextZh, content_key AS contentKey,
             line_index AS lineIndex, known,
             created_at AS createdAt, updated_at AS updatedAt
      FROM vocab_entries
@@ -119,6 +119,7 @@ export async function getVocabByUserId(env, userId) {
     word: String(item.word || '').toLowerCase(),
     cefr: item.cefr || '',
     phonetic: item.phonetic || '',
+    definitionZh: item.definitionZh || '',
     context: item.context || '',
     contextZh: item.contextZh || '',
     contentKey: item.contentKey || '',
@@ -312,6 +313,7 @@ export function mergeVocab(primary, secondary) {
       known: Boolean(existing.known || item.known),
       cefr: latest.cefr || older.cefr || '',
       phonetic: latest.phonetic || older.phonetic || '',
+      definitionZh: latest.definitionZh || older.definitionZh || '',
       context: latest.context || older.context || '',
       contextZh: latest.contextZh || older.contextZh || '',
       contentKey: latest.contentKey || older.contentKey || '',
@@ -421,12 +423,13 @@ export async function upsertVocabEntries(env, userId, vocab) {
     if (!word) continue;
     await env.DB.prepare(
       `INSERT INTO vocab_entries (
-         id, user_id, word, cefr, phonetic, context, context_zh, content_key, line_index, known, created_at, updated_at
+         id, user_id, word, cefr, phonetic, definition_zh, context, context_zh, content_key, line_index, known, created_at, updated_at
        )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), COALESCE(?, CURRENT_TIMESTAMP))
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), COALESCE(?, CURRENT_TIMESTAMP))
        ON CONFLICT(user_id, word)
        DO UPDATE SET cefr = excluded.cefr,
                      phonetic = excluded.phonetic,
+                     definition_zh = excluded.definition_zh,
                      context = excluded.context,
                      context_zh = excluded.context_zh,
                      content_key = COALESCE(excluded.content_key, vocab_entries.content_key),
@@ -439,6 +442,7 @@ export async function upsertVocabEntries(env, userId, vocab) {
       word,
       item.cefr || '',
       item.phonetic || '',
+      item.definitionZh || '',
       item.context || '',
       item.contextZh || '',
       item.contentKey || '',
