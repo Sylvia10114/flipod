@@ -1,37 +1,37 @@
 export const CLIP_MANIFEST = {
   "version": 1,
-  "generatedAt": "2026-04-16T12:38:29.391Z",
+  "generatedAt": "2026-04-21T11:52:52.655Z",
   "clips": [
     {
-      "id": 76,
+      "id": 176,
       "topic": "business",
       "source": "Planet Money",
       "duration": 85,
       "difficulty_score": 15
     },
     {
-      "id": 77,
+      "id": 177,
       "topic": "science",
       "source": "TED Talks Daily",
       "duration": 71.7,
       "difficulty_score": 13
     },
     {
-      "id": 78,
+      "id": 178,
       "topic": "story",
       "source": "The Moth",
       "duration": 76.2,
       "difficulty_score": 11
     },
     {
-      "id": 79,
+      "id": 179,
       "topic": "psychology",
       "source": "Hidden Brain",
       "duration": 89.3,
       "difficulty_score": 17
     },
     {
-      "id": 80,
+      "id": 180,
       "topic": "science",
       "source": "Planet Money",
       "duration": 90,
@@ -101,56 +101,56 @@ export const CLIP_MANIFEST = {
       "difficulty_score": 16
     },
     {
-      "id": 90,
+      "id": 190,
       "topic": "history",
       "source": "History That Doesn't Suck",
       "duration": 101,
       "difficulty_score": 15
     },
     {
-      "id": 91,
+      "id": 191,
       "topic": "story",
       "source": "Discovery",
       "duration": 54,
       "difficulty_score": 15
     },
     {
-      "id": 92,
+      "id": 192,
       "topic": "society",
       "source": "Stuff They Don't Want You To Know",
       "duration": 95.4,
       "difficulty_score": 8
     },
     {
-      "id": 93,
+      "id": 193,
       "topic": "culture",
       "source": "Stuff They Don't Want You To Know",
       "duration": 96,
       "difficulty_score": 11
     },
     {
-      "id": 94,
+      "id": 194,
       "topic": "science",
       "source": "Stuff They Don't Want You To Know",
       "duration": 84.9,
       "difficulty_score": 13
     },
     {
-      "id": 95,
+      "id": 195,
       "topic": "tech",
       "source": "The AI Podcast",
       "duration": 73.5,
       "difficulty_score": 16
     },
     {
-      "id": 96,
+      "id": 196,
       "topic": "tech",
       "source": "The AI Podcast",
       "duration": 101.7,
       "difficulty_score": 17
     },
     {
-      "id": 97,
+      "id": 197,
       "topic": "tech",
       "source": "The AI Podcast",
       "duration": 65.1,
@@ -521,18 +521,718 @@ export const CLIP_MANIFEST = {
       "difficulty_score": 18
     },
     {
-      "id": 150,
+      "id": 76,
       "topic": "culture",
       "source": "Throughline (NPR)",
       "duration": 85.8,
       "difficulty_score": 65
     },
     {
-      "id": 151,
+      "id": 77,
       "topic": "story",
       "source": "StoryCorps",
       "duration": 72.2,
       "difficulty_score": 45
+    },
+    {
+      "id": 78,
+      "topic": "business",
+      "source": "Marketplace (APM)",
+      "duration": 106.7,
+      "difficulty_score": 23
+    },
+    {
+      "id": 79,
+      "topic": "business",
+      "source": "Marketplace (APM)",
+      "duration": 115.5,
+      "difficulty_score": 45
+    },
+    {
+      "id": 80,
+      "topic": "business",
+      "source": "Marketplace (APM)",
+      "duration": 84.3,
+      "difficulty_score": 20
+    },
+    {
+      "id": 81,
+      "topic": "business",
+      "source": "Marketplace (APM)",
+      "duration": 79.9,
+      "difficulty_score": 45
+    },
+    {
+      "id": 82,
+      "topic": "tech",
+      "source": "Hard Fork (NYT)",
+      "duration": 63.5,
+      "difficulty_score": 65
+    },
+    {
+      "id": 83,
+      "topic": "tech",
+      "source": "Hard Fork (NYT)",
+      "duration": 61.9,
+      "difficulty_score": 65
+    },
+    {
+      "id": 84,
+      "topic": "tech",
+      "source": "Hard Fork (NYT)",
+      "duration": 60.7,
+      "difficulty_score": 65
+    },
+    {
+      "id": 85,
+      "topic": "tech",
+      "source": "Hard Fork (NYT)",
+      "duration": 70.5,
+      "difficulty_score": 65
+    },
+    {
+      "id": 86,
+      "topic": "tech",
+      "source": "Hard Fork (NYT)",
+      "duration": 55.4,
+      "difficulty_score": 65
+    },
+    {
+      "id": 87,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 57.2,
+      "difficulty_score": 22
+    },
+    {
+      "id": 88,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 57.4,
+      "difficulty_score": 22
+    },
+    {
+      "id": 89,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 65.4,
+      "difficulty_score": 65
+    },
+    {
+      "id": 93,
+      "topic": "business",
+      "source": "Marketplace (APM)",
+      "duration": 106.7,
+      "difficulty_score": 24
+    },
+    {
+      "id": 94,
+      "topic": "business",
+      "source": "Marketplace (APM)",
+      "duration": 48.8,
+      "difficulty_score": 15
+    },
+    {
+      "id": 95,
+      "topic": "business",
+      "source": "Marketplace (APM)",
+      "duration": 102.1,
+      "difficulty_score": 23
+    },
+    {
+      "id": 96,
+      "topic": "business",
+      "source": "Marketplace (APM)",
+      "duration": 92.8,
+      "difficulty_score": 20
+    },
+    {
+      "id": 97,
+      "topic": "business",
+      "source": "Marketplace (APM)",
+      "duration": 79.9,
+      "difficulty_score": 45
+    },
+    {
+      "id": 100,
+      "topic": "business",
+      "source": "Marketplace (APM)",
+      "duration": 119.3,
+      "difficulty_score": 25
+    },
+    {
+      "id": 101,
+      "topic": "business",
+      "source": "Marketplace (APM)",
+      "duration": 81.4,
+      "difficulty_score": 23
+    },
+    {
+      "id": 120,
+      "topic": "tech",
+      "source": "Hard Fork (NYT)",
+      "duration": 71.7,
+      "difficulty_score": 65
+    },
+    {
+      "id": 121,
+      "topic": "tech",
+      "source": "Hard Fork (NYT)",
+      "duration": 63.6,
+      "difficulty_score": 65
+    },
+    {
+      "id": 122,
+      "topic": "tech",
+      "source": "Hard Fork (NYT)",
+      "duration": 60.7,
+      "difficulty_score": 16
+    },
+    {
+      "id": 123,
+      "topic": "tech",
+      "source": "Hard Fork (NYT)",
+      "duration": 73.9,
+      "difficulty_score": 65
+    },
+    {
+      "id": 124,
+      "topic": "tech",
+      "source": "Hard Fork (NYT)",
+      "duration": 73,
+      "difficulty_score": 45
+    },
+    {
+      "id": 125,
+      "topic": "tech",
+      "source": "Hard Fork (NYT)",
+      "duration": 69.1,
+      "difficulty_score": 65
+    },
+    {
+      "id": 140,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 72.5,
+      "difficulty_score": 65
+    },
+    {
+      "id": 141,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 50.2,
+      "difficulty_score": 16
+    },
+    {
+      "id": 142,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 86.1,
+      "difficulty_score": 65
+    },
+    {
+      "id": 143,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 62.7,
+      "difficulty_score": 17
+    },
+    {
+      "id": 144,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 53.5,
+      "difficulty_score": 17
+    },
+    {
+      "id": 145,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 72.6,
+      "difficulty_score": 21
+    },
+    {
+      "id": 146,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 52.7,
+      "difficulty_score": 21
+    },
+    {
+      "id": 147,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 77.1,
+      "difficulty_score": 65
+    },
+    {
+      "id": 148,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 48,
+      "difficulty_score": 45
+    },
+    {
+      "id": 161,
+      "topic": "tech",
+      "source": "Hard Fork (NYT)",
+      "duration": 60.5,
+      "difficulty_score": 65
+    },
+    {
+      "id": 162,
+      "topic": "tech",
+      "source": "Hard Fork (NYT)",
+      "duration": 88.7,
+      "difficulty_score": 65
+    },
+    {
+      "id": 163,
+      "topic": "tech",
+      "source": "Hard Fork (NYT)",
+      "duration": 111.8,
+      "difficulty_score": 65
+    },
+    {
+      "id": 169,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 77.9,
+      "difficulty_score": 65
+    },
+    {
+      "id": 170,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 57.2,
+      "difficulty_score": 20
+    },
+    {
+      "id": 171,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 95.2,
+      "difficulty_score": 65
+    },
+    {
+      "id": 172,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 66.1,
+      "difficulty_score": 45
+    },
+    {
+      "id": 173,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 47.2,
+      "difficulty_score": 21
+    },
+    {
+      "id": 174,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 90.9,
+      "difficulty_score": 65
+    },
+    {
+      "id": 175,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 61.6,
+      "difficulty_score": 65
+    },
+    {
+      "id": 296,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 52.5,
+      "difficulty_score": 65
+    },
+    {
+      "id": 297,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 64.2,
+      "difficulty_score": 65
+    },
+    {
+      "id": 298,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 73,
+      "difficulty_score": 65
+    },
+    {
+      "id": 299,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 76.9,
+      "difficulty_score": 65
+    },
+    {
+      "id": 181,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 60.7,
+      "difficulty_score": 65
+    },
+    {
+      "id": 182,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 73,
+      "difficulty_score": 45
+    },
+    {
+      "id": 183,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 63.1,
+      "difficulty_score": 65
+    },
+    {
+      "id": 184,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 68.4,
+      "difficulty_score": 17
+    },
+    {
+      "id": 185,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 70.9,
+      "difficulty_score": 14
+    },
+    {
+      "id": 186,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 72.2,
+      "difficulty_score": 21
+    },
+    {
+      "id": 187,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 59.4,
+      "difficulty_score": 65
+    },
+    {
+      "id": 189,
+      "topic": "psychology",
+      "source": "Hidden Brain (NPR)",
+      "duration": 108.8,
+      "difficulty_score": 20
+    },
+    {
+      "id": 308,
+      "topic": "tech",
+      "source": "Hard Fork (NYT)",
+      "duration": 56.5,
+      "difficulty_score": 45
+    },
+    {
+      "id": 209,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 87.7,
+      "difficulty_score": 18
+    },
+    {
+      "id": 217,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 63.2,
+      "difficulty_score": 65
+    },
+    {
+      "id": 218,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 74.3,
+      "difficulty_score": 65
+    },
+    {
+      "id": 312,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 86.1,
+      "difficulty_score": 19
+    },
+    {
+      "id": 188,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 66,
+      "difficulty_score": 65
+    },
+    {
+      "id": 314,
+      "topic": "psychology",
+      "source": "Hidden Brain (NPR)",
+      "duration": 67.1,
+      "difficulty_score": 24
+    },
+    {
+      "id": 315,
+      "topic": "psychology",
+      "source": "Hidden Brain (NPR)",
+      "duration": 63.5,
+      "difficulty_score": 45
+    },
+    {
+      "id": 210,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 110.3,
+      "difficulty_score": 18
+    },
+    {
+      "id": 211,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 95,
+      "difficulty_score": 18
+    },
+    {
+      "id": 212,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 118.5,
+      "difficulty_score": 19
+    },
+    {
+      "id": 219,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 62.6,
+      "difficulty_score": 45
+    },
+    {
+      "id": 220,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 59,
+      "difficulty_score": 45
+    },
+    {
+      "id": 221,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 72.6,
+      "difficulty_score": 65
+    },
+    {
+      "id": 222,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 64.5,
+      "difficulty_score": 45
+    },
+    {
+      "id": 223,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 65.2,
+      "difficulty_score": 65
+    },
+    {
+      "id": 224,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 66,
+      "difficulty_score": 23
+    },
+    {
+      "id": 225,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 90.6,
+      "difficulty_score": 45
+    },
+    {
+      "id": 226,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 104.5,
+      "difficulty_score": 65
+    },
+    {
+      "id": 227,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 75.1,
+      "difficulty_score": 65
+    },
+    {
+      "id": 228,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 80.5,
+      "difficulty_score": 45
+    },
+    {
+      "id": 229,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 73.1,
+      "difficulty_score": 65
+    },
+    {
+      "id": 230,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 60.1,
+      "difficulty_score": 65
+    },
+    {
+      "id": 232,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 84.8,
+      "difficulty_score": 65
+    },
+    {
+      "id": 240,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 60.6,
+      "difficulty_score": 21
+    },
+    {
+      "id": 243,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 89.5,
+      "difficulty_score": 19
+    },
+    {
+      "id": 244,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 68.4,
+      "difficulty_score": 17
+    },
+    {
+      "id": 245,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 72,
+      "difficulty_score": 65
+    },
+    {
+      "id": 246,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 78.5,
+      "difficulty_score": 65
+    },
+    {
+      "id": 247,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 65.5,
+      "difficulty_score": 45
+    },
+    {
+      "id": 248,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 46.4,
+      "difficulty_score": 65
+    },
+    {
+      "id": 249,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 66.3,
+      "difficulty_score": 65
+    },
+    {
+      "id": 250,
+      "topic": "psychology",
+      "source": "Hidden Brain (NPR)",
+      "duration": 92.1,
+      "difficulty_score": 20
+    },
+    {
+      "id": 255,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 65,
+      "difficulty_score": 65
+    },
+    {
+      "id": 257,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 60.4,
+      "difficulty_score": 65
+    },
+    {
+      "id": 258,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 45.7,
+      "difficulty_score": 17
+    },
+    {
+      "id": 259,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 45.6,
+      "difficulty_score": 45
+    },
+    {
+      "id": 260,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 60.6,
+      "difficulty_score": 45
+    },
+    {
+      "id": 261,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 55.4,
+      "difficulty_score": 19
+    },
+    {
+      "id": 262,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 109.8,
+      "difficulty_score": 65
+    },
+    {
+      "id": 263,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 59.4,
+      "difficulty_score": 19
+    },
+    {
+      "id": 264,
+      "topic": "science",
+      "source": "NASA Curious Universe",
+      "duration": 64.5,
+      "difficulty_score": 19
+    },
+    {
+      "id": 265,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 54.4,
+      "difficulty_score": 21
+    },
+    {
+      "id": 266,
+      "topic": "science",
+      "source": "Science Vs",
+      "duration": 51.2,
+      "difficulty_score": 17
     }
   ]
 };
