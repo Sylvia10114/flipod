@@ -322,7 +322,10 @@ export default function App() {
   const [activeScreen, setActiveScreen] = useState<MenuScreen>('feed');
   const [menuOpen, setMenuOpen] = useState(false);
   const [feedState, setFeedState] = useState<'loading' | 'normal' | 'rerank' | 'fallback'>('loading');
-  const [activeGeneratedPracticeId, setActiveGeneratedPracticeId] = useState<string | null>(null);
+  const [activeGeneratedPracticeSession, setActiveGeneratedPracticeSession] = useState<{
+    id: string;
+    readOnly: boolean;
+  } | null>(null);
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
   const [homeTopChromeHeight, setHomeTopChromeHeight] = useState(0);
@@ -367,7 +370,7 @@ export default function App() {
     setLikeEvents(snapshot.likeEvents || []);
     setLinkedIdentities(snapshot.linkedIdentities || []);
     setActiveScreen(getHomeModeScreen(settings.homeMode));
-    setActiveGeneratedPracticeId(null);
+    setActiveGeneratedPracticeSession(null);
     setFeedOrderIds([]);
     setFeedReasons({});
     setSkippedClipIds([]);
@@ -853,8 +856,10 @@ export default function App() {
   const practiceCount = useMemo(() => {
     return (generatedPracticeState.pendingPractices || []).length;
   }, [generatedPracticeState.pendingPractices]);
-  const activeGeneratedPractice = activeGeneratedPracticeId
-    ? localizedPendingPractices.find(item => item.id === activeGeneratedPracticeId) || null
+  const activeGeneratedPractice = activeGeneratedPracticeSession
+    ? localizedPendingPractices.find(item => item.id === activeGeneratedPracticeSession.id)
+      || localizedCompletedPractices.find(item => item.id === activeGeneratedPracticeSession.id)
+      || null
     : null;
   const isAuthenticated = Boolean(authToken);
   const isGuest = guestMode && !authToken;
@@ -1039,7 +1044,7 @@ export default function App() {
   }, [activeScreen, persistSettings, settings]);
 
   const maybeShowCalibration = useCallback((signals: CalibrationSignals) => {
-    if (activeGeneratedPracticeId || calibrationSuggestion) return;
+    if (activeGeneratedPracticeSession || calibrationSuggestion) return;
     const suggestion = buildCalibrationSuggestion(
       signals,
       calibrationStateRef.current,
@@ -1049,7 +1054,7 @@ export default function App() {
     if (suggestion) {
       setCalibrationSuggestion(suggestion);
     }
-  }, [activeGeneratedPracticeId, calibrationSuggestion, profile.level, ui]);
+  }, [activeGeneratedPracticeSession, calibrationSuggestion, profile.level, ui]);
 
   const finishAuthFlow = useCallback(async (payload: AuthInitResponse) => {
     const snapshot = await api.migrateLocal(payload.session.token, localMigrationPayload);
@@ -1218,7 +1223,7 @@ export default function App() {
     setProfile(defaultProfile);
     setActiveScreen(getHomeModeScreen(DEFAULT_SETTINGS.homeMode));
     setMenuOpen(false);
-    setActiveGeneratedPracticeId(null);
+    setActiveGeneratedPracticeSession(null);
     setFeedOrderIds([]);
     setFeedReasons({});
     setSkippedClipIds([]);
@@ -1472,14 +1477,6 @@ export default function App() {
     const nextSettings: AppSettings = {
       ...settings,
       subtitleSize: cycleSubtitleSize(settings.subtitleSize),
-    };
-    void persistSettings(nextSettings);
-  };
-
-  const handleToggleHand = () => {
-    const nextSettings: AppSettings = {
-      ...settings,
-      dominantHand: settings.dominantHand === 'left' ? 'right' : 'left',
     };
     void persistSettings(nextSettings);
   };
@@ -1751,8 +1748,9 @@ export default function App() {
     await saveCalibrationState(nextCalibrationState);
   }, [calibrationSuggestion]);
 
-  const handleStartPractice = useCallback((practiceId: string) => {
-    const selected = (generatedPracticeState.pendingPractices || []).find(item => item.id === practiceId);
+  const handleStartPractice = useCallback((practiceId: string, readOnly = false) => {
+    const selected = (generatedPracticeState.pendingPractices || []).find(item => item.id === practiceId)
+      || (generatedPracticeState.completedPractices || []).find(item => item.id === practiceId);
     if (selected && profile.nativeLanguage !== 'english') {
       void requestTranslationItems([
         {
@@ -1762,20 +1760,20 @@ export default function App() {
         },
       ], profile.nativeLanguage);
     }
-    setActiveGeneratedPracticeId(practiceId);
-  }, [generatedPracticeState.pendingPractices, profile.nativeLanguage, requestTranslationItems]);
+    setActiveGeneratedPracticeSession({ id: practiceId, readOnly });
+  }, [generatedPracticeState.completedPractices, generatedPracticeState.pendingPractices, profile.nativeLanguage, requestTranslationItems]);
 
   const handleClosePractice = useCallback(() => {
-    setActiveGeneratedPracticeId(null);
+    setActiveGeneratedPracticeSession(null);
   }, []);
 
   const handleReturnFeed = useCallback(() => {
-    setActiveGeneratedPracticeId(null);
+    setActiveGeneratedPracticeSession(null);
     handleHomeModeChange('listen');
   }, [handleHomeModeChange]);
 
   const handlePracticeAgain = useCallback(() => {
-    setActiveGeneratedPracticeId(null);
+    setActiveGeneratedPracticeSession(null);
     handleHomeModeChange('learn');
   }, [handleHomeModeChange]);
 
@@ -1838,7 +1836,7 @@ export default function App() {
     setActiveScreen(getHomeModeScreen(DEFAULT_SETTINGS.homeMode));
     setMenuOpen(false);
     setShowAuthSheet(false);
-    setActiveGeneratedPracticeId(null);
+    setActiveGeneratedPracticeSession(null);
     setAuthError('');
   }, [authToken]);
 
@@ -1884,7 +1882,7 @@ export default function App() {
     setActiveScreen(getHomeModeScreen(DEFAULT_SETTINGS.homeMode));
     setMenuOpen(false);
     setShowAuthSheet(false);
-    setActiveGeneratedPracticeId(null);
+    setActiveGeneratedPracticeSession(null);
     setAuthError('');
     showToast(ui.t('app.toastAccountDeleted'));
   }, [authToken, showToast, ui]);
@@ -1929,7 +1927,6 @@ export default function App() {
         bookmarksCount={bookmarks.length}
         vocabCount={vocabList.length}
         practiceCount={practiceCount}
-        dominantHand={settings.dominantHand}
         onBack={() => setActiveScreen(getHomeModeScreen(settings.homeMode))}
         onLinkPhone={() => {
           setAuthError('');
@@ -2051,6 +2048,7 @@ export default function App() {
                 void generatePracticeBatch('manual_more');
               }}
               onStartPractice={handleStartPractice}
+              onOpenCompletedPractice={practiceId => handleStartPractice(practiceId, true)}
             />
           </View>
         </View>
@@ -2073,7 +2071,6 @@ export default function App() {
                   visible={menuOpen}
                   profile={profile}
                   isGuest={isGuest}
-                  dominantHand={settings.dominantHand}
                   activeScreen={activeScreen}
                   linkedIdentities={linkedIdentities}
                   bookmarksCount={bookmarks.length}
@@ -2092,7 +2089,6 @@ export default function App() {
                     setActiveScreen(screen);
                     setMenuOpen(false);
                   }}
-                  onToggleHand={handleToggleHand}
                   onToggleTheme={() => {
                     setMenuOpen(false);
                     void handleToggleTheme();
@@ -2122,6 +2118,7 @@ export default function App() {
                 <GeneratedPracticeSessionModal
                   visible={Boolean(activeGeneratedPractice)}
                   practice={activeGeneratedPractice}
+                  readOnly={Boolean(activeGeneratedPracticeSession?.readOnly)}
                   nativeLanguage={profile.nativeLanguage}
                   vocabWords={vocabWords}
                   knownWords={knownWords}

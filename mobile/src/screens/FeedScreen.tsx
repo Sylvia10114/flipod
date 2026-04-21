@@ -4,6 +4,8 @@ import {
   FlatList,
   Linking,
   Modal,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -55,7 +57,31 @@ import type {
 } from '../types';
 
 const ONE_DAY = 24 * 60 * 60 * 1000;
-const AUTOPLAY_DEBOUNCE_MS = 180;
+const PREVIEW_MIN_DELAY_MS = 3000;
+const DEBUG_FEED_RESTORE = __DEV__;
+
+function previewDurationMsForWordCount(count: number) {
+  if (count <= 2) return PREVIEW_MIN_DELAY_MS;
+  if (count === 3) return 4000;
+  return 5000;
+}
+
+function formatPreviewDurationLabel(clip: Clip) {
+  const timelineDuration = clip.lines?.length ? clip.lines[clip.lines.length - 1].end : 0;
+  const explicitDuration = typeof clip.duration === 'number' ? clip.duration : 0;
+  const clippedDuration = (
+    typeof clip.clip_end_sec === 'number'
+    && typeof clip.clip_start_sec === 'number'
+  )
+    ? clip.clip_end_sec - clip.clip_start_sec
+    : 0;
+  const totalSeconds = Math.max(0, Math.round(explicitDuration || clippedDuration || timelineDuration));
+  if (!totalSeconds) return '';
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainder = totalSeconds % 60;
+  return remainder === 0 ? `${minutes}min` : `${minutes}:${String(remainder).padStart(2, '0')}`;
+}
 
 type Props = {
   clips: Clip[];
@@ -123,6 +149,33 @@ type FeedProgressPage = {
 
 type FeedPage = FeedClipPage | FeedReviewPage | FeedProgressPage;
 
+function buildPreviewChallengeWords(
+  clip: Clip,
+  level: Profile['level'],
+  knownWords: string[],
+): ChallengeWord[] {
+  const derived = deriveChallengeWords(clip, level, knownWords);
+  if (derived.length > 0) return derived;
+
+  const fallback: ChallengeWord[] = [];
+  const seen = new Set<string>();
+  for (let lineIndex = 0; lineIndex < (clip.lines || []).length; lineIndex += 1) {
+    const line = clip.lines[lineIndex];
+    for (const word of line.words || []) {
+      const normalized = String(word.word || '').replace(/^[^a-zA-Z]+|[^a-zA-Z'-]+$/g, '').toLowerCase();
+      if (!normalized || normalized.length < 4 || seen.has(normalized)) continue;
+      seen.add(normalized);
+      fallback.push({
+        word: word.word,
+        cefr: word.cefr,
+        lineIndex,
+      });
+      if (fallback.length >= 3) return fallback;
+    }
+  }
+  return fallback;
+}
+
 export function FeedScreen({
   clips,
   visibleClipCount,
@@ -158,7 +211,7 @@ export function FeedScreen({
   onVisibleClipChange,
 }: Props) {
   const { colors } = useAppTheme();
-  const { t } = useUiI18n();
+  const { t, nativeLanguage } = useUiI18n();
   const metrics = useResponsiveLayout();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
@@ -169,18 +222,30 @@ export function FeedScreen({
   const [popup, setPopup] = useState<PopupState>(null);
   const [dismissedCards, setDismissedCards] = useState<Set<string>>(new Set());
   const [transcriptIndex, setTranscriptIndex] = useState<number | null>(null);
+  const [helpMenuIndex, setHelpMenuIndex] = useState<number | null>(null);
   const [visibleClipIndex, setVisibleClipIndex] = useState<number | null>(null);
   const [visibleRequestId, setVisibleRequestId] = useState<number | null>(null);
   const [pendingAutoplayIndex, setPendingAutoplayIndex] = useState<number | null>(null);
+  const [previewSession, setPreviewSession] = useState<{
+    clipIndex: number;
+    startedAt: number;
+    durationMs: number;
+  } | null>(null);
+  const [previewNow, setPreviewNow] = useState(() => Date.now());
+  const listRef = useRef<FlatList<FeedPage> | null>(null);
   const startedRef = useRef<Set<string>>(new Set());
   const completedRef = useRef<Set<string>>(new Set());
   const loadTriggerRef = useRef(0);
   const autoplayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoplayTargetRef = useRef<number | null>(null);
   const visibleRequestIdRef = useRef<number | null>(null);
   const requestCounterRef = useRef(0);
   const wasForegroundRef = useRef(isForeground);
-  const pendingForegroundResumeRef = useRef(false);
+  const restoringForegroundRef = useRef(false);
+  const latestViewablePageIndexRef = useRef<number | null>(null);
+  const lastScrollPageIndexRef = useRef(0);
+  const lastStablePageIndexRef = useRef(0);
   const sessionRef = useRef<{
     clip: Clip;
     clipIndex: number;
@@ -224,6 +289,12 @@ export function FeedScreen({
     autoplayTimerRef.current = null;
   }, []);
 
+  const clearRestoreTimer = useCallback(() => {
+    if (!restoreTimerRef.current) return;
+    clearTimeout(restoreTimerRef.current);
+    restoreTimerRef.current = null;
+  }, []);
+
   const setCurrentVisibleRequestId = useCallback((requestId: number | null) => {
     visibleRequestIdRef.current = requestId;
     setVisibleRequestId(requestId);
@@ -233,6 +304,25 @@ export function FeedScreen({
     requestCounterRef.current += 1;
     return requestCounterRef.current;
   }, []);
+
+  const logRestoreEvent = useCallback((event: string, details?: Record<string, unknown>) => {
+    if (!DEBUG_FEED_RESTORE) return;
+    console.log('[feed-restore]', event, {
+      visibleClipIndex,
+      activeIndex,
+      pendingAutoplayIndex,
+      lastStablePageIndex: lastStablePageIndexRef.current,
+      latestViewablePageIndex: latestViewablePageIndexRef.current,
+      lastScrollPageIndex: lastScrollPageIndexRef.current,
+      restoringForeground: restoringForegroundRef.current,
+      ...details,
+    });
+  }, [activeIndex, pendingAutoplayIndex, visibleClipIndex]);
+
+  const getAutoplayDelayMs = useCallback((clip: Clip) => {
+    const words = buildPreviewChallengeWords(clip, profile.level, knownWords);
+    return previewDurationMsForWordCount(words.length);
+  }, [knownWords, profile.level]);
 
   const handleOpenSource = useCallback(async (clip: Clip) => {
     const url = getClipSourceExternalUrl(clip);
@@ -263,7 +353,10 @@ export function FeedScreen({
   const challengeWordsByKey = useMemo(() => {
     const mapping = new Map<string, ChallengeWord[]>();
     data.forEach((clip, index) => {
-      mapping.set(buildClipKey(clip, index), deriveChallengeWords(clip, profile.level, knownWords));
+      mapping.set(
+        buildClipKey(clip, index),
+        buildPreviewChallengeWords(clip, profile.level, knownWords)
+      );
     });
     return mapping;
   }, [data, knownWords, profile.level]);
@@ -299,6 +392,7 @@ export function FeedScreen({
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 75 });
   const transcriptClip = typeof transcriptIndex === 'number' ? clips[transcriptIndex] : null;
+  const helpMenuClip = typeof helpMenuIndex === 'number' ? clips[helpMenuIndex] : null;
   const currentClip = clips[activeIndex];
   const currentTime = positionMillis / 1000;
   const progress = durationMillis > 0 ? positionMillis / durationMillis : 0;
@@ -322,10 +416,49 @@ export function FeedScreen({
     ];
   }, [vocabEntries]);
   const playerWidth = metrics.playerContentWidth;
+  const feedStatusText = useMemo(() => {
+    switch (feedState) {
+      case 'loading':
+        return t('feed.statusLoading');
+      case 'rerank':
+        return t('feed.statusRerank');
+      case 'fallback':
+        return t('feed.statusFallback');
+      case 'normal':
+      default:
+        return t('feed.statusNormal');
+    }
+  }, [feedState, t]);
   const lineWrapWidth = Math.min(
     Math.max(playerWidth - (metrics.isTablet ? 120 : 72), 240),
     metrics.isTablet ? 560 : 320
   );
+  const previewClipIndex = previewSession?.clipIndex ?? null;
+  const previewClip = typeof previewClipIndex === 'number' ? clips[previewClipIndex] : null;
+  const previewClipKey = previewClip && typeof previewClipIndex === 'number'
+    ? buildClipKey(previewClip, previewClipIndex)
+    : null;
+  const previewChallengeWords = previewClipKey
+    ? challengeWordsByKey.get(previewClipKey) || []
+    : [];
+  const showPreviewOverlay = Boolean(
+    previewClip
+    && previewSession
+    && pendingAutoplayIndex === previewClipIndex
+    && visibleClipIndex === previewClipIndex
+    && previewChallengeWords.length > 0
+  );
+  const previewRemainingMs = showPreviewOverlay && previewSession
+    ? Math.max(0, previewSession.durationMs - (previewNow - previewSession.startedAt))
+    : 0;
+  const previewSeconds = Math.max(1, Math.ceil(previewRemainingMs / 1000));
+  const previewMeta = previewClip
+    ? [
+        getSourceLabel(previewClip.source),
+        previewClip.difficulty || profile.level || '',
+        formatPreviewDurationLabel(previewClip),
+      ].filter(Boolean).join('  ·  ')
+    : '';
 
   const finalizeSession = useCallback(() => {
     const session = sessionRef.current;
@@ -339,67 +472,74 @@ export function FeedScreen({
     sessionRef.current = null;
   }, [onClipSkipped]);
 
-  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    if (!isForeground) return;
-    const firstVisible = viewableItems.find(viewable => viewable.isViewable && typeof viewable.index === 'number');
-    if (!firstVisible || typeof firstVisible.index !== 'number') return;
-
-    const page = feedPages[firstVisible.index];
-    if (!page) return;
-
-    if (page.type === 'clip') {
-      setVisibleClipIndex(page.clipIndex);
-      onVisibleClipChange?.(page.clip, page.clipIndex);
-      const loadThreshold = Math.max(0, data.length - 3);
-      if (hasMoreClips && page.clipIndex >= loadThreshold && loadTriggerRef.current < data.length) {
-        loadTriggerRef.current = data.length;
-        onLoadMoreClips();
-      }
-
-      const sameClipAlreadyStable = page.clipIndex === activeIndex
-        && (playbackPhase === 'playing' || playbackPhase === 'loading');
-      if (sameClipAlreadyStable) {
-        autoplayTargetRef.current = page.clipIndex;
-        setPendingAutoplayIndex(null);
-        clearAutoplayTimer();
-        setCurrentVisibleRequestId(currentRequestId);
-        return;
-      }
-
-      if (autoplayTargetRef.current === page.clipIndex && pendingAutoplayIndex === page.clipIndex) {
-        return;
-      }
-
-      finalizeSession();
-      autoplayTargetRef.current = page.clipIndex;
-      const requestId = createRequestId();
-      setCurrentVisibleRequestId(requestId);
-      setPendingAutoplayIndex(page.clipIndex);
-      clearAutoplayTimer();
-      void stop();
-      autoplayTimerRef.current = setTimeout(() => {
-        if (autoplayTargetRef.current !== page.clipIndex) return;
-        if (visibleRequestIdRef.current !== requestId) return;
-        void requestAutoplay(page.clipIndex, requestId);
-      }, AUTOPLAY_DEBOUNCE_MS);
-      return;
-    }
-
+  const clearVisiblePageState = useCallback(() => {
     autoplayTargetRef.current = null;
+    setPreviewSession(null);
+    setHelpMenuIndex(null);
     setVisibleClipIndex(null);
     setCurrentVisibleRequestId(null);
     setPendingAutoplayIndex(null);
     clearAutoplayTimer();
     finalizeSession();
     void stop();
+  }, [clearAutoplayTimer, finalizeSession, setCurrentVisibleRequestId, stop]);
+
+  const activateVisibleClipPage = useCallback((page: FeedClipPage) => {
+    logRestoreEvent('activate-visible-clip-page', {
+      pageIndex: feedPages.findIndex(candidate => candidate.key === page.key),
+      clipIndex: page.clipIndex,
+      title: page.clip.title,
+    });
+    setHelpMenuIndex(prev => (prev !== page.clipIndex ? null : prev));
+    setVisibleClipIndex(page.clipIndex);
+    onVisibleClipChange?.(page.clip, page.clipIndex);
+    const loadThreshold = Math.max(0, data.length - 3);
+    if (hasMoreClips && page.clipIndex >= loadThreshold && loadTriggerRef.current < data.length) {
+      loadTriggerRef.current = data.length;
+      onLoadMoreClips();
+    }
+
+    const sameClipAlreadyStable = page.clipIndex === activeIndex
+      && (playbackPhase === 'playing' || playbackPhase === 'loading');
+    if (sameClipAlreadyStable) {
+      autoplayTargetRef.current = page.clipIndex;
+      setPendingAutoplayIndex(null);
+      setPreviewSession(null);
+      clearAutoplayTimer();
+      setCurrentVisibleRequestId(currentRequestId);
+      return;
+    }
+
+    if (autoplayTargetRef.current === page.clipIndex && pendingAutoplayIndex === page.clipIndex) {
+      return;
+    }
+
+    finalizeSession();
+    autoplayTargetRef.current = page.clipIndex;
+    const requestId = createRequestId();
+    const previewDurationMs = getAutoplayDelayMs(page.clip);
+    setCurrentVisibleRequestId(requestId);
+    setPendingAutoplayIndex(page.clipIndex);
+    setPreviewSession({
+      clipIndex: page.clipIndex,
+      startedAt: Date.now(),
+      durationMs: previewDurationMs,
+    });
+    clearAutoplayTimer();
+    void stop();
+    autoplayTimerRef.current = setTimeout(() => {
+      if (autoplayTargetRef.current !== page.clipIndex) return;
+      if (visibleRequestIdRef.current !== requestId) return;
+      void requestAutoplay(page.clipIndex, requestId);
+    }, previewDurationMs);
   }, [
     activeIndex,
     clearAutoplayTimer,
     createRequestId,
     currentRequestId,
     data.length,
-    feedPages,
     finalizeSession,
+    getAutoplayDelayMs,
     hasMoreClips,
     onLoadMoreClips,
     onVisibleClipChange,
@@ -408,8 +548,59 @@ export function FeedScreen({
     requestAutoplay,
     setCurrentVisibleRequestId,
     stop,
-    isForeground,
+    feedPages,
+    logRestoreEvent,
   ]);
+
+  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    if (!isForeground) return;
+    const firstVisible = viewableItems.find(viewable => viewable.isViewable && typeof viewable.index === 'number');
+    if (!firstVisible || typeof firstVisible.index !== 'number') return;
+    latestViewablePageIndexRef.current = firstVisible.index;
+    const firstPage = feedPages[firstVisible.index];
+    logRestoreEvent('viewable-change', {
+      pageIndex: firstVisible.index,
+      pageType: firstPage?.type,
+      clipIndex: firstPage?.type === 'clip' ? firstPage.clipIndex : null,
+      title: firstPage?.type === 'clip' ? firstPage.clip.title : null,
+    });
+    if (restoringForegroundRef.current) return;
+
+    const page = firstPage;
+    if (!page) return;
+
+    if (page.type === 'clip') {
+      lastStablePageIndexRef.current = firstVisible.index;
+      activateVisibleClipPage(page);
+      return;
+    }
+
+    clearVisiblePageState();
+  }, [
+    activateVisibleClipPage,
+    clearVisiblePageState,
+    feedPages,
+    isForeground,
+    logRestoreEvent,
+  ]);
+
+  const onMomentumScrollEnd = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const nextPageIndex = Math.max(0, Math.round(event.nativeEvent.contentOffset.y / pageHeight));
+    lastScrollPageIndexRef.current = nextPageIndex;
+    const page = feedPages[nextPageIndex];
+    if (page?.type === 'clip' && !restoringForegroundRef.current) {
+      lastStablePageIndexRef.current = nextPageIndex;
+      activateVisibleClipPage(page);
+    } else if (page && page.type !== 'clip' && !restoringForegroundRef.current) {
+      clearVisiblePageState();
+    }
+    logRestoreEvent('momentum-scroll-end', {
+      pageIndex: nextPageIndex,
+      pageType: page?.type,
+      clipIndex: page?.type === 'clip' ? page.clipIndex : null,
+      title: page?.type === 'clip' ? page.clip.title : null,
+    });
+  }, [activateVisibleClipPage, clearVisiblePageState, feedPages, logRestoreEvent, pageHeight]);
 
   React.useEffect(() => {
     if (loadTriggerRef.current > data.length || visibleClipCount <= 10) {
@@ -430,6 +621,7 @@ export function FeedScreen({
       return;
     }
     setPendingAutoplayIndex(null);
+    setPreviewSession(null);
   }, [activeIndex, currentRequestId, pendingAutoplayIndex, playbackPhase]);
 
   React.useEffect(() => {
@@ -471,64 +663,90 @@ export function FeedScreen({
 
   React.useEffect(() => {
     return () => {
+      clearRestoreTimer();
       clearAutoplayTimer();
       finalizeSession();
     };
-  }, [clearAutoplayTimer, finalizeSession]);
+  }, [clearAutoplayTimer, clearRestoreTimer, finalizeSession]);
+
+  React.useEffect(() => {
+    if (!previewSession) return;
+    const timer = setInterval(() => {
+      setPreviewNow(Date.now());
+    }, 80);
+    return () => clearInterval(timer);
+  }, [previewSession]);
 
   React.useEffect(() => {
     if (wasForegroundRef.current && !isForeground) {
       wasForegroundRef.current = false;
-      pendingForegroundResumeRef.current = false;
-      autoplayTargetRef.current = null;
-      clearAutoplayTimer();
-      setPendingAutoplayIndex(null);
-      setCurrentVisibleRequestId(null);
+      restoringForegroundRef.current = false;
+      const capturePageIndex = typeof latestViewablePageIndexRef.current === 'number'
+        ? latestViewablePageIndexRef.current
+        : lastScrollPageIndexRef.current;
+      const capturePage = feedPages[capturePageIndex];
+      if (capturePage?.type === 'clip') {
+        lastStablePageIndexRef.current = capturePageIndex;
+      }
+      logRestoreEvent('foreground-hide', {
+        capturedPageIndex: capturePageIndex,
+        capturedPageType: capturePage?.type,
+        capturedClipIndex: capturePage?.type === 'clip' ? capturePage.clipIndex : null,
+        capturedTitle: capturePage?.type === 'clip' ? capturePage.clip.title : null,
+      });
+      latestViewablePageIndexRef.current = null;
+      clearRestoreTimer();
+      clearVisiblePageState();
       setTranscriptIndex(null);
       sessionRef.current = null;
-      void stop();
       return;
     }
 
     if (!wasForegroundRef.current && isForeground) {
       wasForegroundRef.current = true;
-      pendingForegroundResumeRef.current = true;
+      restoringForegroundRef.current = true;
+      clearRestoreTimer();
+      const fallbackPageIndex = Math.max(0, Math.min(lastStablePageIndexRef.current, Math.max(feedPages.length - 1, 0)));
+      logRestoreEvent('foreground-show', {
+        fallbackPageIndex,
+        fallbackPageType: feedPages[fallbackPageIndex]?.type,
+        fallbackClipIndex: feedPages[fallbackPageIndex]?.type === 'clip' ? feedPages[fallbackPageIndex].clipIndex : null,
+        fallbackTitle: feedPages[fallbackPageIndex]?.type === 'clip' ? feedPages[fallbackPageIndex].clip.title : null,
+      });
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToIndex({ index: fallbackPageIndex, animated: false });
+      });
+      restoreTimerRef.current = setTimeout(() => {
+        restoringForegroundRef.current = false;
+        const latestIndex = latestViewablePageIndexRef.current;
+        const candidateIndex = typeof latestIndex === 'number' ? latestIndex : fallbackPageIndex;
+        const candidatePage = feedPages[candidateIndex];
+        logRestoreEvent('foreground-restore-finalize', {
+          candidateIndex,
+          candidatePageType: candidatePage?.type,
+          candidateClipIndex: candidatePage?.type === 'clip' ? candidatePage.clipIndex : null,
+          candidateTitle: candidatePage?.type === 'clip' ? candidatePage.clip.title : null,
+        });
+        if (candidatePage?.type === 'clip') {
+          lastStablePageIndexRef.current = candidateIndex;
+          activateVisibleClipPage(candidatePage);
+          return;
+        }
+        const fallbackPage = feedPages[fallbackPageIndex];
+        if (fallbackPage?.type === 'clip') {
+          lastStablePageIndexRef.current = fallbackPageIndex;
+          activateVisibleClipPage(fallbackPage);
+          return;
+        }
+        clearVisiblePageState();
+      }, 180);
     }
-  }, [clearAutoplayTimer, isForeground, setCurrentVisibleRequestId, stop]);
-
-  React.useEffect(() => {
-    if (!isForeground) return;
-    if (!pendingForegroundResumeRef.current) return;
-    if (visibleClipIndex === null) return;
-    if (playbackPhase === 'playing' || playbackPhase === 'loading') {
-      pendingForegroundResumeRef.current = false;
-      return;
-    }
-
-    pendingForegroundResumeRef.current = false;
-    const requestId = createRequestId();
-    autoplayTargetRef.current = visibleClipIndex;
-    setCurrentVisibleRequestId(requestId);
-    setPendingAutoplayIndex(visibleClipIndex);
-    clearAutoplayTimer();
-    autoplayTimerRef.current = setTimeout(() => {
-      if (autoplayTargetRef.current !== visibleClipIndex) return;
-      if (visibleRequestIdRef.current !== requestId) return;
-      void requestAutoplay(visibleClipIndex, requestId);
-    }, AUTOPLAY_DEBOUNCE_MS);
-  }, [
-    clearAutoplayTimer,
-    createRequestId,
-    isForeground,
-    playbackPhase,
-    requestAutoplay,
-    setCurrentVisibleRequestId,
-    visibleClipIndex,
-  ]);
+  }, [activateVisibleClipPage, clearRestoreTimer, clearVisiblePageState, feedPages, isForeground]);
 
   return (
     <ScreenSurface edges={['left', 'right', 'bottom']}>
       <FlatList
+        ref={listRef}
         data={feedPages}
         keyExtractor={item => item.key}
         pagingEnabled
@@ -541,6 +759,7 @@ export function FeedScreen({
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
+        onMomentumScrollEnd={onMomentumScrollEnd}
         viewabilityConfig={viewabilityConfig.current}
         renderItem={({ item }: ListRenderItemInfo<FeedPage>) => {
           if (item.type === 'review') {
@@ -597,7 +816,6 @@ export function FeedScreen({
           const index = item.clipIndex;
           const isActive = index === activeIndex;
           const isVisible = index === visibleClipIndex;
-          const isPreparingAutoplay = index === pendingAutoplayIndex;
           const showLoadingOverlay = isVisible
             && isActive
             && playbackPhase === 'loading'
@@ -607,7 +825,6 @@ export function FeedScreen({
           const clipKey = item.key;
           const liked = likedKeys.includes(clipKey);
           const saved = bookmarkedKeys.includes(clipKey);
-          const sourceUrl = getClipSourceExternalUrl(clip);
           const challengeWords = challengeWordsByKey.get(clipKey) || [];
 
           return (
@@ -615,34 +832,26 @@ export function FeedScreen({
               <PlayerLayout
                 header={
                   <View style={[styles.headerBlock, { width: playerWidth }]}>
-                    {sourceUrl ? (
-                      <View style={styles.headerActions}>
-                        <Pressable
-                          onPress={() => {
-                            void handleOpenSource(clip);
-                          }}
-                          style={styles.iconButton}
-                        >
-                          <Feather name="external-link" size={18} color={colors.textSecondary} />
-                        </Pressable>
-                      </View>
-                    ) : null}
-                    <View style={styles.headerCopy}>
-                      <Text style={styles.clipTitle}>{clip.title}</Text>
-                      {challengeWords.length > 0 ? (
-                        <ChallengeWordPills words={challengeWords} tone="feed" />
-                      ) : null}
+                    <View style={styles.headerStatusRow}>
+                      <View style={styles.headerStatusSpacer} />
+                      <Text style={styles.feedStatusText}>{feedStatusText}</Text>
                       <Pressable
                         onPress={() => {
                           triggerUiFeedback('menu');
-                          setTranscriptIndex(index);
+                          setHelpMenuIndex(index);
                         }}
+                        style={styles.iconButton}
+                        hitSlop={12}
                       >
-                        <Text style={styles.clipSource}>
-                          {getSourceLabel(clip.source)}
-                          {clip.tag ? ` · ${getLocalizedTopicLabel(clip.tag, t)}` : ''}
-                        </Text>
+                        <Feather name="help-circle" size={18} color={colors.textSecondary} />
                       </Pressable>
+                    </View>
+                    <View style={styles.headerCopy}>
+                      <Text style={styles.clipTitle}>{clip.title}</Text>
+                      <Text style={styles.clipSource}>
+                        {getSourceLabel(clip.source)}
+                        {clip.tag ? ` · ${getLocalizedTopicLabel(clip.tag, t)}` : ''}
+                      </Text>
                       {clip._aiReason ? <Text style={styles.clipReason}>{clip._aiReason}</Text> : null}
                     </View>
                   </View>
@@ -681,7 +890,7 @@ export function FeedScreen({
                           void pause();
                           return;
                         }
-                        const requestId = isPreparingAutoplay && visibleRequestIdRef.current
+                        const requestId = (index === pendingAutoplayIndex) && visibleRequestIdRef.current
                           ? visibleRequestIdRef.current
                           : createRequestId();
                         setCurrentVisibleRequestId(requestId);
@@ -716,7 +925,7 @@ export function FeedScreen({
                       </View>
                     </View>
                   ) : null}
-                  <View style={[styles.sideRail, dominantHand === 'left' ? styles.sideRailLeft : styles.sideRailRight]}>
+                  <View style={[styles.sideRail, styles.sideRailRight]}>
                     <Pressable
                       onPress={() => onToggleLike(clip, index)}
                       style={styles.sideButton}
@@ -773,6 +982,106 @@ export function FeedScreen({
           );
         }}
       />
+
+      {showPreviewOverlay && previewClip ? (
+        <View pointerEvents="none" style={styles.previewOverlay}>
+          <View style={[styles.page, { height: pageHeight, paddingBottom: 18 + insets.bottom }]}>
+            <View style={[styles.primingPage, { width: playerWidth }]}>
+              <View style={styles.primingPageHeader} />
+
+              <View style={styles.primingPageBody}>
+                <View style={styles.primingTopInfo}>
+                  <Text style={styles.primingMetaLine}>{previewMeta}</Text>
+                  <Text style={styles.primingSummary}>{previewClip.title}</Text>
+                </View>
+
+                <GlassCard style={[styles.primingPreviewPageCard, { width: Math.min(playerWidth, 360) }]}>
+                  <Text style={styles.primingPreviewLabel}>
+                    {t('feed.primingPreview', { count: previewChallengeWords.length })}
+                  </Text>
+                  <ChallengeWordPills words={previewChallengeWords} tone="feed" variant="preview" />
+                </GlassCard>
+
+                <Text style={styles.primingSwipeHint}>{t('feed.previewSwipeHint')}</Text>
+
+                <View style={styles.primingCountdownWrap}>
+                  <View style={styles.primingCountdownRing}>
+                    <View style={styles.primingCountdownInner}>
+                      <Text style={styles.primingCountdownText}>{previewSeconds}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.primingHoldHint}>{t('feed.previewHoldHint')}</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      <Modal
+        visible={Boolean(helpMenuClip)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setHelpMenuIndex(null)}
+      >
+        <View style={styles.helpMenuOverlay}>
+          <Pressable style={styles.helpMenuBackdrop} onPress={() => setHelpMenuIndex(null)} />
+          <View
+            style={[
+              styles.helpMenuSheetWrap,
+              {
+                paddingBottom: insets.bottom + 12,
+                paddingHorizontal: metrics.pageHorizontalPadding,
+              },
+            ]}
+          >
+            <GlassCard style={[styles.helpMenuCard, { maxWidth: metrics.modalMaxWidth }]}>
+              <Pressable
+                onPress={() => {
+                  if (helpMenuIndex === null) return;
+                  setHelpMenuIndex(null);
+                  triggerUiFeedback('menu');
+                  setTranscriptIndex(helpMenuIndex);
+                }}
+                style={({ pressed }) => [styles.helpMenuItem, pressed && styles.helpMenuItemPressed]}
+              >
+                <Text style={styles.helpMenuLabel}>{t('feed.menuTranscript')}</Text>
+              </Pressable>
+
+              <Pressable
+                disabled={!helpMenuClip || !getClipSourceExternalUrl(helpMenuClip)}
+                onPress={() => {
+                  if (!helpMenuClip) return;
+                  setHelpMenuIndex(null);
+                  void handleOpenSource(helpMenuClip);
+                }}
+                style={({ pressed }) => [
+                  styles.helpMenuItem,
+                  (!helpMenuClip || !getClipSourceExternalUrl(helpMenuClip)) ? styles.helpMenuItemDisabled : null,
+                  pressed && helpMenuClip && getClipSourceExternalUrl(helpMenuClip) ? styles.helpMenuItemPressed : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.helpMenuLabel,
+                    (!helpMenuClip || !getClipSourceExternalUrl(helpMenuClip)) ? styles.helpMenuLabelDisabled : null,
+                  ]}
+                >
+                  {t('feed.menuOriginalPodcast')}
+                </Text>
+                {!helpMenuClip || !getClipSourceExternalUrl(helpMenuClip) ? (
+                  <Text style={styles.helpMenuBadge}>{t('feed.menuUnavailable')}</Text>
+                ) : null}
+              </Pressable>
+
+              <Pressable style={[styles.helpMenuItem, styles.helpMenuItemDisabled]} disabled>
+                <Text style={[styles.helpMenuLabel, styles.helpMenuLabelDisabled]}>{t('feed.menuFeedback')}</Text>
+                <Text style={styles.helpMenuBadge}>{t('feed.comingSoon')}</Text>
+              </Pressable>
+            </GlassCard>
+          </View>
+        </View>
+      </Modal>
 
       {popup ? (
         <WordPopup
@@ -865,6 +1174,11 @@ return StyleSheet.create({
   page: {
     justifyContent: 'space-between',
   },
+  previewOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 5,
+    backgroundColor: colors.bgApp,
+  },
   cardPage: {
     justifyContent: 'center',
     paddingHorizontal: spacing.page,
@@ -900,16 +1214,27 @@ return StyleSheet.create({
     fontSize: typography.micro,
     fontWeight: '700',
   },
-  headerActions: {
+  headerStatusRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.sm,
+  },
+  headerStatusSpacer: {
+    width: 28,
+    height: 28,
   },
   iconButton: {
     width: 28,
     height: 28,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  feedStatusText: {
+    flex: 1,
+    color: colors.textSecondary,
+    fontSize: typography.micro,
+    lineHeight: 18,
+    textAlign: 'center',
   },
   headerCopy: {
     alignItems: 'center',
@@ -933,6 +1258,50 @@ return StyleSheet.create({
     textAlign: 'center',
     maxWidth: 260,
   },
+  helpMenuOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  helpMenuBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(2, 6, 23, 0.42)',
+  },
+  helpMenuSheetWrap: {
+    width: '100%',
+  },
+  helpMenuCard: {
+    alignSelf: 'center',
+    width: '100%',
+    paddingVertical: 4,
+    gap: 0,
+  },
+  helpMenuItem: {
+    minHeight: 52,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  helpMenuItemPressed: {
+    backgroundColor: colors.bgSurface2,
+  },
+  helpMenuItemDisabled: {
+    opacity: 0.72,
+  },
+  helpMenuLabel: {
+    color: colors.textPrimary,
+    fontSize: typography.body,
+    fontWeight: '600',
+  },
+  helpMenuLabelDisabled: {
+    color: colors.textSecondary,
+  },
+  helpMenuBadge: {
+    color: colors.textSecondary,
+    fontSize: typography.micro,
+    fontWeight: '700',
+  },
   controlsWrap: {
     gap: spacing.md,
   },
@@ -941,6 +1310,44 @@ return StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+  },
+  primingPage: {
+    flex: 1,
+    width: '100%',
+    maxWidth: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: spacing.page,
+    justifyContent: 'space-between',
+  },
+  primingPageHeader: {
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primingPageBody: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  primingTopInfo: {
+    alignItems: 'center',
+    gap: 6,
+    maxWidth: 320,
+  },
+  primingMetaLine: {
+    color: colors.textTertiary,
+    fontSize: 11,
+    lineHeight: 16,
+    letterSpacing: 0.6,
+    textAlign: 'center',
+  },
+  primingSummary: {
+    color: '#B8B5C0',
+    fontSize: 15,
+    lineHeight: 21,
+    textAlign: 'center',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -962,6 +1369,67 @@ return StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.sm,
   },
+  primingPreviewPageCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 0,
+    borderColor: 'transparent',
+    borderRadius: 10,
+  },
+  primingPreviewLabel: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+    letterSpacing: 0.4,
+  },
+  primingSwipeHint: {
+    color: '#4A4955',
+    fontSize: 11,
+    lineHeight: 16,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  primingCountdownWrap: {
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  primingCountdownRing: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 3,
+    borderColor: '#9BA7E8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  primingCountdownInner: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.bgApp,
+  },
+  primingCountdownText: {
+    color: '#F0EEF2',
+    fontSize: 18,
+    lineHeight: 22,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  primingHoldHint: {
+    color: '#6A6875',
+    fontSize: 11,
+    lineHeight: 16,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
   loadingOverlayText: {
     color: colors.textPrimary,
     fontSize: typography.caption,
@@ -977,7 +1445,7 @@ return StyleSheet.create({
     left: 0,
   },
   sideRailRight: {
-    right: 0,
+    right: -6,
   },
   sideButton: {
     width: 40,

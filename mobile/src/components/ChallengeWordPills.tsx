@@ -10,12 +10,13 @@ type Props = {
   words: ChallengeWord[];
   tone?: 'feed' | 'practice';
   singleRow?: boolean;
+  variant?: 'default' | 'preview';
 };
 
-export function ChallengeWordPills({ words, tone = 'feed', singleRow = false }: Props) {
+export function ChallengeWordPills({ words, tone = 'feed', singleRow = false, variant = 'default' }: Props) {
   const { colors } = useAppTheme();
   const { nativeLanguage } = useUiI18n();
-  const styles = useMemo(() => createStyles(colors, tone, singleRow), [colors, tone, singleRow]);
+  const styles = useMemo(() => createStyles(colors, tone, singleRow, variant), [colors, tone, singleRow, variant]);
   const [translations, setTranslations] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -33,6 +34,11 @@ export function ChallengeWordPills({ words, tone = 'feed', singleRow = false }: 
       if (cancelled) return;
       const next: Record<string, string> = {};
       entries.forEach(([word, translation]) => {
+        const inlineTranslation = words.find(item => item.word === word && item.translationLocale === nativeLanguage)?.translation;
+        if (inlineTranslation) {
+          next[word] = inlineTranslation;
+          return;
+        }
         if (translation) {
           next[word] = translation;
         }
@@ -48,14 +54,17 @@ export function ChallengeWordPills({ words, tone = 'feed', singleRow = false }: 
   const content = (
     <View style={styles.row}>
       {words.map(word => {
-        const translation = translations[word.word] || '';
+        const inlineTranslation = word.translationLocale === nativeLanguage ? word.translation || '' : '';
+        const translation = inlineTranslation || translations[word.word] || '';
         return (
           <View key={`${word.word}-${word.lineIndex}`} style={styles.pill}>
             <View style={styles.wordRow}>
               <Text style={styles.wordText}>{word.word}</Text>
-              {word.cefr ? <Text style={styles.badge}>{word.cefr}</Text> : null}
+              {word.cefr && variant !== 'preview' ? <Text style={styles.badge}>{word.cefr}</Text> : null}
             </View>
-            {translation ? <Text style={styles.translationText}>{translation}</Text> : null}
+            <Text style={[styles.translationText, !translation && styles.translationPlaceholder]}>
+              {translation || ' '}
+            </Text>
           </View>
         );
       })}
@@ -80,43 +89,52 @@ export function ChallengeWordPills({ words, tone = 'feed', singleRow = false }: 
 function createStyles(
   colors: ReturnType<typeof useAppTheme>['colors'],
   tone: 'feed' | 'practice',
-  singleRow: boolean
+  singleRow: boolean,
+  variant: 'default' | 'preview'
 ) {
   const accent = tone === 'feed' ? colors.accentFeed : colors.accentPractice;
   const border = tone === 'feed' ? 'rgba(139,156,247,0.24)' : 'rgba(168,85,247,0.22)';
   const background = tone === 'feed' ? 'rgba(139,156,247,0.12)' : 'rgba(168,85,247,0.10)';
+  const preview = variant === 'preview';
 
   return StyleSheet.create({
     scrollContent: {
       paddingRight: spacing.xs,
     },
     row: {
-      flexDirection: 'row',
-      flexWrap: singleRow ? 'nowrap' : 'wrap',
-      gap: spacing.sm,
+      flexDirection: preview ? 'column' : 'row',
+      flexWrap: preview ? 'nowrap' : (singleRow ? 'nowrap' : 'wrap'),
+      gap: preview ? 28 : spacing.sm,
       justifyContent: tone === 'feed' ? 'center' : 'flex-start',
-      alignItems: singleRow ? 'stretch' : 'flex-start',
+      alignItems: preview ? 'center' : (singleRow ? 'stretch' : 'flex-start'),
     },
     pill: {
-      minWidth: 88,
-      gap: 4,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: radii.lg,
-      backgroundColor: background,
-      borderWidth: 1,
-      borderColor: border,
+      minWidth: preview ? 0 : 88,
+      minHeight: preview ? 78 : undefined,
+      gap: preview ? 2 : 4,
+      paddingHorizontal: preview ? 0 : 12,
+      paddingVertical: preview ? 0 : 8,
+      borderRadius: preview ? 0 : radii.lg,
+      backgroundColor: preview ? 'transparent' : background,
+      borderWidth: preview ? 0 : 1,
+      borderColor: preview ? 'transparent' : border,
+      alignItems: preview ? 'center' : 'stretch',
+      justifyContent: preview ? 'center' : 'flex-start',
     },
     wordRow: {
       flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
+      alignItems: preview ? 'center' : 'center',
+      justifyContent: preview ? 'center' : 'flex-start',
+      gap: preview ? 5 : 6,
     },
     wordText: {
       color: colors.textPrimary,
-      fontSize: typography.caption,
-      fontWeight: '700',
+      fontSize: preview ? 44 : typography.caption,
+      lineHeight: preview ? 48 : undefined,
+      fontWeight: preview ? '600' : '700',
       flexShrink: 1,
+      textAlign: preview ? 'center' : 'left',
+      letterSpacing: preview ? -0.6 : 0,
     },
     badge: {
       color: accent,
@@ -125,8 +143,14 @@ function createStyles(
     },
     translationText: {
       color: colors.textSecondary,
-      fontSize: 11,
-      lineHeight: 15,
+      fontSize: preview ? 14 : 11,
+      lineHeight: preview ? 18 : 15,
+      minHeight: preview ? 18 : undefined,
+      textAlign: preview ? 'center' : 'left',
+      letterSpacing: preview ? 0.3 : 0,
+    },
+    translationPlaceholder: {
+      opacity: preview ? 0 : 1,
     },
   });
 }

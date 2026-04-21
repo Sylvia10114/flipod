@@ -45,6 +45,19 @@ export type ClipQuestion = {
   explanation_zh?: string;
 };
 
+export type ClipPrimingWord = {
+  word: string;
+  zh?: string;
+  cefr?: string;
+  ipa?: string;
+};
+
+export type ClipPriming = {
+  words: ClipPrimingWord[];
+  version?: string;
+  generatedAt?: number;
+};
+
 export type LocalizedClipLine = {
   translation: string;
 };
@@ -94,6 +107,7 @@ export type Clip = {
   questions?: ClipQuestion[];
   collocations?: string[];
   lines: ClipLine[];
+  priming?: ClipPriming | null;
   _aiReason?: string;
 };
 
@@ -132,6 +146,8 @@ export type ChallengeWord = {
   word: string;
   cefr?: string;
   lineIndex: number;
+  translation?: string;
+  translationLocale?: NativeLanguage;
 };
 
 export type AppSettings = {

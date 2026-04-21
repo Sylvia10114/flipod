@@ -111,7 +111,19 @@
     },
     "feed": {
       "preparingPlayback": "Preparing playback...",
-      "audioUnavailable": "Audio is temporarily unavailable."
+      "audioUnavailable": "Audio is temporarily unavailable.",
+      "statusLoading": "AI is arranging the next clips for you...",
+      "statusNormal": "Arranged around your current preferences",
+      "statusRerank": "Just adjusted the order based on your recent behavior",
+      "statusFallback": "These clips are already lined up for you",
+      "menuTranscript": "View full transcript",
+      "menuOriginalPodcast": "Listen to original podcast",
+      "menuFeedback": "Feedback",
+      "menuUnavailable": "Unavailable",
+      "comingSoon": "Coming soon",
+      "primingPreview": "🎯 {count} keywords",
+      "previewSwipeHint": "↑ Swipe up for the next one",
+      "previewHoldHint": "Press and hold anywhere to pause"
     },
     "cards": {
       "quickReview": "Quick Review",
@@ -240,7 +252,8 @@
       "startGeneratedPractice": "Start practice",
       "pendingEmptyTitle": "No practice piece yet",
       "pendingEmptyBody": "Save a few more words or generate a new batch.",
-      "completedTitle": "Recently completed"
+      "completedTitle": "Recently completed",
+      "viewCompleted": "View results →"
     },
     "recommendation": {
       "probe": "This clip is closest to your current {level} range to calibrate what comes next.",
@@ -438,7 +451,19 @@
     },
     "feed": {
       "preparingPlayback": "正在准备播放...",
-      "audioUnavailable": "音频暂时不可用。"
+      "audioUnavailable": "音频暂时不可用。",
+      "statusLoading": "AI 正在为你排列内容...",
+      "statusNormal": "已根据你的偏好排列",
+      "statusRerank": "刚刚根据你的表现重新调整了顺序",
+      "statusFallback": "这几条已经替你排好了",
+      "menuTranscript": "查看完整 Transcript",
+      "menuOriginalPodcast": "收听原始播客",
+      "menuFeedback": "反馈",
+      "menuUnavailable": "暂不可用",
+      "comingSoon": "即将上线",
+      "primingPreview": "🎯 {count} 个关键词",
+      "previewSwipeHint": "↑ 上滑换一条",
+      "previewHoldHint": "长按任意处暂停"
     },
     "cards": {
       "quickReview": "快速复习",
@@ -567,7 +592,8 @@
       "startGeneratedPractice": "开始练习",
       "pendingEmptyTitle": "暂时还没有待练内容",
       "pendingEmptyBody": "再收藏一些单词，或者手动生成一批新的练习。",
-      "completedTitle": "最近完成"
+      "completedTitle": "最近完成",
+      "viewCompleted": "查看结果 →"
     },
     "recommendation": {
       "probe": "这条难度最贴近你当前的 {level} 区间，先用来校准后面的推荐。",
@@ -765,7 +791,19 @@
     },
     "feed": {
       "preparingPlayback": "正在準備播放...",
-      "audioUnavailable": "音訊暫時不可用。"
+      "audioUnavailable": "音訊暫時不可用。",
+      "statusLoading": "AI 正在為你排列內容...",
+      "statusNormal": "已根據你的偏好排列",
+      "statusRerank": "剛剛根據你的表現重新調整了順序",
+      "statusFallback": "這幾條已經替你排好了",
+      "menuTranscript": "查看完整 Transcript",
+      "menuOriginalPodcast": "收聽原始播客",
+      "menuFeedback": "回饋",
+      "menuUnavailable": "暫不可用",
+      "comingSoon": "即將上線",
+      "primingPreview": "🎯 {count} 個關鍵詞",
+      "previewSwipeHint": "↑ 上滑換一條",
+      "previewHoldHint": "長按任意處暫停"
     },
     "cards": {
       "quickReview": "快速複習",
@@ -894,7 +932,8 @@
       "startGeneratedPractice": "開始練習",
       "pendingEmptyTitle": "暫時還沒有待練內容",
       "pendingEmptyBody": "再收藏一些單詞，或者手動生成一批新的練習。",
-      "completedTitle": "最近完成"
+      "completedTitle": "最近完成",
+      "viewCompleted": "查看結果 →"
     },
     "recommendation": {
       "probe": "這條難度最貼近你目前的 {level} 區間，先用來校準後面的推薦。",
@@ -1092,7 +1131,19 @@
     },
     "feed": {
       "preparingPlayback": "再生を準備しています...",
-      "audioUnavailable": "音声は一時的に利用できません。"
+      "audioUnavailable": "音声は一時的に利用できません。",
+      "statusLoading": "AI が次のコンテンツを並べています...",
+      "statusNormal": "今の好みに合わせて並べています",
+      "statusRerank": "最近の反応に合わせて順番を調整しました",
+      "statusFallback": "この数本はすでに並べてあります",
+      "menuTranscript": "全文 Transcript を見る",
+      "menuOriginalPodcast": "元のポッドキャストを聴く",
+      "menuFeedback": "フィードバック",
+      "menuUnavailable": "利用できません",
+      "comingSoon": "近日公開",
+      "primingPreview": "🎯 {count} 個のキーワード",
+      "previewSwipeHint": "↑ 上にスワイプして次へ",
+      "previewHoldHint": "画面のどこでも長押しで一時停止"
     },
     "cards": {
       "quickReview": "クイック復習",
@@ -1221,7 +1272,8 @@
       "startGeneratedPractice": "練習を始める",
       "pendingEmptyTitle": "まだ待機中の練習はありません",
       "pendingEmptyBody": "もう少し単語を保存するか、新しい練習を生成してください。",
-      "completedTitle": "最近完了した練習"
+      "completedTitle": "最近完了した練習",
+      "viewCompleted": "結果を見る →"
     },
     "recommendation": {
       "probe": "このクリップは今の {level} にいちばん近いので、次のおすすめを整えるために先に入れています。",
@@ -1419,7 +1471,19 @@
     },
     "feed": {
       "preparingPlayback": "재생을 준비하는 중...",
-      "audioUnavailable": "오디오는 지금 사용할 수 없어요."
+      "audioUnavailable": "오디오는 지금 사용할 수 없어요.",
+      "statusLoading": "AI가 다음 콘텐츠를 정렬하고 있어요...",
+      "statusNormal": "현재 취향에 맞춰 정렬했어요",
+      "statusRerank": "최근 반응을 바탕으로 순서를 다시 조정했어요",
+      "statusFallback": "이 몇 개는 이미 준비해 두었어요",
+      "menuTranscript": "전체 Transcript 보기",
+      "menuOriginalPodcast": "원본 팟캐스트 듣기",
+      "menuFeedback": "피드백",
+      "menuUnavailable": "이용 불가",
+      "comingSoon": "곧 제공",
+      "primingPreview": "🎯 키워드 {count}개",
+      "previewSwipeHint": "↑ 위로 밀어 다음으로",
+      "previewHoldHint": "아무 곳이나 길게 눌러 일시정지"
     },
     "cards": {
       "quickReview": "빠른 복습",
@@ -1548,7 +1612,8 @@
       "startGeneratedPractice": "연습 시작",
       "pendingEmptyTitle": "아직 대기 중인 연습이 없습니다",
       "pendingEmptyBody": "단어를 더 저장하거나 새 연습을 생성해 보세요.",
-      "completedTitle": "최근 완료한 연습"
+      "completedTitle": "최근 완료한 연습",
+      "viewCompleted": "결과 보기 →"
     },
     "recommendation": {
       "probe": "이 클립은 현재 {level} 수준에 가장 가까워서 다음 추천을 조정하는 데 먼저 사용해요.",
@@ -1746,7 +1811,19 @@
     },
     "feed": {
       "preparingPlayback": "Preparando la reproducción...",
-      "audioUnavailable": "El audio no está disponible por ahora."
+      "audioUnavailable": "El audio no está disponible por ahora.",
+      "statusLoading": "La IA está ordenando los próximos clips para ti...",
+      "statusNormal": "Ordenado según tus preferencias actuales",
+      "statusRerank": "Acabamos de ajustar el orden según tu actividad reciente",
+      "statusFallback": "Estos clips ya están preparados para ti",
+      "menuTranscript": "Ver transcript completo",
+      "menuOriginalPodcast": "Escuchar el podcast original",
+      "menuFeedback": "Comentarios",
+      "menuUnavailable": "No disponible",
+      "comingSoon": "Próximamente",
+      "primingPreview": "🎯 {count} palabras clave",
+      "previewSwipeHint": "↑ Desliza hacia arriba para la siguiente",
+      "previewHoldHint": "Mantén pulsado en cualquier parte para pausar"
     },
     "cards": {
       "quickReview": "Repaso rápido",
@@ -1875,7 +1952,8 @@
       "startGeneratedPractice": "Start practice",
       "pendingEmptyTitle": "No practice piece yet",
       "pendingEmptyBody": "Save a few more words or generate a new batch.",
-      "completedTitle": "Recently completed"
+      "completedTitle": "Recently completed",
+      "viewCompleted": "Ver resultados →"
     },
     "recommendation": {
       "probe": "Este clip es el más cercano a tu rango actual de {level}, así que lo usamos primero para ajustar las siguientes recomendaciones.",
@@ -2073,7 +2151,19 @@
     },
     "feed": {
       "preparingPlayback": "Préparation de la lecture...",
-      "audioUnavailable": "L'audio est temporairement indisponible."
+      "audioUnavailable": "L'audio est temporairement indisponible.",
+      "statusLoading": "L’IA prépare les prochains extraits pour toi...",
+      "statusNormal": "Classé selon tes préférences actuelles",
+      "statusRerank": "L’ordre vient d’être ajusté selon tes dernières actions",
+      "statusFallback": "Ces extraits sont déjà prêts pour toi",
+      "menuTranscript": "Voir le transcript complet",
+      "menuOriginalPodcast": "Écouter le podcast original",
+      "menuFeedback": "Retour",
+      "menuUnavailable": "Indisponible",
+      "comingSoon": "Bientôt disponible",
+      "primingPreview": "🎯 {count} mots-clés",
+      "previewSwipeHint": "↑ Glissez vers le haut pour la suite",
+      "previewHoldHint": "Appuyez longuement n’importe où pour mettre en pause"
     },
     "cards": {
       "quickReview": "Révision rapide",
@@ -2202,7 +2292,8 @@
       "startGeneratedPractice": "Start practice",
       "pendingEmptyTitle": "No practice piece yet",
       "pendingEmptyBody": "Save a few more words or generate a new batch.",
-      "completedTitle": "Recently completed"
+      "completedTitle": "Recently completed",
+      "viewCompleted": "Voir les résultats →"
     },
     "recommendation": {
       "probe": "Ce clip est le plus proche de votre niveau actuel {level}, donc il sert d'abord à ajuster les recommandations suivantes.",
@@ -2400,7 +2491,19 @@
     },
     "feed": {
       "preparingPlayback": "Preparando a reprodução...",
-      "audioUnavailable": "O áudio está temporariamente indisponível."
+      "audioUnavailable": "O áudio está temporariamente indisponível.",
+      "statusLoading": "A IA está organizando os próximos trechos para você...",
+      "statusNormal": "Organizado com base nas suas preferências atuais",
+      "statusRerank": "A ordem acabou de ser ajustada com base no seu desempenho recente",
+      "statusFallback": "Esses trechos já estão preparados para você",
+      "menuTranscript": "Ver transcript completo",
+      "menuOriginalPodcast": "Ouvir o podcast original",
+      "menuFeedback": "Feedback",
+      "menuUnavailable": "Indisponível",
+      "comingSoon": "Em breve",
+      "primingPreview": "🎯 {count} palavras-chave",
+      "previewSwipeHint": "↑ Deslize para cima para a próxima",
+      "previewHoldHint": "Toque e segure em qualquer lugar para pausar"
     },
     "cards": {
       "quickReview": "Revisão rápida",
@@ -2529,7 +2632,8 @@
       "startGeneratedPractice": "Start practice",
       "pendingEmptyTitle": "No practice piece yet",
       "pendingEmptyBody": "Save a few more words or generate a new batch.",
-      "completedTitle": "Recently completed"
+      "completedTitle": "Recently completed",
+      "viewCompleted": "Ver resultados →"
     },
     "recommendation": {
       "probe": "Este clipe é o mais próximo da sua faixa atual {level}, então ele ajuda a calibrar as próximas recomendações.",
@@ -2727,7 +2831,19 @@
     },
     "feed": {
       "preparingPlayback": "Preparazione della riproduzione...",
-      "audioUnavailable": "L'audio non è disponibile al momento."
+      "audioUnavailable": "L'audio non è disponibile al momento.",
+      "statusLoading": "L’AI sta preparando i prossimi clip per te...",
+      "statusNormal": "Ordinato in base alle tue preferenze attuali",
+      "statusRerank": "L’ordine è stato appena aggiornato in base al tuo comportamento recente",
+      "statusFallback": "Questi clip sono già pronti per te",
+      "menuTranscript": "Vedi il transcript completo",
+      "menuOriginalPodcast": "Ascolta il podcast originale",
+      "menuFeedback": "Feedback",
+      "menuUnavailable": "Non disponibile",
+      "comingSoon": "In arrivo",
+      "primingPreview": "🎯 {count} parole chiave",
+      "previewSwipeHint": "↑ Scorri in alto per la prossima",
+      "previewHoldHint": "Tieni premuto ovunque per mettere in pausa"
     },
     "cards": {
       "quickReview": "Ripasso veloce",
@@ -2856,7 +2972,8 @@
       "startGeneratedPractice": "Start practice",
       "pendingEmptyTitle": "No practice piece yet",
       "pendingEmptyBody": "Save a few more words or generate a new batch.",
-      "completedTitle": "Recently completed"
+      "completedTitle": "Recently completed",
+      "viewCompleted": "Vedi risultati →"
     },
     "recommendation": {
       "probe": "Questo clip è il più vicino alla tua fascia attuale {level}, quindi serve prima per calibrare i prossimi suggerimenti.",
@@ -3054,7 +3171,19 @@
     },
     "feed": {
       "preparingPlayback": "Wiedergabe wird vorbereitet...",
-      "audioUnavailable": "Audio ist vorübergehend nicht verfügbar."
+      "audioUnavailable": "Audio ist vorübergehend nicht verfügbar.",
+      "statusLoading": "Die KI ordnet gerade die nächsten Clips für dich...",
+      "statusNormal": "Nach deinen aktuellen Vorlieben sortiert",
+      "statusRerank": "Die Reihenfolge wurde gerade an dein Verhalten angepasst",
+      "statusFallback": "Diese Clips stehen schon für dich bereit",
+      "menuTranscript": "Vollständiges Transcript anzeigen",
+      "menuOriginalPodcast": "Original-Podcast anhören",
+      "menuFeedback": "Feedback",
+      "menuUnavailable": "Nicht verfügbar",
+      "comingSoon": "Demnächst",
+      "primingPreview": "🎯 {count} Schlüsselwörter",
+      "previewSwipeHint": "↑ Nach oben wischen für die nächste",
+      "previewHoldHint": "Beliebig lange drücken zum Pausieren"
     },
     "cards": {
       "quickReview": "Schnellwiederholung",
@@ -3183,7 +3312,8 @@
       "startGeneratedPractice": "Start practice",
       "pendingEmptyTitle": "No practice piece yet",
       "pendingEmptyBody": "Save a few more words or generate a new batch.",
-      "completedTitle": "Recently completed"
+      "completedTitle": "Recently completed",
+      "viewCompleted": "Ergebnis ansehen →"
     },
     "recommendation": {
       "probe": "Dieser Clip liegt am nächsten an deinem aktuellen Bereich {level} und hilft zuerst dabei, die nächsten Empfehlungen zu kalibrieren.",

@@ -263,9 +263,10 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
   },
   utilityRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     gap: spacing.md,
+    paddingRight: spacing.xs,
   },
   utilityRowLeft: {
     flexDirection: 'row-reverse',

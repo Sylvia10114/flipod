@@ -33,9 +33,6 @@ export function HomeTopChrome({ mode, onChangeMode, onOpenMenu, onLayout }: Prop
             },
           ]}
         >
-          <View style={styles.tabsWrap}>
-            <HomeModeTabs mode={mode} onChangeMode={onChangeMode} />
-          </View>
           <Pressable
             hitSlop={8}
             onPress={() => {
@@ -49,6 +46,9 @@ export function HomeTopChrome({ mode, onChangeMode, onOpenMenu, onLayout }: Prop
           >
             <Feather name="menu" size={18} color={colors.textSecondary} />
           </Pressable>
+          <View style={styles.tabsWrap}>
+            <HomeModeTabs mode={mode} onChangeMode={onChangeMode} />
+          </View>
         </View>
       </SafeAreaView>
     </View>
@@ -85,12 +85,10 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       borderRadius: radii.pill,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: colors.bgSurface1,
-      borderWidth: 1,
-      borderColor: colors.stroke,
+      backgroundColor: 'transparent',
     },
     menuButtonPressed: {
-      backgroundColor: colors.bgSurface2,
+      backgroundColor: colors.bgSurface1,
     },
   });
 }

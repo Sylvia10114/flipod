@@ -59,6 +59,10 @@ const STAIRCASE: StaircaseStep[] = [
 const FINAL_YES_LEVEL: Level = 'C1-C2';
 const MIN_LOADING_FEEDBACK_MS = 320;
 
+function getStaircasePlaybackRate(index: number) {
+  return index < 2 ? 0.75 : 1;
+}
+
 export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
   const { colors } = useAppTheme();
   const metrics = useResponsiveLayout();
@@ -247,6 +251,8 @@ export function OnboardingScreen({ initialProfile, onSubmit }: Props) {
         progressUpdateIntervalMillis: 120,
         volume: 1,
       });
+
+      await sound.setRateAsync(getStaircasePlaybackRate(staircaseIndex), true);
 
       if (requestId !== playbackRequestRef.current) {
         sound.setOnPlaybackStatusUpdate(null);
