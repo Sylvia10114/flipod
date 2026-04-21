@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS vocab_entries (
   word TEXT NOT NULL,
   cefr TEXT,
   phonetic TEXT,
+  definition_zh TEXT,
   context TEXT,
   context_zh TEXT,
   content_key TEXT,

@@ -13,12 +13,12 @@ type Props = {
   contextZh: string;
   isSaved: boolean;
   isKnown: boolean;
-  onSave: () => void;
+  onSave: (info: WordInfo) => void;
   onMarkKnown: () => void;
   onDismiss: () => void;
 };
 
-type WordInfo = {
+export type WordInfo = {
   phonetic: string;
   pos: string;
   definition: string;
@@ -133,6 +133,17 @@ export function WordPopup({ word, contextEn, contextZh, isSaved, isKnown, onSave
     };
   }, [contextZh, nativeLanguage, normalizedWord]);
 
+  const handleSave = React.useCallback(async () => {
+    triggerUiFeedback('bookmark');
+    let nextInfo = info;
+    if (!nextInfo) {
+      nextInfo = await fetchWordInfo(normalizedWord, contextZh, nativeLanguage);
+      setInfo(nextInfo);
+      setLoading(false);
+    }
+    onSave(nextInfo);
+  }, [contextZh, info, nativeLanguage, normalizedWord, onSave]);
+
   return (
     <Pressable style={styles.overlay} onPress={onDismiss}>
       <Pressable style={styles.positioner} onPress={e => e.stopPropagation()}>
@@ -178,8 +189,7 @@ export function WordPopup({ word, contextEn, contextZh, isSaved, isKnown, onSave
               label={isSaved ? t('wordPopup.saved') : t('wordPopup.save')}
               variant={isSaved ? 'secondary' : 'primary'}
               onPress={() => {
-                triggerUiFeedback('bookmark');
-                onSave();
+                void handleSave();
               }}
               style={styles.action}
             />

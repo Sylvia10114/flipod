@@ -675,6 +675,8 @@ export function GeneratedPracticeSessionModal({
                 onSaveVocab({
                   word: selectedWordKey,
                   cefr: selectedWordInfo.cefr || popup.word.cefr,
+                  phonetic: selectedWordInfo.ipa || '',
+                  definitionZh: selectedWordInfo.definition || '',
                   context: popup.contextEn,
                   contextZh: popup.contextZh,
                   contentKey: practice.contentKey,

@@ -1274,10 +1274,12 @@ export function PracticeSessionModal({
             contextZh={popup.contextZh}
             isSaved={vocabWords.includes(popup.word.word.toLowerCase())}
             isKnown={knownWords.includes(popup.word.word.toLowerCase())}
-            onSave={() => {
+            onSave={info => {
               onSaveVocab({
                 word: popup.word.word.toLowerCase(),
                 cefr: popup.word.cefr,
+                phonetic: info?.phonetic || '',
+                definitionZh: info?.definition || '',
                 context: popup.contextEn,
                 contextZh: popup.contextZh,
                 contentKey: clip.contentKey,
