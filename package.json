@@ -4,10 +4,13 @@
   "private": true,
   "scripts": {
     "dev:web": "node dev_server.js",
-    "dev:pages": "wrangler pages dev .",
+    "prepare:pages-dist": "bash ./scripts/prepare_pages_dist.sh",
+    "dev:pages": "bash ./scripts/prepare_pages_dist.sh && wrangler pages dev .cf-pages-dist",
+    "deploy:pages": "bash ./scripts/prepare_pages_dist.sh && npx wrangler@latest pages deploy .cf-pages-dist --project-name flipod",
     "build:manifest": "node scripts/build_clip_manifest.js",
     "db:init:local": "wrangler d1 execute flipod-db --local --file=./db/schema.sql",
-    "db:init:remote": "wrangler d1 execute flipod-db --file=./db/schema.sql"
+    "db:init:remote": "npx wrangler@latest d1 execute flipod-db --remote --file=./db/schema.sql",
+    "smoke:api": "bash ./scripts/smoke_api.sh"
   },
   "devDependencies": {
     "wrangler": "^3.99.0"

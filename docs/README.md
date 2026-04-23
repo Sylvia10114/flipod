@@ -43,6 +43,7 @@ flipod/
 | 多 Agent 架构 | docs/brief/agent-architecture.md | Supervisor + Subagent 方案 |
 | 内容管线规格 | docs/ops/agent-podcast-processor.md | podcast_agent.py 的技术规格 |
 | AI 排序 API | docs/ops/task-ai-feed-ranking.md | /api/rank 的实现指令 |
+| Cloudflare HTTPS Runbook | docs/cloudflare-production-runbook.md | Pages + D1 + 自定义域名 + smoke test 上线步骤 |
 | 研发交接 | docs/handoff/研发交接文档.docx | 完整功能清单 + 技术架构 |
 
 ## 技术栈
