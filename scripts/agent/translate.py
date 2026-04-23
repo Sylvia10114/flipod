@@ -12,19 +12,39 @@ from .utils import log, call_gpt, strip_markdown_fences
 TRANSLATE_BATCH_SIZE = 10
 
 
-def _translate_batch_json(batch_lines):
+def _translate_batch_json(batch_lines, all_lines=None, batch_start=0):
     """Translate a batch of lines using JSON format for reliable alignment.
+
+    Args:
+        batch_lines: 当前批次要翻译的 line 列表
+        all_lines: 该 clip 的完整 line 列表（上下文用）。若为 None，退回仅用 batch 本身做上下文
+        batch_start: 当前 batch 在 all_lines 中的起始 index（全局编号）
 
     Returns True on success.
     """
     n = len(batch_lines)
-    en_array = [{"idx": i, "en": l["en"]} for i, l in enumerate(batch_lines)]
+
+    # 上下文 = 整条 clip 的英文 transcript（按全局 idx 编号）
+    if all_lines is None:
+        all_lines = batch_lines
+        batch_start = 0
+    ctx_lines = "\n".join(f"[{i}] {l.get('en','')}" for i, l in enumerate(all_lines))
+    first_idx = batch_start
+    last_idx = batch_start + n - 1
 
     for attempt in range(2):
         prompt = (
-            f"将以下 {n} 句英文翻译成中文。要求：口语化、简洁、不要翻译腔。\n\n"
-            f"返回纯 JSON 数组，每个元素包含 idx 和 zh 字段，按原顺序：\n"
-            f"{json.dumps(en_array, ensure_ascii=False)}\n\n"
+            f"以下是一条播客片段的完整英文字幕（按 idx 顺序）：\n"
+            f"{ctx_lines}\n\n"
+            f"请把其中第 [{first_idx}] 到第 [{last_idx}] 句（共 {n} 句）翻译成中文。要求：\n"
+            f"1. 口语化、简洁、不要翻译腔\n"
+            f"2. 结合前后文做自然翻译（必要时可调整语序）\n"
+            f"3. **尊重英文原句的完整性**：如果某句英文以逗号结尾（意味着这句话还没讲完，"
+            f"下一条接着讲），中文翻译也**不要加句号**、用逗号或让它"
+            f"自然悬着；只有英文以 `.` / `?` / `!` 收尾，中文才能加对应的句号/问号/感叹号\n"
+            f"4. 人物/地点/数字不能换\n\n"
+            f"返回纯 JSON 数组，每个元素形如 `{{\"idx\": <全局 idx>, \"zh\": \"...\"}}`，"
+            f"idx 取值范围 {first_idx}–{last_idx}，顺序与原文一致：\n"
             f"只返回 JSON 数组，不要 markdown 代码块。"
         )
 
@@ -38,11 +58,16 @@ def _translate_batch_json(batch_lines):
 
             if isinstance(result, list) and len(result) == n:
                 for item in result:
-                    idx = item.get("idx", -1)
+                    g_idx = item.get("idx", -1)
                     zh = item.get("zh", "")
-                    if 0 <= idx < n:
-                        batch_lines[idx]["zh"] = zh
-                return True
+                    local = g_idx - batch_start
+                    if 0 <= local < n:
+                        batch_lines[local]["zh"] = zh
+                # 校验：每条都填上了
+                if all(l.get("zh") for l in batch_lines):
+                    return True
+                else:
+                    log(f"    JSON 翻译部分缺失（尝试 {attempt+1}/2）", "warn")
             else:
                 log(f"    JSON 翻译数量不匹配: 期望 {n}, 得到 "
                     f"{len(result) if isinstance(result, list) else 'non-array'} "
@@ -93,14 +118,24 @@ def translate_lines(lines):
         batch_end = min(batch_start + TRANSLATE_BATCH_SIZE, total)
         batch = lines[batch_start:batch_end]
 
-        success = _translate_batch_json(batch)
+        # 传整条 clip 的 lines 作为上下文 + 当前 batch 的全局起始 idx
+        success = _translate_batch_json(batch, all_lines=lines, batch_start=batch_start)
 
         if not success:
-            log(f"    批次 {batch_start+1}-{batch_end} 退回逐句翻译...", "warn")
-            for line in batch:
+            log(f"    批次 {batch_start+1}-{batch_end} 退回逐句翻译（带上下文）...", "warn")
+            # 逐句兜底也带上下文：每次把全文 + 当前句全局 idx 丢进去
+            ctx_lines = "\n".join(f"[{i}] {l.get('en','')}" for i, l in enumerate(lines))
+            for local_idx, line in enumerate(batch):
                 if line.get("zh"):
                     continue
-                prompt = f"将以下英文翻译成中文，口语化、简洁。只输出中文翻译。\n\n{line['en']}"
+                g_idx = batch_start + local_idx
+                prompt = (
+                    f"以下是一条播客片段的完整英文字幕：\n"
+                    f"{ctx_lines}\n\n"
+                    f"把第 [{g_idx}] 句翻译成中文，口语化、简洁、不要翻译腔。"
+                    f"如果这句英文以逗号结尾，中文也**不要加句号**，用逗号收尾或让它悬着。"
+                    f"只输出中文翻译（不要前缀、不要标号）。"
+                )
                 response = call_gpt([{"role": "user", "content": prompt}], temperature=0.2, max_tokens=200)
                 line["zh"] = response.strip() if response else ""
 
