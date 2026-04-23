@@ -43,6 +43,7 @@ export type ClipQuestion = {
   options: string[];
   answer: string;
   explanation_zh?: string;
+  stage?: number;
 };
 
 export type ClipPrimingWord = {
@@ -63,6 +64,8 @@ export type LocalizedClipLine = {
 };
 
 export type LocalizedClipQuestion = {
+  question?: string;
+  options?: string[];
   explanation: string;
 };
 
@@ -140,7 +143,7 @@ export type AuthSession = {
 export type DominantHand = 'left' | 'right';
 export type SubtitleSize = 'sm' | 'md' | 'lg';
 export type PlaybackPhase = 'idle' | 'loading' | 'playing' | 'paused' | 'error';
-export type HomeMode = 'listen' | 'learn';
+export type HomeMode = 'practice' | 'just_listen';
 
 export type ChallengeWord = {
   word: string;
@@ -161,6 +164,72 @@ export type AppSettings = {
   feedCoachListenSeen: boolean;
   feedCoachWordSeen: boolean;
   feedCoachNavSeen: boolean;
+};
+
+export type PracticeTabReason =
+  | 'unknown'
+  | 'linking'
+  | 'weak'
+  | 'speed'
+  | 'accent'
+  | 'other';
+
+export type PracticeTabVocabPick = {
+  word: string;
+  sentenceIndex: number;
+};
+
+export type PracticeTabQuizResult = {
+  qIdx: number;
+  picked: number;
+  correct: boolean;
+};
+
+export type PracticeTabCompletedClip = {
+  clipKey: string;
+  title: string;
+  tag?: string;
+  completedAt: number;
+  tabEnteredFrom: 'practice';
+  reasons: PracticeTabReason[];
+  vocabPicked: PracticeTabVocabPick[];
+  quizResults: {
+    stage0?: PracticeTabQuizResult[];
+    stage1?: PracticeTabQuizResult[];
+    stage2?: PracticeTabQuizResult[];
+    stage3?: PracticeTabQuizResult[];
+  };
+  durationSec: number;
+};
+
+export type PracticeTabVocabInboxEntry = {
+  word: string;
+  clipKey: string;
+  sentenceIndex: number;
+  addedAt: number;
+};
+
+export type PracticeTabState = {
+  ui_state: {
+    current_tab: HomeMode;
+    last_active_at: string;
+  };
+  practice_feed_keys: string[];
+  practice_feed_signature: string | null;
+  session: {
+    active_clip_key: string;
+    current_stage: number;
+    current_clip_index: number;
+    started_at: string;
+  } | null;
+  completed_clips: PracticeTabCompletedClip[];
+  vocab_inbox: {
+    entries: PracticeTabVocabInboxEntry[];
+    week_window_start: string;
+  };
+  attribution_aggregate: Record<PracticeTabReason, number>;
+  listen_cursor: number;
+  practice_cursor: number;
 };
 
 export type SessionResponse = {

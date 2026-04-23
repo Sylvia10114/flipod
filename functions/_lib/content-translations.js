@@ -32,6 +32,13 @@ function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
+function normalizeOptions(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(option => normalizeText(option))
+    .filter(Boolean);
+}
+
 export function normalizeContentLocale(value) {
   const normalized = String(value || '').trim().toLowerCase();
   return SUPPORTED_LOCALES.has(normalized) ? normalized : 'english';
@@ -132,7 +139,20 @@ async function getCachedTranslation(env, contentKey, locale, contentHash) {
 
   try {
     const parsed = JSON.parse(row.payload);
-    return parsed?.engine === TRANSLATION_ENGINE && typeof parsed?.title === 'string' ? parsed : null;
+    const validLines = Array.isArray(parsed?.lines)
+      && parsed.lines.every(line => typeof line?.translation === 'string');
+    const validQuestions = Array.isArray(parsed?.questions)
+      && parsed.questions.every(question => (
+        typeof question?.question === 'string'
+        && Array.isArray(question?.options)
+        && typeof question?.explanation === 'string'
+      ));
+    return parsed?.engine === TRANSLATION_ENGINE
+      && typeof parsed?.title === 'string'
+      && validLines
+      && validQuestions
+      ? parsed
+      : null;
   } catch {
     return null;
   }
@@ -167,8 +187,9 @@ async function translateWithLlm(env, locale, item) {
         'Return strict JSON with exactly one string field "title" and exactly two arrays: "lines" and "questions".',
         'The title should be a short learner-facing localized title for the clip.',
         'Each lines item must be an object: {"translation":"..."}',
-        'Each questions item must be an object: {"explanation":"..."}',
+        'Each questions item must be an object: {"question":"...","options":["..."],"explanation":"..."}',
         'Preserve array lengths and order.',
+        'Preserve the number and order of answer options for each question.',
         'Do not add markdown, comments, or extra keys.',
         'Use natural learner-facing phrasing, concise and clear.',
         'For traditional Chinese, use traditional characters.',
@@ -185,13 +206,15 @@ async function translateWithLlm(env, locale, item) {
           legacy_simplified_chinese: normalizeText(line?.zh),
         })),
         questions: (item.questions || []).map(question => ({
+          english_question: normalizeText(question?.question),
+          english_options: normalizeOptions(question?.options),
           english_fallback_explanation: buildEnglishExplanationFallback(question),
           legacy_simplified_chinese_explanation: normalizeText(question?.explanation_zh),
         })),
         outputSchema: {
           title: 'string',
           lines: [{ translation: 'string' }],
-          questions: [{ explanation: 'string' }],
+          questions: [{ question: 'string', options: ['string'], explanation: 'string' }],
         },
       }),
     },
@@ -207,43 +230,11 @@ async function translateWithLlm(env, locale, item) {
       translation: normalizeText(lineResults[index]?.translation),
     })),
     questions: (item.questions || []).map((question, index) => ({
+      question: normalizeText(questionResults[index]?.question),
+      options: normalizeOptions(questionResults[index]?.options),
       explanation: normalizeText(questionResults[index]?.explanation),
     })),
   };
-}
-
-async function translateTitleWithLlm(env, locale, title) {
-  const sourceTitle = normalizeText(title);
-  if (!sourceTitle) return '';
-
-  const targetLanguage = LOCALE_LABELS[locale] || locale;
-  const messages = [
-    {
-      role: 'system',
-      content: [
-        'You localize short podcast-learning clip titles for a mobile language app.',
-        `Translate into ${targetLanguage}.`,
-        'Return strict JSON with exactly one string field: "title".',
-        'Keep it concise, natural, and learner-facing.',
-        'Do not add markdown, comments, or extra keys.',
-        'For traditional Chinese, use traditional characters.',
-      ].join(' '),
-    },
-    {
-      role: 'user',
-      content: JSON.stringify({
-        targetLocale: locale,
-        targetLanguage,
-        title: sourceTitle,
-        outputSchema: {
-          title: 'string',
-        },
-      }),
-    },
-  ];
-
-  const result = await callAzureOpenAiJson(env, messages, 400);
-  return normalizeText(result?.title);
 }
 
 async function buildTranslationPayload(env, locale, item) {
@@ -258,6 +249,8 @@ async function buildTranslationPayload(env, locale, item) {
         translation: normalizeText(line?.en),
       })),
       questions: (item.questions || []).map(question => ({
+        question: normalizeText(question?.question),
+        options: normalizeOptions(question?.options),
         explanation: buildEnglishExplanationFallback(question),
       })),
       generatedAt: new Date().toISOString(),
@@ -267,11 +260,12 @@ async function buildTranslationPayload(env, locale, item) {
 
   if (locale === 'simplified_chinese') {
     let title = normalizeText(item?.title);
+    let translated = null;
     try {
-      const translatedTitle = await translateTitleWithLlm(env, locale, item?.title);
-      title = translatedTitle || title;
+      translated = await translateWithLlm(env, locale, item);
+      title = normalizeText(translated?.title) || title;
     } catch (error) {
-      console.error('[content-translations] title translation failed', {
+      console.error('[content-translations] llm translation failed', {
         locale,
         contentKey: item?.contentKey,
         message: error?.message || String(error),
@@ -284,12 +278,21 @@ async function buildTranslationPayload(env, locale, item) {
       contentKey: item.contentKey,
       contentHash: item.contentHash,
       title,
-      lines: (item.lines || []).map(line => ({
-        translation: normalizeText(line?.zh),
+      lines: (item.lines || []).map((line, index) => ({
+        translation: normalizeText(line?.zh) || normalizeText(translated?.lines?.[index]?.translation),
       })),
-      questions: (item.questions || []).map(question => ({
-        explanation: normalizeText(question?.explanation_zh),
-      })),
+      questions: (item.questions || []).map((question, index) => {
+        const translatedQuestion = translated?.questions?.[index];
+        const translatedOptions = normalizeOptions(translatedQuestion?.options);
+        const sourceOptions = normalizeOptions(question?.options);
+        return {
+          question: normalizeText(translatedQuestion?.question) || normalizeText(question?.question),
+          options: translatedOptions.length === sourceOptions.length && translatedOptions.length > 0
+            ? translatedOptions
+            : sourceOptions,
+          explanation: normalizeText(translatedQuestion?.explanation) || normalizeText(question?.explanation_zh),
+        };
+      }),
       generatedAt: new Date().toISOString(),
       unavailable: false,
     };
@@ -303,7 +306,18 @@ async function buildTranslationPayload(env, locale, item) {
     const translated = await translateWithLlm(env, locale, item);
     const translatedTitle = normalizeText(translated.title);
     lines = translated.lines;
-    questions = translated.questions;
+    questions = (item.questions || []).map((question, index) => {
+      const translatedQuestion = translated.questions[index];
+      const translatedOptions = normalizeOptions(translatedQuestion?.options);
+      const sourceOptions = normalizeOptions(question?.options);
+      return {
+        question: normalizeText(translatedQuestion?.question) || normalizeText(question?.question),
+        options: translatedOptions.length === sourceOptions.length && translatedOptions.length > 0
+          ? translatedOptions
+          : sourceOptions,
+        explanation: normalizeText(translatedQuestion?.explanation),
+      };
+    });
     title = translatedTitle || normalizeText(item?.title);
   } catch (error) {
     console.error('[content-translations] llm translation failed', {
@@ -318,6 +332,8 @@ async function buildTranslationPayload(env, locale, item) {
         : '',
     }));
     questions = (item.questions || []).map(question => ({
+      question: normalizeText(question?.question),
+      options: normalizeOptions(question?.options),
       explanation: locale === 'traditional_chinese'
         ? normalizeText(question?.explanation_zh)
         : '',

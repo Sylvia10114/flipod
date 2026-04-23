@@ -19,8 +19,8 @@ export function HomeModeTabs({ mode, onChangeMode }: Props) {
   const styles = React.useMemo(() => createStyles(colors), [colors]);
 
   const items: Array<{ key: HomeMode; label: string }> = [
-    { key: 'listen', label: t('home.listenTab') },
-    { key: 'learn', label: t('home.learnTab') },
+    { key: 'practice', label: t('home.learnTab') },
+    { key: 'just_listen', label: t('home.listenTab') },
   ];
 
   return (
