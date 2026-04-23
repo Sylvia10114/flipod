@@ -113,7 +113,22 @@ function WordLineComponent({
   );
 }
 
-export const WordLine = React.memo(WordLineComponent);
+export const WordLine = React.memo(WordLineComponent, (prev, next) => {
+  if (prev.line !== next.line) return false;
+  if (prev.isActive !== next.isActive) return false;
+  if (prev.showZh !== next.showZh) return false;
+  if (prev.masked !== next.masked) return false;
+  if (prev.practiced !== next.practiced) return false;
+  if (prev.compact !== next.compact) return false;
+  if (prev.subtitleSize !== next.subtitleSize) return false;
+  if (prev.onWordTap !== next.onWordTap) return false;
+
+  if (!prev.isActive && !next.isActive) {
+    return true;
+  }
+
+  return prev.currentTime === next.currentTime;
+});
 
 function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
   return StyleSheet.create({

@@ -20,13 +20,18 @@ type Props = {
 };
 
 function findActiveLineIndex(lines: ClipLine[], currentTime: number) {
-  if (!Number.isFinite(currentTime) || currentTime <= 0 || lines.length === 0) {
+  if (!Number.isFinite(currentTime) || lines.length === 0) {
     return -1;
   }
   const activeIndex = lines.findIndex(line => currentTime >= line.start && currentTime < line.end);
   if (activeIndex >= 0) return activeIndex;
   if (currentTime >= lines[lines.length - 1].end) return lines.length - 1;
-  return -1;
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    if (currentTime >= lines[index].start) {
+      return index;
+    }
+  }
+  return 0;
 }
 
 export function PracticeTranscriptPanel({
@@ -41,6 +46,7 @@ export function PracticeTranscriptPanel({
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const scrollRef = React.useRef<ScrollView | null>(null);
   const lineOffsetsRef = React.useRef<Record<number, number>>({});
+  const lineHeightsRef = React.useRef<Record<number, number>>({});
   const activeLineIndex = React.useMemo(
     () => findActiveLineIndex(lines, currentTime),
     [currentTime, lines]
@@ -49,12 +55,13 @@ export function PracticeTranscriptPanel({
   React.useEffect(() => {
     if (activeLineIndex < 0) return;
     const nextY = lineOffsetsRef.current[activeLineIndex];
+    const nextHeight = lineHeightsRef.current[activeLineIndex] || 0;
     if (typeof nextY !== 'number') return;
     scrollRef.current?.scrollTo({
-      y: Math.max(0, nextY - 20),
+      y: Math.max(0, nextY - Math.max(20, maxHeight / 2 - nextHeight / 2)),
       animated: true,
     });
-  }, [activeLineIndex]);
+  }, [activeLineIndex, maxHeight]);
 
   return (
     <View style={[styles.panel, { maxHeight }, style]}>
@@ -71,6 +78,7 @@ export function PracticeTranscriptPanel({
               key={`transcript-${index}-${line.start}`}
               onLayout={event => {
                 lineOffsetsRef.current[index] = event.nativeEvent.layout.y;
+                lineHeightsRef.current[index] = event.nativeEvent.layout.height;
               }}
               style={[
                 styles.lineShell,

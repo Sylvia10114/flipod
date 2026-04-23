@@ -10,6 +10,7 @@ import type {
   LikeEvent,
   LocalizedClipContent,
   PracticeMap,
+  PracticeTabState,
   Profile,
   ReviewState,
   VocabEntry,
@@ -34,12 +35,13 @@ const LEVEL_SIGNALS_KEY = 'flipodLevelSignals';
 const LEVEL_CALIBRATION_KEY = 'flipodLevelCalibration';
 const CONTENT_TRANSLATIONS_KEY = 'flipodContentTranslations';
 const GENERATED_PRACTICE_KEY = 'flipodGeneratedPracticeState';
+const PRACTICE_TAB_STATE_KEY = 'flipodPracticeTabState';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   dominantHand: 'right',
   playbackRate: 1,
   subtitleSize: 'md',
-  homeMode: 'listen',
+  homeMode: 'practice',
   practiceIntroSeen: false,
   bookmarkPracticeHintSeen: false,
   firstUseBridgeSeen: false,
@@ -59,6 +61,72 @@ export const DEFAULT_CALIBRATION_SIGNALS: CalibrationSignals = {
 
 function createId() {
   return `dev_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function createDefaultPracticeTabState(): PracticeTabState {
+  return {
+    ui_state: {
+      current_tab: 'practice',
+      last_active_at: new Date().toISOString(),
+    },
+    practice_feed_keys: [],
+    practice_feed_signature: null,
+    session: null,
+    completed_clips: [],
+    vocab_inbox: {
+      entries: [],
+      week_window_start: new Date().toISOString(),
+    },
+    attribution_aggregate: {
+      unknown: 0,
+      linking: 0,
+      weak: 0,
+      speed: 0,
+      accent: 0,
+      other: 0,
+    },
+    listen_cursor: 0,
+    practice_cursor: 0,
+  };
+}
+
+export function normalizePracticeTabState(
+  state: Partial<PracticeTabState> | null | undefined
+): PracticeTabState {
+  const base = createDefaultPracticeTabState();
+  if (!state || typeof state !== 'object') return base;
+  const currentTab = state.ui_state?.current_tab === 'just_listen' ? 'just_listen' : 'practice';
+  return {
+    ui_state: {
+      current_tab: currentTab,
+      last_active_at: state.ui_state?.last_active_at || base.ui_state.last_active_at,
+    },
+    practice_feed_keys: Array.isArray(state.practice_feed_keys)
+      ? state.practice_feed_keys.map(value => String(value)).filter(Boolean)
+      : [],
+    practice_feed_signature: typeof state.practice_feed_signature === 'string'
+      ? state.practice_feed_signature
+      : null,
+    session: state.session && typeof state.session === 'object'
+      ? {
+          active_clip_key: String(state.session.active_clip_key || ''),
+          current_stage: 0,
+          current_clip_index: Math.max(0, Number(state.session.current_clip_index || 0)),
+          started_at: String(state.session.started_at || new Date().toISOString()),
+        }
+      : null,
+    completed_clips: Array.isArray(state.completed_clips) ? state.completed_clips : [],
+    vocab_inbox: {
+      entries: Array.isArray(state.vocab_inbox?.entries) ? state.vocab_inbox.entries : [],
+      week_window_start: state.vocab_inbox?.week_window_start || base.vocab_inbox.week_window_start,
+    },
+    attribution_aggregate: {
+      ...base.attribution_aggregate,
+      ...(state.attribution_aggregate || {}),
+    },
+    listen_cursor: Math.max(0, Number(state.listen_cursor || 0)),
+    practice_cursor: Math.max(0, Number(state.practice_cursor || 0)),
+  };
 }
 
 export async function getOrCreateDeviceId() {
@@ -128,9 +196,16 @@ export async function loadSettings(): Promise<AppSettings> {
   if (!raw) return DEFAULT_SETTINGS;
 
   try {
+    const parsed = JSON.parse(raw) as Partial<AppSettings> & { homeMode?: string };
+    const normalizedHomeMode = parsed.homeMode === 'just_listen'
+      ? 'just_listen'
+      : parsed.homeMode === 'practice'
+        ? 'practice'
+        : 'practice';
     return {
       ...DEFAULT_SETTINGS,
-      ...(JSON.parse(raw) as Partial<AppSettings>),
+      ...parsed,
+      homeMode: normalizedHomeMode,
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -218,6 +293,21 @@ export async function loadGeneratedPracticeState(): Promise<GeneratedPracticeSta
 
 export async function saveGeneratedPracticeState(state: GeneratedPracticeState) {
   await AsyncStorage.setItem(GENERATED_PRACTICE_KEY, JSON.stringify(state));
+}
+
+export async function loadPracticeTabState(): Promise<PracticeTabState | null> {
+  const raw = await AsyncStorage.getItem(PRACTICE_TAB_STATE_KEY);
+  if (!raw) return null;
+
+  try {
+    return normalizePracticeTabState(JSON.parse(raw) as Partial<PracticeTabState>);
+  } catch {
+    return null;
+  }
+}
+
+export async function savePracticeTabState(state: PracticeTabState) {
+  await AsyncStorage.setItem(PRACTICE_TAB_STATE_KEY, JSON.stringify(state));
 }
 
 export async function loadContentTranslations(): Promise<Record<string, LocalizedClipContent>> {
@@ -341,6 +431,7 @@ export async function clearAccountState() {
   await AsyncStorage.multiRemove([
     PROFILE_KEY,
     PRACTICE_KEY,
+    PRACTICE_TAB_STATE_KEY,
     KNOWN_WORDS_KEY,
     BOOKMARKS_KEY,
     VOCAB_KEY,

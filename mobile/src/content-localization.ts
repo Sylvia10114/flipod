@@ -38,6 +38,13 @@ function normalizeText(value: unknown) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
+function normalizeOptions(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(option => normalizeText(option))
+    .filter(Boolean);
+}
+
 export function containsCjkText(value: unknown) {
   return /[\u3400-\u9fff]/.test(normalizeText(value));
 }
@@ -202,15 +209,25 @@ export function buildLocalizedClip(
     };
   });
 
-  const questions = (normalized.questions || []).map((question, index) => ({
-    ...question,
-    explanation_zh: overlay?.questions?.[index]?.explanation
-      || (locale === 'simplified_chinese'
-        ? question.explanation_zh || ''
-        : locale === 'traditional_chinese'
-          ? question.explanation_zh || unavailableMessage
-          : unavailableMessage),
-  }));
+  const questions = (normalized.questions || []).map((question, index) => {
+    const overlayQuestion = overlay?.questions?.[index];
+    const overlayOptions = normalizeOptions(overlayQuestion?.options);
+    const localizedOptions = overlayOptions.length === (question.options || []).length && overlayOptions.length > 0
+      ? overlayOptions
+      : question.options || [];
+
+    return {
+      ...question,
+      question: normalizeText(overlayQuestion?.question) || question.question,
+      options: localizedOptions,
+      explanation_zh: overlayQuestion?.explanation
+        || (locale === 'simplified_chinese'
+          ? question.explanation_zh || ''
+          : locale === 'traditional_chinese'
+            ? question.explanation_zh || unavailableMessage
+            : unavailableMessage),
+    };
+  });
 
   return {
     ...normalized,

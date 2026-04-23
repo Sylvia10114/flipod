@@ -23,6 +23,7 @@ import {
 } from './src/content-localization';
 import { AppToast } from './src/components/AppToast';
 import { CalibrationToast } from './src/components/CalibrationToast';
+import { PracticeSessionModal } from './src/components/PracticeSessionModal';
 import { GeneratedPracticeSessionModal } from './src/components/GeneratedPracticeSessionModal';
 import { HomeTopChrome } from './src/components/HomeTopChrome';
 import { HowItWorksSheet } from './src/components/HowItWorksSheet';
@@ -62,6 +63,7 @@ import { LibraryScreen } from './src/screens/LibraryScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { PracticeScreen } from './src/screens/PracticeScreen';
+import { PracticeTabScreen } from './src/screens/PracticeTabScreen';
 import { VocabScreen } from './src/screens/VocabScreen';
 import { api } from './src/services/api';
 import { disposeUiFeedback, primeUiFeedback, triggerUiFeedback } from './src/feedback';
@@ -72,6 +74,7 @@ import {
   clearAccountState,
   clearAuthToken,
   clearGuestMode,
+  createDefaultPracticeTabState,
   DEFAULT_SETTINGS,
   getOrCreateDeviceId,
   loadAuthToken,
@@ -86,6 +89,7 @@ import {
   loadKnownWords,
   loadContentTranslations,
   loadPracticeData,
+  loadPracticeTabState,
   loadProfile,
   loadReviewState,
   loadSettings,
@@ -103,6 +107,7 @@ import {
   saveListenedClips,
   saveKnownWords,
   savePracticeData,
+  savePracticeTabState,
   saveProfile,
   saveReviewState,
   saveSettings,
@@ -126,6 +131,8 @@ import type {
   NativeLanguage,
   HomeMode,
   PracticeMap,
+  PracticeTabCompletedClip,
+  PracticeTabState,
   Profile,
   RankMode,
   RankRequest,
@@ -278,6 +285,30 @@ function preserveFeedPrefixThroughClip(
   return [...preservedPrefix, ...reorderedTail];
 }
 
+function buildPracticeFeedSnapshot(clips: Clip[]) {
+  const keys = clips.map((clip, index) => buildClipKey(clip, index)).filter(Boolean);
+  return {
+    keys,
+    signature: keys.join('||'),
+  };
+}
+
+function resolvePracticeCursor(
+  previousKeys: string[],
+  nextKeys: string[],
+  previousCursor: number
+) {
+  if (!nextKeys.length) return 0;
+  const previousKey = previousKeys[previousCursor];
+  if (previousKey) {
+    const nextIndex = nextKeys.indexOf(previousKey);
+    if (nextIndex >= 0) {
+      return nextIndex;
+    }
+  }
+  return Math.max(0, Math.min(previousCursor, nextKeys.length - 1));
+}
+
 function cycleSubtitleSize(size: SubtitleSize): SubtitleSize {
   if (size === 'sm') return 'md';
   if (size === 'md') return 'lg';
@@ -324,6 +355,7 @@ export default function App() {
   const [generatedPracticeState, setGeneratedPracticeState] = useState<GeneratedPracticeState>(
     createDefaultGeneratedPracticeState()
   );
+  const [practiceTabState, setPracticeTabState] = useState<PracticeTabState>(createDefaultPracticeTabState());
   const [likedClipKeys, setLikedClipKeys] = useState<string[]>([]);
   const [listenedClipKeys, setListenedClipKeys] = useState<string[]>([]);
   const [likeEvents, setLikeEvents] = useState<LikeEvent[]>([]);
@@ -339,6 +371,11 @@ export default function App() {
   const [feedState, setFeedState] = useState<'loading' | 'normal' | 'rerank' | 'fallback'>('loading');
   const [activeGeneratedPracticeSession, setActiveGeneratedPracticeSession] = useState<{
     id: string;
+    readOnly: boolean;
+  } | null>(null);
+  const [activeClipPracticeSession, setActiveClipPracticeSession] = useState<{
+    clipIndex: number;
+    clipKey: string;
     readOnly: boolean;
   } | null>(null);
   const [toastMessage, setToastMessage] = useState('');
@@ -545,6 +582,14 @@ export default function App() {
     });
   }, [contentTranslations, generatedPracticeState.completedPractices, profile.nativeLanguage, ui]);
 
+  const updatePracticeTabState = useCallback((updater: (prev: PracticeTabState) => PracticeTabState) => {
+    setPracticeTabState(prev => {
+      const next = updater(prev);
+      void savePracticeTabState(next);
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     return () => {
       if (toastTimeoutRef.current) {
@@ -587,6 +632,7 @@ export default function App() {
           localBookmarks,
           localVocab,
           localGeneratedPracticeState,
+          localPracticeTabState,
           localLikedClips,
           localLikeEvents,
           localListenedClips,
@@ -605,6 +651,7 @@ export default function App() {
           loadBookmarks(),
           loadVocab(),
           loadGeneratedPracticeState(),
+          loadPracticeTabState(),
           loadLikedClips(),
           loadLikeEvents(),
           loadListenedClips(),
@@ -625,8 +672,21 @@ export default function App() {
         };
         setDeviceId(nextDeviceId);
         setGuestMode(nextGuestMode);
-        setSettings(localSettings);
-        setActiveScreen(getHomeModeScreen(localSettings.homeMode));
+        const normalizedPracticeTabState = localPracticeTabState || createDefaultPracticeTabState();
+        const restoredHomeMode = normalizedPracticeTabState.ui_state.current_tab || localSettings.homeMode;
+        const nextSettings = {
+          ...localSettings,
+          homeMode: restoredHomeMode,
+        };
+        setSettings(nextSettings);
+        setPracticeTabState({
+          ...normalizedPracticeTabState,
+          ui_state: {
+            ...normalizedPracticeTabState.ui_state,
+            current_tab: restoredHomeMode,
+          },
+        });
+        setActiveScreen(getHomeModeScreen(nextSettings.homeMode));
         setProfile(localProfile || {
           ...defaultProfile,
           nativeLanguage: DEVICE_NATIVE_LANGUAGE,
@@ -880,6 +940,25 @@ export default function App() {
     }
     return localizedClipsData;
   }, [localizedClipsData, rankedFeed, resolveRankReason]);
+  const livePracticeFeedReady = useMemo(() => {
+    if (!clipsLoaded || !currentClips.length) return false;
+    if (!authToken) return true;
+    if (feedOrderIds.length > 0) return true;
+    return feedState !== 'loading';
+  }, [authToken, clipsLoaded, currentClips.length, feedOrderIds.length, feedState]);
+  const livePracticeFeedSnapshot = useMemo(() => {
+    return buildPracticeFeedSnapshot(currentClips);
+  }, [currentClips]);
+  const practiceFeedKeys = practiceTabState.practice_feed_keys;
+  const practiceClips = useMemo(() => {
+    if (!practiceFeedKeys.length) return [];
+    return practiceFeedKeys
+      .map(clipKey => {
+        const index = findClipIndexByKey(localizedClipsData, clipKey);
+        return index >= 0 ? localizedClipsData[index] : null;
+      })
+      .filter(Boolean) as Clip[];
+  }, [localizedClipsData, practiceFeedKeys]);
   const visibleFeedClips = useMemo(() => {
     return currentClips.slice(0, visibleFeedCount);
   }, [currentClips, visibleFeedCount]);
@@ -928,6 +1007,99 @@ export default function App() {
   useEffect(() => {
     currentClipsRef.current = currentClips;
   }, [currentClips]);
+
+  useEffect(() => {
+    if (settings.homeMode !== 'practice') return;
+    if (!livePracticeFeedReady) return;
+    updatePracticeTabState(prev => {
+      const snapshotMissing = prev.practice_feed_keys.length === 0;
+      const snapshotBroken = prev.practice_feed_keys.length > 0 && practiceClips.length !== prev.practice_feed_keys.length;
+      if (!snapshotMissing && !snapshotBroken) {
+        return prev;
+      }
+      const nextSnapshot = livePracticeFeedSnapshot;
+      if (!nextSnapshot.keys.length) return prev;
+      const nextCursor = resolvePracticeCursor(prev.practice_feed_keys, nextSnapshot.keys, prev.practice_cursor);
+      const nextSession = prev.session && nextSnapshot.keys.includes(prev.session.active_clip_key)
+        ? {
+            ...prev.session,
+            current_clip_index: nextSnapshot.keys.indexOf(prev.session.active_clip_key),
+          }
+        : prev.session && !nextSnapshot.keys.includes(prev.session.active_clip_key)
+          ? null
+          : prev.session;
+      return {
+        ...prev,
+        practice_feed_keys: nextSnapshot.keys,
+        practice_feed_signature: nextSnapshot.signature,
+        practice_cursor: nextCursor,
+        session: nextSession,
+      };
+    });
+  }, [livePracticeFeedReady, livePracticeFeedSnapshot, practiceClips.length, settings.homeMode, updatePracticeTabState]);
+
+  useEffect(() => {
+    if (!clipsLoaded) return;
+
+    if (activeClipPracticeSession) {
+      const nextIndex = practiceFeedKeys.indexOf(activeClipPracticeSession.clipKey);
+      if (nextIndex < 0) {
+        setActiveClipPracticeSession(null);
+      } else if (nextIndex !== activeClipPracticeSession.clipIndex) {
+        setActiveClipPracticeSession(prev => (
+          prev
+            ? {
+                ...prev,
+                clipIndex: nextIndex,
+              }
+            : prev
+        ));
+      }
+    }
+
+    const sessionClipKey = practiceTabState.session?.active_clip_key;
+    if (sessionClipKey) {
+      const nextSessionIndex = practiceFeedKeys.indexOf(sessionClipKey);
+      if (nextSessionIndex >= 0 && practiceTabState.session?.current_clip_index !== nextSessionIndex) {
+        updatePracticeTabState(prev => {
+          if (!prev.session || prev.session.active_clip_key !== sessionClipKey) return prev;
+          if (prev.session.current_clip_index === nextSessionIndex && prev.practice_cursor === nextSessionIndex) {
+            return prev;
+          }
+          return {
+            ...prev,
+            practice_cursor: nextSessionIndex,
+            session: {
+              ...prev.session,
+              current_clip_index: nextSessionIndex,
+            },
+          };
+        });
+      }
+      return;
+    }
+
+    const currentPracticeClip = practiceClips[practiceTabState.practice_cursor];
+    if (!currentPracticeClip) {
+      updatePracticeTabState(prev => {
+        const nextCursor = Math.max(0, Math.min(prev.practice_cursor, Math.max(0, practiceClips.length - 1)));
+        if (nextCursor === prev.practice_cursor) return prev;
+        return {
+          ...prev,
+          practice_cursor: nextCursor,
+        };
+      });
+    }
+  }, [
+    activeClipPracticeSession,
+    clipsLoaded,
+    practiceClips,
+    practiceFeedKeys,
+    practiceTabState.practice_cursor,
+    practiceTabState.session?.active_clip_key,
+    practiceTabState.session?.current_clip_index,
+    updatePracticeTabState,
+  ]);
 
   useEffect(() => {
     if (!clipsLoaded || !currentRawClips.length) return;
@@ -1078,9 +1250,32 @@ export default function App() {
       homeMode: mode,
     };
     void persistSettings(nextSettings);
+    updatePracticeTabState(prev => {
+      const shouldRefreshPracticeFeed = mode === 'practice'
+        && livePracticeFeedReady
+        && !prev.session
+        && (
+          prev.practice_feed_keys.length === 0
+          || prev.practice_feed_signature !== livePracticeFeedSnapshot.signature
+        );
+      const nextCursor = shouldRefreshPracticeFeed
+        ? resolvePracticeCursor(prev.practice_feed_keys, livePracticeFeedSnapshot.keys, prev.practice_cursor)
+        : prev.practice_cursor;
+      return {
+        ...prev,
+        ui_state: {
+          ...prev.ui_state,
+          current_tab: mode,
+          last_active_at: new Date().toISOString(),
+        },
+        practice_feed_keys: shouldRefreshPracticeFeed ? livePracticeFeedSnapshot.keys : prev.practice_feed_keys,
+        practice_feed_signature: shouldRefreshPracticeFeed ? livePracticeFeedSnapshot.signature : prev.practice_feed_signature,
+        practice_cursor: nextCursor,
+      };
+    });
     setActiveScreen('feed');
     setMenuOpen(false);
-  }, [activeScreen, persistSettings, settings]);
+  }, [activeScreen, livePracticeFeedReady, livePracticeFeedSnapshot, persistSettings, settings, updatePracticeTabState]);
 
   const maybeShowCalibration = useCallback((signals: CalibrationSignals) => {
     if (activeGeneratedPracticeSession || calibrationSuggestion) return;
@@ -1293,16 +1488,20 @@ export default function App() {
     setActiveScreen(getHomeModeScreen(DEFAULT_SETTINGS.homeMode));
     setMenuOpen(false);
     setActiveGeneratedPracticeSession(null);
+    setActiveClipPracticeSession(null);
     setFeedOrderIds([]);
     setFeedReasons({});
     setSkippedClipIds([]);
     setVisibleFeedCount(FEED_BATCH_SIZE);
     lastFeedSignatureRef.current = null;
+    const nextPracticeTabState = createDefaultPracticeTabState();
     await Promise.all([
       saveProfile(defaultProfile),
       saveSettings(nextSettings),
+      savePracticeTabState(nextPracticeTabState),
     ]);
     setSettings(nextSettings);
+    setPracticeTabState(nextPracticeTabState);
     if (authToken) {
       try {
         await api.saveProfile(authToken, defaultProfile);
@@ -1846,13 +2045,151 @@ export default function App() {
 
   const handleReturnFeed = useCallback(() => {
     setActiveGeneratedPracticeSession(null);
-    handleHomeModeChange('listen');
+    handleHomeModeChange('just_listen');
   }, [handleHomeModeChange]);
 
   const handlePracticeAgain = useCallback(() => {
     setActiveGeneratedPracticeSession(null);
-    handleHomeModeChange('learn');
+    setActiveScreen('practice');
   }, [handleHomeModeChange]);
+
+  const requestPracticeClipTranslations = useCallback((clipIndex: number) => {
+    const clipKey = practiceFeedKeys[clipIndex];
+    if (!clipKey) return;
+    const nextTargets = [];
+    const rawIndex = findClipIndexByKey(clipsData, clipKey);
+    if (rawIndex >= 0 && clipsData[rawIndex]) {
+      nextTargets.push({ clip: clipsData[rawIndex], index: rawIndex });
+    }
+    const nextClipKey = practiceFeedKeys[clipIndex + 1];
+    if (nextClipKey) {
+      const nextRawIndex = findClipIndexByKey(clipsData, nextClipKey);
+      if (nextRawIndex >= 0 && clipsData[nextRawIndex]) {
+        nextTargets.push({ clip: clipsData[nextRawIndex], index: nextRawIndex });
+      }
+    }
+    if (nextTargets.length > 0) {
+      void requestContentTranslations(nextTargets, profile.nativeLanguage);
+    }
+  }, [clipsData, practiceFeedKeys, profile.nativeLanguage, requestContentTranslations]);
+
+  const handleStartClipPractice = useCallback((clipIndex: number, readOnly = false) => {
+    const clip = practiceClips[clipIndex];
+    const clipKey = practiceFeedKeys[clipIndex];
+    if (!clip || !clipKey) return;
+    updatePracticeTabState(prev => ({
+      ...prev,
+      ui_state: {
+        ...prev.ui_state,
+        current_tab: 'practice',
+        last_active_at: new Date().toISOString(),
+      },
+      practice_cursor: clipIndex,
+      session: readOnly ? prev.session : {
+        active_clip_key: clipKey,
+        current_stage: prev.session?.active_clip_key === clipKey
+          ? Math.max(1, prev.session.current_stage)
+          : 1,
+        current_clip_index: clipIndex,
+        started_at: prev.session?.active_clip_key === clipKey
+          ? prev.session.started_at
+          : new Date().toISOString(),
+      },
+    }));
+    if (settings.homeMode !== 'practice') {
+      const nextSettings = {
+        ...settings,
+        homeMode: 'practice' as HomeMode,
+      };
+      void persistSettings(nextSettings);
+    }
+    setActiveScreen('feed');
+    setActiveClipPracticeSession({ clipIndex, clipKey, readOnly });
+    requestPracticeClipTranslations(clipIndex);
+  }, [persistSettings, practiceClips, practiceFeedKeys, requestPracticeClipTranslations, settings, updatePracticeTabState]);
+
+  const handleDismissClipPractice = useCallback(() => {
+    setActiveClipPracticeSession(null);
+  }, []);
+
+  const handleClipPracticeStageChange = useCallback((clipIndex: number, stage: number) => {
+    const clipKey = practiceFeedKeys[clipIndex];
+    if (!clipKey) return;
+    updatePracticeTabState(prev => {
+      if (
+        prev.practice_cursor === clipIndex
+        && prev.session?.active_clip_key === clipKey
+        && prev.session.current_stage === stage
+        && prev.session.current_clip_index === clipIndex
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        practice_cursor: clipIndex,
+        session: {
+          active_clip_key: clipKey,
+          current_stage: stage,
+          current_clip_index: clipIndex,
+          started_at: prev.session?.active_clip_key === clipKey
+            ? prev.session.started_at
+            : new Date().toISOString(),
+          },
+        };
+    });
+  }, [practiceFeedKeys, updatePracticeTabState]);
+
+  const handleClipPracticeComplete = useCallback((completedClip: PracticeTabCompletedClip) => {
+    updatePracticeTabState(prev => {
+      const nextCompleted = [
+        ...prev.completed_clips.filter(item => item.clipKey !== completedClip.clipKey),
+        completedClip,
+      ].sort((a, b) => a.completedAt - b.completedAt);
+      const nextInboxEntries = [
+        ...prev.vocab_inbox.entries,
+        ...completedClip.vocabPicked.map(item => ({
+          word: item.word,
+          clipKey: completedClip.clipKey,
+          sentenceIndex: item.sentenceIndex,
+          addedAt: completedClip.completedAt,
+        })),
+      ];
+      const nextAggregate = { ...prev.attribution_aggregate };
+      completedClip.reasons.forEach(reason => {
+        nextAggregate[reason] = (nextAggregate[reason] || 0) + 1;
+      });
+      const nextCursor = Math.min(
+        prev.practice_cursor + 1,
+        Math.max(0, practiceClips.length - 1)
+      );
+      return {
+        ...prev,
+        completed_clips: nextCompleted,
+        vocab_inbox: {
+          ...prev.vocab_inbox,
+          entries: nextInboxEntries,
+        },
+        attribution_aggregate: nextAggregate,
+        practice_cursor: nextCursor,
+        session: null,
+      };
+    });
+  }, [practiceClips.length, updatePracticeTabState]);
+
+  const handlePracticeNextClip = useCallback(() => {
+    if (!activeClipPracticeSession) {
+      setActiveClipPracticeSession(null);
+      return;
+    }
+    const currentIndex = practiceFeedKeys.indexOf(activeClipPracticeSession.clipKey);
+    const resolvedCurrentIndex = currentIndex >= 0 ? currentIndex : activeClipPracticeSession.clipIndex;
+    const nextIndex = Math.min(resolvedCurrentIndex + 1, Math.max(0, practiceClips.length - 1));
+    if (nextIndex === resolvedCurrentIndex) {
+      setActiveClipPracticeSession(null);
+      return;
+    }
+    handleStartClipPractice(nextIndex, false);
+  }, [activeClipPracticeSession, practiceClips.length, practiceFeedKeys, handleStartClipPractice]);
 
   const handleTryGuest = useCallback(async () => {
     await saveGuestMode(true);
@@ -1912,11 +2249,13 @@ export default function App() {
     setSkippedClipIds([]);
     setVisibleFeedCount(FEED_BATCH_SIZE);
     lastFeedSignatureRef.current = null;
+    setPracticeTabState(createDefaultPracticeTabState());
     setActiveScreen(getHomeModeScreen(DEFAULT_SETTINGS.homeMode));
     setMenuOpen(false);
     setShowAuthSheet(false);
     setShowHowItWorks(false);
     setActiveGeneratedPracticeSession(null);
+    setActiveClipPracticeSession(null);
     setAuthError('');
   }, [authToken]);
 
@@ -1959,11 +2298,13 @@ export default function App() {
     setSkippedClipIds([]);
     setVisibleFeedCount(FEED_BATCH_SIZE);
     lastFeedSignatureRef.current = null;
+    setPracticeTabState(createDefaultPracticeTabState());
     setActiveScreen(getHomeModeScreen(DEFAULT_SETTINGS.homeMode));
     setMenuOpen(false);
     setShowAuthSheet(false);
     setShowHowItWorks(false);
     setActiveGeneratedPracticeSession(null);
+    setActiveClipPracticeSession(null);
     setAuthError('');
     showToast(ui.t('app.toastAccountDeleted'));
   }, [authToken, showToast, ui]);
@@ -1992,6 +2333,13 @@ export default function App() {
     content = <OnboardingScreen initialProfile={profile} onSubmit={handleProfileSubmit} />;
   } else if (!settings.firstUseBridgeSeen) {
     content = <FirstUseBridgeScreen onContinue={handleCompleteFirstUseBridge} />;
+  } else if (!clipsLoaded) {
+    content = (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#8B9CF7" />
+        <Text style={styles.loadingText}>{ui.t('app.initializing')}</Text>
+      </View>
+    );
   } else if (activeScreen === 'library') {
     content = (
       <LibraryScreen
@@ -2041,7 +2389,26 @@ export default function App() {
         onMarkKnown={handleMarkKnown}
       />
     );
-  } else if (activeScreen === 'feed' || activeScreen === 'practice') {
+  } else if (activeScreen === 'practice') {
+    content = (
+      <PracticeScreen
+        practiceState={generatedPracticeState}
+        pendingPractices={localizedPendingPractices}
+        completedPractices={localizedCompletedPractices}
+        profile={profile}
+        vocabList={vocabList}
+        showIntro={!settings.practiceIntroSeen}
+        onDismissIntro={handleDismissPracticeIntro}
+        headerTitle={ui.t('menu.practice')}
+        onBack={() => setActiveScreen('feed')}
+        onGenerateMore={() => {
+          void generatePracticeBatch('manual_more');
+        }}
+        onStartPractice={handleStartPractice}
+        onOpenCompletedPractice={practiceId => handleStartPractice(practiceId, true)}
+      />
+    );
+  } else if (activeScreen === 'feed') {
     const resolvedHomeViewportHeight = homeContentHeight > 0
       ? homeContentHeight
       : Math.max(0, windowHeight - homeTopChromeHeight);
@@ -2067,9 +2434,90 @@ export default function App() {
           <View
             style={[
               styles.homeModePane,
-              settings.homeMode === 'listen' ? styles.homeModePaneActive : styles.homeModePaneHidden,
+              settings.homeMode === 'practice' ? styles.homeModePaneActive : styles.homeModePaneHidden,
             ]}
-            pointerEvents={settings.homeMode === 'listen' ? 'auto' : 'none'}
+            pointerEvents={settings.homeMode === 'practice' ? 'auto' : 'none'}
+          >
+            {practiceTabState.practice_feed_keys.length === 0 ? (
+              <View style={styles.homeModeLoadingState}>
+                <ActivityIndicator size="large" color="#8B9CF7" />
+                <Text style={styles.loadingText}>{ui.t('app.initializing')}</Text>
+              </View>
+            ) : (
+              <PracticeTabScreen
+                clips={practiceClips}
+                clipKeys={practiceFeedKeys}
+                practiceState={practiceTabState}
+                level={profile.level}
+                knownWords={knownWords}
+                contentViewportHeight={resolvedHomeViewportHeight}
+                onStartPractice={clipIndex => handleStartClipPractice(clipIndex, false)}
+                onOpenCompletedClip={clipIndex => handleStartClipPractice(clipIndex, true)}
+                onVisibleClipChange={clipIndex => {
+                  updatePracticeTabState(prev => {
+                    if (prev.practice_cursor === clipIndex && prev.ui_state.current_tab === 'practice') {
+                      return prev;
+                    }
+                    return {
+                      ...prev,
+                      practice_cursor: clipIndex,
+                      ui_state: {
+                        ...prev.ui_state,
+                        current_tab: 'practice',
+                        last_active_at: new Date().toISOString(),
+                      },
+                    };
+                  });
+                }}
+                renderInlineSession={({ clip, clipIndex, completedRecord, isVisible }) => {
+                  const renderClipKey = practiceFeedKeys[clipIndex] || buildClipKey(clip, clipIndex);
+                  if (!activeClipPracticeSession || activeClipPracticeSession.clipKey !== renderClipKey) {
+                    return null;
+                  }
+                  return (
+                    <PracticeSessionModal
+                      inline
+                      visible
+                      isActive={isVisible}
+                      clip={clip}
+                      clipIndex={clipIndex}
+                      initialStage={
+                        !activeClipPracticeSession.readOnly
+                        && practiceTabState.session?.active_clip_key === renderClipKey
+                          ? Math.max(1, practiceTabState.session.current_stage)
+                          : 1
+                      }
+                      level={profile.level}
+                      nativeLanguage={profile.nativeLanguage}
+                      vocabWords={vocabWords}
+                      knownWords={knownWords}
+                      onSaveVocab={handleSaveVocab}
+                      onMarkKnown={handleMarkKnown}
+                      onRecordWordLookup={handleRecordWordLookup}
+                      completedRecord={activeClipPracticeSession.readOnly ? completedRecord : null}
+                      readOnly={Boolean(activeClipPracticeSession.readOnly)}
+                      onStageChange={stage => {
+                        if (!activeClipPracticeSession.readOnly) {
+                          handleClipPracticeStageChange(clipIndex, stage);
+                        }
+                      }}
+                      onComplete={handleClipPracticeComplete}
+                      onDismiss={handleDismissClipPractice}
+                      onNextClip={handlePracticeNextClip}
+                      onReturnListen={() => handleHomeModeChange('just_listen')}
+                    />
+                  );
+                }}
+              />
+            )}
+          </View>
+
+          <View
+            style={[
+              styles.homeModePane,
+              settings.homeMode === 'just_listen' ? styles.homeModePaneActive : styles.homeModePaneHidden,
+            ]}
+            pointerEvents={settings.homeMode === 'just_listen' ? 'auto' : 'none'}
           >
             <FeedScreen
               clips={currentClips}
@@ -2090,7 +2538,7 @@ export default function App() {
               vocabWords={vocabWords}
               knownWords={knownWords}
               clipsPlayed={clipsPlayed}
-              isForeground={settings.homeMode === 'listen'}
+              isForeground={settings.homeMode === 'just_listen'}
               showListenCoach={!settings.feedCoachListenSeen}
               showNavCoach={!settings.feedCoachNavSeen}
               showWordCoach={!settings.feedCoachWordSeen}
@@ -2110,36 +2558,16 @@ export default function App() {
               onClipCompleted={handleClipCompleted}
               onClipSkipped={handleClipSkipped}
               onVisibleClipChange={(clip, index) => {
+                updatePracticeTabState(prev => ({
+                  ...prev,
+                  listen_cursor: index,
+                }));
                 const nextTargets = [{ clip: currentRawClips[index] || clip, index }];
                 if (currentRawClips[index + 1]) {
                   nextTargets.push({ clip: currentRawClips[index + 1], index: index + 1 });
                 }
                 void requestContentTranslations(nextTargets, profile.nativeLanguage);
               }}
-            />
-          </View>
-
-          <View
-            style={[
-              styles.homeModePane,
-              settings.homeMode === 'learn' ? styles.homeModePaneActive : styles.homeModePaneHidden,
-            ]}
-            pointerEvents={settings.homeMode === 'learn' ? 'auto' : 'none'}
-          >
-            <PracticeScreen
-              practiceState={generatedPracticeState}
-              pendingPractices={localizedPendingPractices}
-              completedPractices={localizedCompletedPractices}
-              profile={profile}
-              vocabList={vocabList}
-              showIntro={!settings.practiceIntroSeen}
-              onDismissIntro={handleDismissPracticeIntro}
-              contentViewportHeight={resolvedHomeViewportHeight}
-              onGenerateMore={() => {
-                void generatePracticeBatch('manual_more');
-              }}
-              onStartPractice={handleStartPractice}
-              onOpenCompletedPractice={practiceId => handleStartPractice(practiceId, true)}
             />
           </View>
         </View>
@@ -2170,11 +2598,12 @@ export default function App() {
                   onClose={() => setMenuOpen(false)}
                   onNavigate={screen => {
                     if (screen === 'feed') {
-                      handleHomeModeChange('listen');
+                      handleHomeModeChange('just_listen');
                       return;
                     }
                     if (screen === 'practice') {
-                      handleHomeModeChange('learn');
+                      setActiveScreen('practice');
+                      setMenuOpen(false);
                       return;
                     }
                     setActiveScreen(screen);
@@ -2278,6 +2707,11 @@ const styles = StyleSheet.create({
   homeModePaneHidden: {
     zIndex: 0,
     opacity: 0,
+  },
+  homeModeLoadingState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   rootLight: {
     backgroundColor: '#F2F2F7',
