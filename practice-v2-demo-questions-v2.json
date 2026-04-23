@@ -1,0 +1,563 @@
+[
+  {
+    "clip_idx": 0,
+    "content_type": "narrative",
+    "questions": [
+      {
+        "stage": 0,
+        "lang": "zh",
+        "noFeedback": true,
+        "topic_tag": "人物叙事",
+        "question": "根据标题《美国在菲律宾的水刑与焚村》，你觉得这段音频主要会讲什么？",
+        "options": [
+          "美国在菲律宾的军事暴行及酷刑",
+          "菲律宾的自然风光与文化",
+          "美国与菲律宾的贸易合作"
+        ],
+        "answer": 0
+      },
+      {
+        "stage": 1,
+        "lang": "zh",
+        "question": "这段的主旨最接近：",
+        "options": [
+          "美国在菲律宾战争中采取了残酷的军事手段",
+          "美国帮助菲律宾建立民主制度",
+          "菲律宾人成功驱逐了美国军队"
+        ],
+        "answer": 0,
+        "stage_type_fit": "matched",
+        "explanation": {
+          "source": "`The United States is burning villages... concentrating people in camps... torturing people with... water cure` 这些描述表明美国在战争中采取了残酷手段。",
+          "why_correct": "原文多处描写美国军队焚村、集中营、酷刑，主旨是揭示这些残酷手段。",
+          "why_wrong": [
+            {
+              "option_idx": 1,
+              "reason": "原文没有提到美国帮助菲律宾建立民主制度，反而是铁腕军管。",
+              "distractor_type": "P7"
+            },
+            {
+              "option_idx": 2,
+              "reason": "原文没有提到菲律宾人成功驱逐美国军队，战争结果未描述。",
+              "distractor_type": "P3"
+            }
+          ]
+        }
+      },
+      {
+        "stage": 2,
+        "lang": "zh",
+        "question": "1899年2月，菲律宾人开始新的独立斗争是为了对抗谁？",
+        "options": [
+          "美国",
+          "西班牙",
+          "日本"
+        ],
+        "answer": 0,
+        "stage_type_fit": "matched",
+        "explanation": {
+          "source": "`This time against the United States.` 明确指出这次是对抗美国。",
+          "why_correct": "原文直接说这次是对抗美国，因此正确答案是美国。",
+          "why_wrong": [
+            {
+              "option_idx": 1,
+              "reason": "西班牙是之前的殖民者，但此处的斗争对象不是西班牙。",
+              "distractor_type": "P2"
+            },
+            {
+              "option_idx": 2,
+              "reason": "日本在此事件中未出现，与原文不符。",
+              "distractor_type": "P6"
+            }
+          ]
+        }
+      },
+      {
+        "stage": 2,
+        "lang": "zh",
+        "question": "谁是《如何隐藏一个帝国》一书的作者？",
+        "options": [
+          "丹尼尔·伊马尔瓦",
+          "威廉·麦金莱",
+          "西北大学"
+        ],
+        "answer": 0,
+        "stage_type_fit": "matched",
+        "explanation": {
+          "source": "`I wrote a book called How to Hide an Empire... This is Daniel Imarvar.`",
+          "why_correct": "原文明确指出丹尼尔·伊马尔瓦是该书作者。",
+          "why_wrong": [
+            {
+              "option_idx": 1,
+              "reason": "威廉·麦金莱是总统，不是该书作者。",
+              "distractor_type": "P5"
+            },
+            {
+              "option_idx": 2,
+              "reason": "西北大学是作者任职的学校，不是作者本人。",
+              "distractor_type": "P2"
+            }
+          ]
+        }
+      },
+      {
+        "stage": 3,
+        "lang": "zh",
+        "question": "当时美国军队使用的水刑叫什么名字？",
+        "options": [
+          "water cure",
+          "water core",
+          "water board"
+        ],
+        "answer": 0,
+        "stage_type_fit": "matched",
+        "explanation": {
+          "source": "`Back then it was called the water cure`",
+          "why_correct": "原文直接给出了名称 water cure。",
+          "why_wrong": [
+            {
+              "option_idx": 1,
+              "reason": "water core 与原文发音接近但意义不同，是音近陷阱。",
+              "distractor_type": "P1"
+            },
+            {
+              "option_idx": 2,
+              "reason": "water board 是现代水刑的名称，但原文强调当时叫 water cure。",
+              "distractor_type": "P6"
+            }
+          ]
+        }
+      },
+      {
+        "stage": 3,
+        "lang": "zh",
+        "question": "美国军队将人集中到营地或驻军城镇的目的是什么？",
+        "options": [
+          "切断粮食供应",
+          "提供安全保护",
+          "方便医疗救助"
+        ],
+        "answer": 0,
+        "stage_type_fit": "matched",
+        "explanation": {
+          "source": "`where they're cut off from food supplies`",
+          "why_correct": "原文明确指出目的是切断粮食供应。",
+          "why_wrong": [
+            {
+              "option_idx": 1,
+              "reason": "原文没有提到提供安全保护，反而是控制和限制。",
+              "distractor_type": "P7"
+            },
+            {
+              "option_idx": 2,
+              "reason": "原文没有提到医疗救助，与事实不符。",
+              "distractor_type": "P6"
+            }
+          ]
+        }
+      },
+      {
+        "stage": 3,
+        "lang": "zh",
+        "question": "总统麦金莱的讲话中提到军方的首要目标是什么？",
+        "options": [
+          "赢得菲律宾居民的信任、尊重和好感",
+          "展示铁腕军管",
+          "迅速结束战争"
+        ],
+        "answer": 0,
+        "stage_type_fit": "matched",
+        "explanation": {
+          "source": "`to win the confidence, respect, and affection of the inhabitants of the Philippines.`",
+          "why_correct": "原文直接指出首要目标是赢得信任、尊重和好感。",
+          "why_wrong": [
+            {
+              "option_idx": 1,
+              "reason": "铁腕军管是后续另一位讲话者的观点，不是麦金莱讲话中的目标。",
+              "distractor_type": "P5"
+            },
+            {
+              "option_idx": 2,
+              "reason": "原文没有提到迅速结束战争，这属于细节错配。",
+              "distractor_type": "P6"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "clip_idx": 1,
+    "content_type": "opinion",
+    "questions": [
+      {
+        "stage": 0,
+        "lang": "zh",
+        "noFeedback": true,
+        "topic_tag": "观点评论",
+        "question": "根据标题《AI不是魔法也不是终结者》和关键词，你觉得这段音频最可能讨论什么？",
+        "options": [
+          "AI在现实中的真正含义",
+          "AI电影的票房表现",
+          "AI在游戏中的应用"
+        ],
+        "answer": 0
+      },
+      {
+        "stage": 1,
+        "lang": "zh",
+        "question": "这段的主旨最接近：",
+        "options": [
+          "AI既不是幻想中的魔法，也不是毁灭世界的机器，而是人类创造的工具",
+          "AI将会带来一个完美的未来社会",
+          "AI主要是用来拍摄好莱坞电影的"
+        ],
+        "answer": 0,
+        "stage_type_fit": "matched",
+        "explanation": {
+          "source": "`AI is not a magic wand, but it's not a Terminator... AI is something invented by us to advance our progress... fundamentally just math`",
+          "why_correct": "原文明确指出AI不是魔法棒也不是终结者，而是人类发明的工具，本质上是数学。",
+          "why_wrong": [
+            {
+              "option_idx": 1,
+              "reason": "原文否定了AI是乌托邦预兆的观点，因此不是完美未来社会。",
+              "distractor_type": "P4"
+            },
+            {
+              "option_idx": 2,
+              "reason": "虽然文中提到好莱坞电影，但那是用来说明公众印象，并非主旨。",
+              "distractor_type": "P7"
+            }
+          ]
+        }
+      },
+      {
+        "stage": 2,
+        "lang": "zh",
+        "question": "说话人提到哪些电影作为人们对AI的常见印象？",
+        "options": [
+          "《终结者》《机械姬》《星际迷航》《星球大战》",
+          "《终结者》《黑客帝国》《星际迷航》《星球大战》",
+          "《终结者》《机械姬》《星际迷航》《黑客帝国》"
+        ],
+        "answer": 0,
+        "stage_type_fit": "matched",
+        "explanation": {
+          "source": "`We think about the Terminator... Ex Machina... Star Trek... Star Wars`",
+          "why_correct": "原文列出了这四部电影作为公众对AI的印象。",
+          "why_wrong": [
+            {
+              "option_idx": 1,
+              "reason": "干扰项将《机械姬》换成了原文没有提到的《黑客帝国》。",
+              "distractor_type": "P6"
+            },
+            {
+              "option_idx": 2,
+              "reason": "干扰项将《星球大战》换成了原文没有提到的《黑客帝国》，并且保留了其他原文电影以混淆。",
+              "distractor_type": "P2"
+            }
+          ]
+        }
+      },
+      {
+        "stage": 2,
+        "lang": "zh",
+        "question": "说话人认为AI与人类的哪种欲望紧密相连？",
+        "options": [
+          "掌控自己和周围的世界",
+          "探索宇宙未知领域",
+          "创造艺术作品"
+        ],
+        "answer": 0,
+        "stage_type_fit": "matched",
+        "explanation": {
+          "source": "`AI is deeply entangled with our desire to be in control, both of ourselves and the world around us`",
+          "why_correct": "原文明确指出AI与人类想掌控自己和世界的欲望紧密相连。",
+          "why_wrong": [
+            {
+              "option_idx": 1,
+              "reason": "原文没有提到探索宇宙未知领域，这是误导性的扩展。",
+              "distractor_type": "P7"
+            },
+            {
+              "option_idx": 2,
+              "reason": "原文没有提到创造艺术作品，这是错误归属具体用途。",
+              "distractor_type": "P6"
+            }
+          ]
+        }
+      },
+      {
+        "stage": 3,
+        "lang": "zh",
+        "question": "系统是通过什么方式来学习的？",
+        "options": [
+          "通过获取数据",
+          "通过评估数据",
+          "通过生成数据"
+        ],
+        "answer": 0,
+        "stage_type_fit": "matched",
+        "explanation": {
+          "source": "`The system learns by accessing data`",
+          "why_correct": "原文明确说系统是通过获取数据来学习的。",
+          "why_wrong": [
+            {
+              "option_idx": 1,
+              "reason": "将原文的`accessing`听错为`assessing`，意思不同。",
+              "distractor_type": "P1"
+            },
+            {
+              "option_idx": 2,
+              "reason": "原文没有提到通过生成数据来学习，这是错误的细节。",
+              "distractor_type": "P6"
+            }
+          ]
+        }
+      },
+      {
+        "stage": 3,
+        "lang": "zh",
+        "question": "说话人如何描述AI的本质？",
+        "options": [
+          "复杂而漂亮的数学",
+          "先进的生物技术",
+          "神秘的魔法"
+        ],
+        "answer": 0,
+        "stage_type_fit": "matched",
+        "explanation": {
+          "source": "`It's really complicated, beautiful math, but it is fundamentally just math`",
+          "why_correct": "原文明确指出AI的本质是复杂而漂亮的数学。",
+          "why_wrong": [
+            {
+              "option_idx": 1,
+              "reason": "原文没有提到生物技术，这是错误归属。",
+              "distractor_type": "P6"
+            },
+            {
+              "option_idx": 2,
+              "reason": "原文否定了AI是魔法的观点，因此这个选项与原文相反但没有显性否定触发词，属于推断偏差。",
+              "distractor_type": "P7"
+            }
+          ]
+        }
+      },
+      {
+        "stage": 3,
+        "lang": "zh",
+        "question": "说话人对AI的未来影响持什么态度？",
+        "options": [
+          "既不是乌托邦也不是反乌托邦",
+          "将带来乌托邦",
+          "将带来反乌托邦"
+        ],
+        "answer": 0,
+        "stage_type_fit": "matched",
+        "explanation": {
+          "source": "`AI is not a harbinger of utopia or dystopia`",
+          "why_correct": "原文明确指出AI既不是乌托邦也不是反乌托邦。",
+          "why_wrong": [
+            {
+              "option_idx": 1,
+              "reason": "原文否定了AI是乌托邦预兆的观点，因此这个选项是被否定的内容。",
+              "distractor_type": "P4"
+            },
+            {
+              "option_idx": 2,
+              "reason": "原文否定了AI是反乌托邦预兆的观点，因此这个选项是被否定的内容。",
+              "distractor_type": "P6"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "clip_idx": 2,
+    "content_type": "informational",
+    "questions": [
+      {
+        "stage": 0,
+        "lang": "zh",
+        "noFeedback": true,
+        "topic_tag": "新闻信息",
+        "question": "根据标题《海峡封锁如何瘫痪全球供应链》，你觉得这段音频主要会谈到什么？",
+        "options": [
+          "霍尔木兹海峡封锁对全球贸易的影响",
+          "海峡封锁导致旅游业衰退",
+          "封锁事件引发的文化交流变化"
+        ],
+        "answer": 0
+      },
+      {
+        "stage": 1,
+        "lang": "zh",
+        "question": "这段的主旨最接近：",
+        "options": [
+          "霍尔木兹海峡封锁正在验证多年担忧的全球供应链风险",
+          "伦敦油商酒吧的闲聊与全球能源市场无关",
+          "先进化学技术可以完全避免供应链冲击"
+        ],
+        "answer": 0,
+        "stage_type_fit": "matched",
+        "explanation": {
+          "source": "`this is the scenario that people were worried about for years` ... `What if the Strait of Hormuz was closed?` ... `now we're actually experiencing it`",
+          "why_correct": "原文强调当前海峡封锁正是多年来担心的情景，并且正在发生，影响全球供应链。",
+          "why_wrong": [
+            {
+              "option_idx": 1,
+              "reason": "原文提到伦敦油商酒吧的闲聊正是关于这一情景，且与全球能源市场相关。",
+              "distractor_type": "P3"
+            },
+            {
+              "option_idx": 2,
+              "reason": "原文虽提到先进化学，但并未表示可以完全避免供应链冲击。",
+              "distractor_type": "P7"
+            }
+          ]
+        }
+      },
+      {
+        "stage": 2,
+        "lang": "en",
+        "question": "What does the speaker say Odd Lots tends to do well?",
+        "options": [
+          "Uncover affected supply chains",
+          "Predict oil prices",
+          "Report on consumer trends"
+        ],
+        "answer": 0,
+        "stage_type_fit": "matched",
+        "explanation": {
+          "source": "`Odd Lots tends to do well is we uncover the supply chains when they're affected`",
+          "why_correct": "原文明确指出 Odd Lots 擅长揭示受影响的供应链。",
+          "why_wrong": [
+            {
+              "option_idx": 1,
+              "reason": "虽然谈到石油，但未提到预测油价是 Odd Lots 的特长。",
+              "distractor_type": "P2"
+            },
+            {
+              "option_idx": 2,
+              "reason": "原文没有提到消费趋势报道是其优势。",
+              "distractor_type": "P7"
+            }
+          ]
+        }
+      },
+      {
+        "stage": 2,
+        "lang": "en",
+        "question": "According to the speaker, what scenario dominated bar talk for oil traders in London?",
+        "options": [
+          "Closure of the Strait of Hormuz",
+          "Discovery of new oil fields",
+          "Decline in petrochemical demand"
+        ],
+        "answer": 0,
+        "stage_type_fit": "matched",
+        "explanation": {
+          "source": "`This is the thought experiment that used to dominate bar talk for oil traders in London. What if the Strait of Hormuz was closed?`",
+          "why_correct": "原文明确指出他们讨论的情景是霍尔木兹海峡被封锁。",
+          "why_wrong": [
+            {
+              "option_idx": 1,
+              "reason": "原文未提到新油田发现是酒吧闲聊主题。",
+              "distractor_type": "P2"
+            },
+            {
+              "option_idx": 2,
+              "reason": "原文没有提到石化需求下降是讨论主题。",
+              "distractor_type": "P7"
+            }
+          ]
+        }
+      },
+      {
+        "stage": 3,
+        "lang": "en",
+        "question": "The speaker compares the current situation in supply chains to which type of market?",
+        "options": [
+          "Bull market",
+          "Bear market",
+          "Boom market"
+        ],
+        "answer": 0,
+        "stage_type_fit": "matched",
+        "explanation": {
+          "source": "`right now is kind of like a bull market in supply chain shocks`",
+          "why_correct": "原文直接将当前供应链冲击比作牛市。",
+          "why_wrong": [
+            {
+              "option_idx": 1,
+              "reason": "Bear 与 Bull 发音相近，容易混淆，但原文是 bull market。",
+              "distractor_type": "P1"
+            },
+            {
+              "option_idx": 2,
+              "reason": "Boom market虽意近，但原文未用该词。",
+              "distractor_type": "P6"
+            }
+          ]
+        }
+      },
+      {
+        "stage": 3,
+        "lang": "en",
+        "question": "What is turned into plastic according to the speaker?",
+        "options": [
+          "Oil",
+          "Coal",
+          "Gas"
+        ],
+        "answer": 0,
+        "stage_type_fit": "matched",
+        "explanation": {
+          "source": "`you turn oil into plastic`",
+          "why_correct": "原文明确指出是将石油变成塑料。",
+          "why_wrong": [
+            {
+              "option_idx": 1,
+              "reason": "原文未提到煤被转化为塑料。",
+              "distractor_type": "P6"
+            },
+            {
+              "option_idx": 2,
+              "reason": "原文明确说是 oil。Gas 基于常识也能联想成塑料原料，但原文没说；这是推断偏差。",
+              "distractor_type": "P7"
+            }
+          ]
+        }
+      },
+      {
+        "stage": 3,
+        "lang": "en",
+        "question": "What does the speaker say about advanced chemistry?",
+        "options": [
+          "Everything can be kind of everything else",
+          "It prevents supply chain shocks",
+          "It reduces oil prices"
+        ],
+        "answer": 0,
+        "stage_type_fit": "matched",
+        "explanation": {
+          "source": "`Thanks to the brilliance of sort of advanced chemistry, everything can be kind of everything else`",
+          "why_correct": "原文指出先进化学让几乎任何东西都能变成别的东西。",
+          "why_wrong": [
+            {
+              "option_idx": 1,
+              "reason": "原文未说先进化学能防止供应链冲击。",
+              "distractor_type": "P4"
+            },
+            {
+              "option_idx": 2,
+              "reason": "原文未提到先进化学能降低油价。",
+              "distractor_type": "P6"
+            }
+          ]
+        }
+      }
+    ]
+  }
+]

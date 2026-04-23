@@ -1,0 +1,1578 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Practice v2 · 5 阶段听力训练 Demo (3 clip 链式) · Flipod</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg-primary:#0C0C0E;
+  --bg-secondary:#16161A;
+  --bg-card:rgba(255,255,255,0.05);
+  --bg-card-hi:rgba(255,255,255,0.08);
+  --border:rgba(255,255,255,0.08);
+  --text:rgba(255,255,255,0.93);
+  --text-dim:rgba(255,255,255,0.50);
+  --text-faint:rgba(255,255,255,0.30);
+  --accent:#8B9CF7;
+  --accent-bg:rgba(139,156,247,0.15);
+  --word-dim:rgba(255,255,255,0.25);
+  --word-active:#8B9CF7;
+  --prog-bg:rgba(255,255,255,0.10);
+  --prog-fill:#8B9CF7;
+  --ok:#5CD9A6;
+  --bad:#FF6B7A;
+  --shadow:0 8px 32px rgba(0,0,0,0.4);
+}
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg-primary);color:var(--text);font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.5}
+body{min-height:100vh;overflow-x:hidden}
+
+#app{max-width:720px;margin:0 auto;padding:18px 20px 40px;min-height:100vh;display:flex;flex-direction:column}
+
+/* ============ Chain progress (top) ============ */
+.chain-bar{display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 0 14px;font-size:11px;color:var(--text-faint);letter-spacing:.5px}
+.chain-step{display:flex;align-items:center;gap:6px;color:var(--text-faint)}
+.chain-step.current{color:var(--accent);font-weight:600}
+.chain-step.done{color:var(--text-dim)}
+.chain-step .ball{width:18px;height:18px;border-radius:9px;background:var(--prog-bg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
+.chain-step.current .ball{background:var(--accent);color:#0a0a12}
+.chain-step.done .ball{background:rgba(139,156,247,0.35);color:#0a0a12}
+.chain-step .lbl{font-size:11px}
+.chain-sep{color:var(--text-faint)}
+
+/* Stage progress */
+#progress-bar{display:flex;justify-content:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.prog-dot{width:30px;height:6px;border-radius:3px;background:var(--prog-bg);transition:background .3s, transform .2s}
+.prog-dot.passed{background:var(--accent)}
+.prog-dot.current{background:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
+.prog-dot.passed.clickable{cursor:pointer}
+.prog-dot.passed.clickable:hover{transform:scaleY(1.4)}
+.prog-label{font-size:11px;color:var(--text-faint);text-align:center;margin-bottom:18px;letter-spacing:.5px}
+
+/* ============ Stage card ============ */
+.stage-card{background:var(--bg-card);border:1px solid var(--border);border-radius:20px;padding:28px 24px;margin-bottom:16px;box-shadow:var(--shadow);animation:fadeIn .3s ease-out}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.stage-title{font-size:13px;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px}
+.stage-headline{font-size:24px;font-weight:700;line-height:1.3;margin-bottom:20px;color:var(--text)}
+
+.clip-source{font-size:13px;color:var(--text-dim);margin-bottom:8px}
+.source-links{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:18px;font-size:12px}
+.src-link{color:var(--accent);text-decoration:none;border:1px solid var(--border);padding:4px 10px;border-radius:8px;transition:border-color .15s, background .15s}
+.src-link:hover{border-color:var(--accent);background:var(--accent-bg)}
+.src-note{color:var(--text-faint)}
+
+.keyword-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px}
+.keyword-chip{background:var(--bg-card-hi);border:1px solid var(--border);padding:6px 14px;border-radius:14px;font-size:13px;color:var(--text)}
+
+/* ============ Audio bar ============ */
+.audio-bar-wrap{margin:24px 0 16px}
+.audio-bar{height:4px;background:var(--prog-bg);border-radius:2px;overflow:hidden}
+.audio-fill{height:100%;background:var(--prog-fill);width:0%;transition:width .2s linear}
+.audio-controls{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:16px}
+.audio-btn{background:var(--bg-card-hi);border:none;width:44px;height:44px;border-radius:22px;color:var(--text);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;font-family:inherit}
+.audio-btn:hover{background:rgba(255,255,255,0.13)}
+.audio-btn.primary{background:var(--accent);color:#0a0a12;width:54px;height:54px;border-radius:27px;font-size:20px}
+.audio-btn.primary:hover{background:#9aa9f8}
+.audio-btn:disabled{opacity:.35;cursor:not-allowed}
+.audio-locked-note{font-size:12px;color:var(--text-faint);text-align:center;margin-top:14px;letter-spacing:.3px}
+
+/* ============ Subtitle ============ */
+.subtitle-area{max-height:340px;overflow-y:auto;padding:8px 0;scroll-behavior:smooth}
+.subtitle-area::-webkit-scrollbar{width:4px}
+.subtitle-area::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.sub-line{padding:10px 12px;border-radius:8px;margin:4px 0;transition:background .25s, color .25s;color:var(--word-dim);font-size:16px;line-height:1.55}
+.sub-line.active{color:var(--text);background:var(--accent-bg)}
+.sub-line.spoken{color:var(--text-dim)}
+.sub-line .zh{display:block;color:var(--text-dim);font-size:14px;margin-top:4px}
+.sub-line.active .zh{color:var(--text)}
+.sub-line.zh-only .en{display:none}
+.sub-line.zh-only .zh{color:var(--word-dim);font-size:16px;margin-top:0}
+.sub-line.zh-only.active .zh{color:var(--text)}
+
+.zh-toggle{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-dim);cursor:pointer;margin-left:6px;padding:0;vertical-align:middle;transition:border-color .15s, color .15s, background .15s;font-family:inherit}
+.zh-toggle:hover{border-color:var(--accent);color:var(--accent)}
+.zh-toggle.active{background:var(--accent-bg);border-color:var(--accent);color:var(--accent)}
+.zh-toggle svg{display:block;overflow:visible}
+.zh-inline{display:none;font-size:13px;color:var(--text-dim);margin-top:6px;padding-left:0}
+.sub-line.zh-shown .zh-inline{display:block}
+
+.word{display:inline}
+.word-hidden{display:inline-block;background:linear-gradient(transparent 60%, var(--word-dim) 60%, var(--word-dim) 78%, transparent 78%);color:transparent;user-select:none;letter-spacing:.5px}
+.word-visible{color:var(--text)}
+
+/* ============ Question ============ */
+.q-progress{font-size:11px;color:var(--text-faint);letter-spacing:1px;margin-bottom:12px}
+.q-stem{font-size:17px;font-weight:600;line-height:1.4;margin-bottom:20px;color:var(--text)}
+.q-options{display:flex;flex-direction:column;gap:10px}
+.q-opt{background:var(--bg-card);border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;cursor:pointer;text-align:left;color:var(--text);font-size:15px;font-family:inherit;transition:border-color .15s, background .15s}
+.q-opt:hover{border-color:var(--accent);background:var(--bg-card-hi)}
+.q-opt.picked{border-color:var(--accent);background:var(--accent-bg)}
+.q-opt.correct{border-color:var(--ok);background:rgba(92,217,166,0.1)}
+.q-opt.wrong{border-color:var(--bad);background:rgba(255,107,122,0.1)}
+.q-actions{display:flex;gap:10px;margin-top:16px}
+.q-act-primary,.q-act-secondary{flex:1;padding:13px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s, border-color .15s}
+.q-act-primary{background:var(--accent);color:#0a0a12;border:1.5px solid var(--accent)}
+.q-act-primary:hover{background:#9aa9f8}
+.q-act-secondary{background:transparent;color:var(--text-dim);border:1.5px solid var(--border)}
+.q-act-secondary:hover{color:var(--text);border-color:var(--text-dim)}
+
+/* Explanation card (Notion-toggle style) */
+.q-explain{margin-top:14px;animation:fadeIn .25s ease-out}
+.ex-card{background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:12px;padding:16px}
+.ex-section{margin-bottom:14px}
+.ex-section:last-child{margin-bottom:0}
+.ex-label{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--text-dim);background:var(--bg-card);padding:3px 9px;border-radius:6px;margin-bottom:8px}
+.ex-label.ok{color:var(--ok);background:rgba(92,217,166,.12)}
+.ex-label.bad{color:var(--bad);background:rgba(255,107,122,.12)}
+.ex-source{font-size:13px;line-height:1.65;color:var(--text-dim);font-style:italic;padding:10px 12px;background:rgba(255,255,255,.03);border-left:2px solid var(--accent);border-radius:0 8px 8px 0}
+.ex-hl{background:rgba(139,156,247,.25);color:var(--text);font-style:normal;font-weight:600;padding:1px 4px;border-radius:3px}
+.ex-text{font-size:14px;line-height:1.6;color:var(--text)}
+.ex-wrong-row{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-bottom:1px dashed var(--border)}
+.ex-wrong-row:last-child{border-bottom:none;padding-bottom:0}
+.ex-wrong-opt{font-size:12px;color:var(--text-faint);padding:2px 8px;background:rgba(255,107,122,.08);border-radius:5px;align-self:flex-start;font-weight:500}
+.ex-wrong-why{font-size:13px;line-height:1.55;color:var(--text-dim)}
+
+/* ============ Stage 4 attribution (v2 — two-step) ============ */
+.attr-q{font-size:18px;font-weight:600;color:var(--text);margin-bottom:14px}
+.attr-sub{font-size:13px;color:var(--text-dim);margin-bottom:14px;line-height:1.5}
+
+/* Step 1 — segment chips (horizontal, multi-select) */
+.chip-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px}
+@media (max-width:480px){ .chip-grid{grid-template-columns:repeat(2,1fr)} }
+.seg-chip{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:38px;padding:0 12px;background:transparent;border:1.5px solid var(--border);border-radius:10px;color:var(--text-dim);cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;transition:none}
+.seg-chip:hover{border-color:var(--text-dim);color:var(--text)}
+.seg-chip-icon{display:inline-flex;align-items:center;color:currentColor;flex-shrink:0}
+.seg-chip-icon svg{display:block}
+.seg-chip.selected{background:var(--chip-color);border-color:var(--chip-color);color:#0a0a12;font-weight:600}
+.seg-chip.selected .seg-chip-icon{color:#0a0a12}
+
+/* Step 2 — vocab refinement */
+.vp-row{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;margin:6px 0;overflow:hidden}
+.vp-row.has-pick{border-color:rgba(255,179,71,0.4)}
+.vp-row.expanded{border-color:var(--accent)}
+.vp-head{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;cursor:pointer}
+.vp-head:hover{background:var(--bg-card-hi)}
+.vp-text{flex:1;min-width:0}
+.vp-text .en{color:var(--text);font-size:15px;line-height:1.5}
+.vp-text .zh{color:var(--text-dim);font-size:13px;margin-top:3px;line-height:1.5}
+.vp-play{flex-shrink:0;width:28px;height:28px;border-radius:14px;background:var(--bg-card-hi);border:1px solid var(--border);color:var(--text-dim);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;margin-top:2px;font-family:inherit}
+.vp-play:hover{border-color:var(--accent);color:var(--accent)}
+.vp-words{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 12px}
+.vp-word{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;background:transparent;border:1.5px solid var(--border);border-radius:8px;color:var(--text);cursor:pointer;font-size:13px;font-weight:500;font-family:inherit}
+.vp-word:hover{border-color:var(--accent)}
+.vp-word.selected{background:rgba(255,179,71,0.2);border-color:#FFB347;color:#FFB347;font-weight:700}
+.vp-cefr{font-size:9px;font-weight:700;background:rgba(0,0,0,0.4);padding:1px 5px;border-radius:4px;letter-spacing:.3px;opacity:.7}
+.vp-empty{color:var(--text-faint);font-size:12px;font-style:italic;padding:6px 12px 12px}
+.vp-picksum{display:flex;flex-wrap:wrap;gap:4px;padding:0 12px 10px}
+.vp-pickchip{font-size:11px;padding:2px 8px;background:rgba(255,179,71,0.18);color:#FFB347;border-radius:6px;font-weight:600}
+.attr-line.playing{outline:1px solid var(--accent)}
+
+.attr-cta{display:flex;flex-direction:column;gap:10px;margin-top:18px;padding-top:18px;border-top:1px solid var(--border)}
+.cta-primary{background:var(--accent);color:#0a0a12;border:none;padding:14px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit}
+.cta-primary:disabled{opacity:.4;cursor:not-allowed}
+.cta-secondary{background:transparent;color:var(--text-dim);border:1px solid var(--border);padding:12px;border-radius:12px;font-size:14px;cursor:pointer;font-family:inherit}
+.cta-secondary:hover{color:var(--text);border-color:var(--text-dim)}
+
+/* ============ Stage 5 vocab ============ */
+.vocab-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:14px}
+.vocab-word{font-size:32px;font-weight:700;letter-spacing:.5px;margin-bottom:8px}
+.vocab-cefr{display:inline-block;font-size:11px;background:var(--accent);color:#0a0a12;padding:2px 8px;border-radius:8px;font-weight:700;margin-left:8px;vertical-align:middle}
+.vocab-zh{font-size:16px;color:var(--text);margin-bottom:12px;font-weight:500}
+.vocab-zh.empty{color:var(--text-faint);font-style:italic;font-weight:400}
+.vocab-example{font-size:14px;color:var(--text-dim);font-style:italic;line-height:1.5;margin-bottom:14px;padding:12px;background:rgba(0,0,0,0.2);border-radius:10px;border-left:2px solid var(--accent)}
+.vocab-listen{background:var(--bg-card-hi);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:10px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit}
+.vocab-listen:hover{border-color:var(--accent)}
+.vocab-pager{display:flex;justify-content:space-between;align-items:center;margin-top:18px}
+.vocab-counter{font-size:13px;color:var(--text-dim)}
+.vocab-pager-btns{display:flex;gap:8px}
+.vocab-pager-btns button{background:var(--bg-card-hi);color:var(--text);border:1px solid var(--border);padding:8px 16px;border-radius:10px;cursor:pointer;font-family:inherit;font-size:13px}
+.vocab-pager-btns button:hover{border-color:var(--accent)}
+.vocab-pager-btns button:disabled{opacity:.3;cursor:not-allowed}
+
+/* ============ End pages ============ */
+.end-card{padding:32px 24px}
+.end-emoji{font-size:48px;margin-bottom:14px;text-align:center}
+.end-title{font-size:22px;font-weight:700;margin-bottom:6px;text-align:center}
+.end-sub{color:var(--text-dim);font-size:14px;margin-bottom:24px;text-align:center}
+.end-stat{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin:8px 0;display:flex;justify-content:space-between;align-items:center;text-align:left}
+.end-stat-k{font-size:13px;color:var(--text-dim)}
+.end-stat-v{font-size:16px;font-weight:600;color:var(--text)}
+.end-section-title{margin-top:18px;margin-bottom:8px;text-align:left;font-size:12px;color:var(--text-dim);letter-spacing:.5px}
+.weakness-bars{display:flex;flex-direction:column;gap:10px;margin:6px 0 14px;text-align:left}
+.weak-row{background:var(--bg-card);border-radius:10px;padding:10px 12px}
+.weak-row-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px}
+.weak-dot{width:10px;height:10px;border-radius:5px;flex-shrink:0}
+.weak-lbl{flex:1;color:var(--text);font-weight:500}
+.weak-num{color:var(--text-dim);font-weight:600;font-size:12px}
+.weak-bar{height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin-bottom:6px}
+.weak-fill{height:100%;border-radius:2px;transition:width .4s}
+.weak-loop{display:flex;flex-wrap:wrap;gap:6px;font-size:11px}
+.loop-pill{padding:3px 8px;border-radius:6px;background:rgba(0,0,0,.25);color:var(--text-dim);border:1px solid var(--border)}
+.loop-pill.p1{color:var(--ok);border-color:rgba(92,217,166,.25)}
+.loop-pill.p2{color:var(--text-faint)}
+.end-loop-note{margin-top:14px;padding:10px 12px;background:rgba(139,156,247,.08);border:1px solid rgba(139,156,247,.18);border-radius:10px;color:var(--text-dim);font-size:12px;text-align:left;line-height:1.6}
+.end-cta{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+
+/* Pie chart (global end) — pure CSS conic */
+.pie-wrap{display:flex;align-items:center;gap:18px;margin:8px 0 14px;background:var(--bg-card);border-radius:12px;padding:14px}
+.pie-disc{width:120px;height:120px;border-radius:60px;flex-shrink:0;background:var(--bg-card-hi)}
+.pie-legend{flex:1;display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--text-dim)}
+.pie-row{display:flex;align-items:center;gap:8px}
+.pie-row .pie-dot{width:10px;height:10px;border-radius:5px}
+.pie-row .pie-lbl{flex:1}
+.pie-row .pie-num{color:var(--text);font-weight:600}
+
+/* per-clip table (global end) */
+.clip-table{width:100%;border-collapse:collapse;background:var(--bg-card);border-radius:10px;overflow:hidden;font-size:13px;margin-bottom:14px}
+.clip-table th,.clip-table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.clip-table th{color:var(--text-dim);font-weight:500;font-size:11px;letter-spacing:.5px;text-transform:uppercase;background:rgba(0,0,0,.2)}
+.clip-table td{color:var(--text)}
+.clip-table tr:last-child td{border-bottom:none}
+.clip-table .ttype{display:inline-block;padding:2px 7px;border-radius:6px;font-size:10px;font-weight:600;background:var(--accent-bg);color:var(--accent);margin-right:6px}
+
+/* vocab list (global end) */
+.vocab-summary{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.vocab-sum-row{display:flex;align-items:center;background:var(--bg-card);border-radius:10px;padding:10px 12px;gap:10px}
+.vocab-sum-word{font-weight:600;color:var(--text);min-width:120px}
+.vocab-sum-cefr{display:inline-block;font-size:9px;background:var(--accent);color:#0a0a12;padding:1px 6px;border-radius:5px;font-weight:700;margin-left:6px;vertical-align:middle}
+.vocab-sum-from{font-size:11px;color:var(--text-faint);flex:1}
+
+.boot-loading{text-align:center;color:var(--text-dim);padding:40px 24px}
+
+/* L7 · skip-to-next-clip button (tiny ghost style, bottom-right of stage-card) */
+.skip-next-btn{position:absolute;bottom:10px;right:12px;background:transparent;border:1px dashed var(--border);color:var(--text-faint);font-size:11px;padding:4px 10px;border-radius:12px;cursor:pointer;font-family:inherit;letter-spacing:.3px;transition:color .15s, border-color .15s}
+.skip-next-btn:hover{color:var(--text-dim);border-color:var(--text-dim);border-style:solid}
+.stage-card{position:relative}
+
+@media (max-width:480px){
+  #app{padding:14px 12px 32px}
+  .stage-card{padding:22px 18px}
+  .stage-headline{font-size:20px}
+  .vocab-word{font-size:26px}
+  .pie-wrap{flex-direction:column;text-align:center}
+  .pie-disc{width:140px;height:140px;border-radius:70px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="chain-bar" id="chain-bar"></div>
+  <div id="progress-bar" aria-label="阶段进度"></div>
+  <div class="prog-label" id="prog-label"></div>
+  <div id="stage-container"><div class="boot-loading">加载 clip 数据中…</div></div>
+</div>
+
+<script>
+/* =========================================================================
+ * Practice v2 Demo · Flipod (Phase 1a, v2.1 — chain of 3 clips)
+ *   Clip 1 (叙事) → 单 clip end → Clip 2 (观点) → 单 clip end → Clip 3 (信息)
+ *   → 全局结束页 (累积归因饼图 + 每条 clip 表 + 累积生词)
+ *
+ * Spec: tmp/drafts/batch5-practice-v2-demo.md (v2.1, 2026-04-22)
+ * PRD : tmp/drafts/PRD-listening-flow-v2.md
+ *
+ * Phase 1a 范围：5 阶段流程 + 3 clip 链式 + 两层结束页。
+ *   - 不做 tab 结构（Phase 1b）
+ *   - 不挪 4 步 overlay（Phase 1b）
+ *   - 归因数据：仅"生词"闭环 (Stage 5)；其他 5 类只存 localStorage
+ * ========================================================================= */
+
+/* ---------- 1. CLIP TYPES + KEYWORDS + QUESTIONS ----------
+ * 数据外置在 ./practice-v2-demo-data.json，避免 HTML 文件膨胀。
+ * 题目按 spec 在每条 clip 内做类型差异化（叙事/观点/信息）。
+ */
+const CLIP_TYPES = ["叙事", "观点", "信息"];
+
+const KEYWORDS_PER_CLIP = [
+  ["Philippines", "McKinley", "1899", "independence", "iron hand"],
+  ["Hollywood", "Terminator", "Ex Machina", "Star Trek", "AI"],
+  ["Strait of Hormuz", "supply chain", "petrochemicals", "oil", "Odd Lots"]
+];
+
+/* Questions loaded from practice-v2-demo-questions-v2.json at boot (GPT-generated)
+ * 旧版硬编码（手写 18 题）已移除；GPT 版 21 题（3 clip × 7 题）在 JSON 中
+ */
+let QUESTIONS_PER_CLIP = null;  // filled in boot()
+
+/* ---------- 2. Functional words whitelist (Stage 3 fade) ---------- */
+const FUNC_WORDS = new Set([
+  "a","an","the","is","are","was","were","be","been","being","am",
+  "do","does","did","have","has","had","will","would","can","could",
+  "may","might","shall","should","must","and","or","but","so","if",
+  "because","although","when","while","where","why","how","what",
+  "that","this","these","those","which","who","whom","whose",
+  "in","on","at","of","for","to","with","from","by","as","into","about",
+  "not","no","yes","very","just","only","also","too","there","here",
+  "i","you","he","she","it","we","they","me","him","her","us","them",
+  "my","your","his","its","our","their","mine","yours"
+]);
+
+/* ---------- 3. Attribution tags (simplified to 3 chip · 2026-04-23 pivot) ----------
+ * 改动依据：6 chip (连读/弱读/语速/口音/其他) 是语言学家的分类；用户真实场景里只能
+ * 感知到"这个词不认识 / 这段声音糊 / 声音清楚但意思没懂"三类。每类都有用户能行动
+ * 的下一步（查词 / 多听 / 查语境）。其余 4 类合并进"听不太清（声层）"，"其他"
+ * 改为"听不懂意思（义层）"。
+ */
+const ATTR_TAGS = [
+  {key:"unknown",  label:"生词",        color:"#FFB347"},  // 词 层
+  {key:"unclear",  label:"听不太清",    color:"#8B9CF7"},  // 声 层（旧 linking/weak/speed/accent 合并）
+  {key:"meaning",  label:"听不懂意思",  color:"#5CD9A6"}   // 义 层（旧 other 升格）
+];
+
+/* Distractor types · Cambridge-based 7-class taxonomy (PRD v2.2 §3.0 + §4.6)
+ * 产品核心差异化卖点"识别误听模式"的数据基础（D2）
+ */
+const DISTRACTOR_TYPES = {
+  P1: { label:"音近陷阱",      desc:"Phonological confusion",    color:"#FF8AB8" },
+  P2: { label:"词面重叠",      desc:"Lexical overlap",           color:"#FFB347" },
+  P3: { label:"同义改写错位",  desc:"Paraphrase mismatch",       color:"#8B9CF7" },
+  P4: { label:"否定/修正陷阱", desc:"Negation / contradiction",  color:"#B68EE6" },
+  P5: { label:"指代/归属错误", desc:"Referent confusion",        color:"#5CD9A6" },
+  P6: { label:"细节错配",      desc:"Detail swap",               color:"#9AA0A6" },
+  P7: { label:"推断偏差",      desc:"Inference error",           color:"#67B3FF" }
+};
+
+const STAGE_LABELS = ["预听","Gist","Decode","渐隐","归因","词汇"];
+
+/* ---------- 4. Storage keys ---------- */
+const SESSION_KEY = "flipodV2DemoSession";
+const COMPLETED_KEY = "flipodV2DemoCompleted";
+const LAST_RUN_KEY = "flipodV2DemoLastRun";
+
+/* ---------- 5. Globals ---------- */
+let CLIPS = null;          // loaded from JSON
+let CURRENT_SENTS = null;  // sentences for current clip (recomputed on switch)
+let state = null;
+
+function freshState(){
+  return {
+    chain: CLIPS.map(c => c.audio),
+    current_clip_index: 0,
+    current_stage: 0,
+    visited_stages: [0],     // stages visited in current clip
+    clip_results: CLIPS.map(c => ({
+      clip_id: c.audio,
+      title: c.title,
+      type: null,                     // filled below (叙事/观点/信息)
+      // L1 (v2.2): Stage 0 预测题独立落点，不进 quiz_results
+      topic_familiarity_signal: null, // { correct, selected_option, topic_tag }
+      // D2 + D4 (v2.2): 每题记录 selected_option + explanation_opened
+      //   stage1: {correct, selected_option, explanation_opened}（单题 → 对象）
+      //   stage2/stage3: [{...}, ...]（多题 → 数组）
+      quiz_results: {},
+      attribution_segment: [],        // 段级 chip: ["unknown","linking",...]
+      vocab_picked: [],               // 用户在第二步选的生词: [{word, sentence_id}]
+      submitted_at: null
+    })),
+    // L7 (v2.2): 上滑/跳到下一条记录
+    skipped_clips: [],  // [{clip_id, skipped_at_stage, skipped_at}]
+    started_at: new Date().toISOString()
+  };
+}
+
+function curClip(){ return CLIPS[state.current_clip_index]; }
+function curResult(){ return state.clip_results[state.current_clip_index]; }
+function isLastClip(){ return state.current_clip_index === CLIPS.length - 1; }
+
+function saveSession(){ try{ localStorage.setItem(SESSION_KEY, JSON.stringify(state)); }catch(e){} }
+function clearSession(){ try{ localStorage.removeItem(SESSION_KEY); }catch(e){} }
+function pushCompleted(){
+  try{
+    const arr = JSON.parse(localStorage.getItem(COMPLETED_KEY) || "[]");
+    arr.push({...state, finished_at: new Date().toISOString()});
+    localStorage.setItem(COMPLETED_KEY, JSON.stringify(arr));
+    localStorage.setItem(LAST_RUN_KEY, new Date().toISOString());
+  }catch(e){}
+}
+
+/* ---------- 6. Sentence reconstruction ---------- */
+function buildSentences(lines){
+  const out = [];
+  let cur = null;
+  const ENDS = new Set([".","!","?",'"',"”","？","！","。"]);
+  for(const ln of lines){
+    if(!cur){
+      cur = { en: ln.en, zh: ln.zh, start: ln.start, end: ln.end, words: ln.words.slice() };
+    } else {
+      cur.en = cur.en.replace(/[ \t]+$/, "") + " " + ln.en;
+      cur.zh = cur.zh + ln.zh;
+      cur.end = ln.end;
+      cur.words = cur.words.concat(ln.words);
+    }
+    const trimmed = ln.en.trim();
+    const lastChar = trimmed.charAt(trimmed.length - 1);
+    if(ENDS.has(lastChar)){ out.push(cur); cur = null; }
+  }
+  if(cur) out.push(cur);
+  return out;
+}
+function rebuildSents(){ CURRENT_SENTS = buildSentences(curClip().lines); }
+
+/* ---------- 7. Audio engine ---------- */
+let audio = null;
+let audioForcePlayHandler = null;
+let timeUpdateHandler = null;
+let segmentPauseTime = null;
+
+function ensureAudio(){
+  // Always rebuild audio when clip changes (different src)
+  const wantSrc = curClip().audio;
+  if(!audio || !audio.src.endsWith(wantSrc)){
+    if(audio){ try{audio.pause();}catch(e){} }
+    audio = new Audio(wantSrc);
+    audio.preload = "auto";
+  }
+  return audio;
+}
+function detachAudioListeners(){
+  const a = ensureAudio();
+  if(audioForcePlayHandler){ a.removeEventListener("pause", audioForcePlayHandler); audioForcePlayHandler=null; }
+  if(timeUpdateHandler){ a.removeEventListener("timeupdate", timeUpdateHandler); timeUpdateHandler=null; }
+}
+function setupAudio({allowPause, onTimeUpdate, onEnded}){
+  const a = ensureAudio();
+  detachAudioListeners();
+  a.currentTime = 0;
+  segmentPauseTime = null;
+  if(!allowPause){
+    audioForcePlayHandler = ()=>{
+      if(a.ended) return;
+      a.play().catch(()=>{});
+    };
+    a.addEventListener("pause", audioForcePlayHandler);
+  }
+  if(onTimeUpdate){
+    timeUpdateHandler = ()=>{
+      if(segmentPauseTime !== null && a.currentTime >= segmentPauseTime){
+        a.pause(); segmentPauseTime = null;
+      }
+      onTimeUpdate(a.currentTime);
+    };
+    a.addEventListener("timeupdate", timeUpdateHandler);
+  }
+  if(onEnded){ a.addEventListener("ended", onEnded, {once:true}); }
+  return a;
+}
+function playFresh(){
+  const a = ensureAudio();
+  a.play().catch(()=> showAudioBlocked());
+}
+function showAudioBlocked(){
+  const note = document.querySelector(".audio-locked-note");
+  if(note){ note.textContent = "⚠️ 浏览器拦截自动播放，请点下方按钮开始"; note.style.color="var(--bad)"; }
+}
+function clipDuration(){
+  const a = ensureAudio();
+  if(!isNaN(a.duration) && a.duration > 0) return a.duration;
+  return CURRENT_SENTS[CURRENT_SENTS.length-1].end;
+}
+
+/* ---------- 8. Progress bars ---------- */
+function renderChainBar(isGlobalEnd){
+  const bar = document.getElementById("chain-bar");
+  bar.innerHTML = "";
+  CLIPS.forEach((c, i)=>{
+    const step = el("div","chain-step");
+    if(!isGlobalEnd){
+      if(i < state.current_clip_index) step.classList.add("done");
+      if(i === state.current_clip_index) step.classList.add("current");
+    } else {
+      step.classList.add("done");
+    }
+    step.innerHTML = `<span class="ball">${i+1}</span><span class="lbl">${CLIP_TYPES[i]}</span>`;
+    bar.appendChild(step);
+    if(i < CLIPS.length-1){
+      const sep = el("span","chain-sep");
+      sep.textContent = "›";
+      bar.appendChild(sep);
+    }
+  });
+}
+
+function renderProgress(){
+  const bar = document.getElementById("progress-bar");
+  bar.innerHTML = "";
+  const stage = state.current_stage;
+  const isClipEnd = stage === 6;     // single-clip end
+  const isGlobalEnd = stage === 99;  // global end
+  const total = curResult().attribution_segment.includes("unknown") ? 6 : 5;
+  for(let i=0;i<total;i++){
+    const d = document.createElement("div");
+    d.className = "prog-dot";
+    if(isClipEnd || isGlobalEnd){ d.classList.add("passed"); }
+    else {
+      if(state.visited_stages.includes(i) && i !== stage) d.classList.add("passed");
+      if(i === stage) d.classList.add("current");
+      if(state.visited_stages.includes(i) && i < stage){
+        d.classList.add("clickable");
+        d.addEventListener("click", ()=> goToStage(i));
+      }
+    }
+    d.title = STAGE_LABELS[i];
+    bar.appendChild(d);
+  }
+  const label = document.getElementById("prog-label");
+  if(isGlobalEnd){ label.textContent = "✓ 全部完成"; }
+  else if(isClipEnd){ label.textContent = `Clip ${state.current_clip_index+1}/${CLIPS.length} ✓ 完成`; }
+  else { label.textContent = `${STAGE_LABELS[stage]}　·　${stage+1}/${total}`; }
+}
+
+/* ---------- 9. Stage navigation ---------- */
+function goToStage(idx){
+  detachAudioListeners();
+  if(audio) audio.pause();
+  state.current_stage = idx;
+  if(idx >= 0 && idx <= 5 && !state.visited_stages.includes(idx)) state.visited_stages.push(idx);
+  saveSession();
+  renderChainBar(idx === 99);
+  renderProgress();
+  renderStage(idx);
+}
+
+function nextStage(){
+  let next = state.current_stage + 1;
+  // Skip Stage 5 if no "unknown" attribution in this clip
+  if(next === 5 && !curResult().attribution_segment.includes("unknown")) next = 6;
+  goToStage(next);
+}
+
+function nextClip(){
+  if(isLastClip()){ goToStage(99); return; }
+  state.current_clip_index += 1;
+  state.current_stage = 0;
+  state.visited_stages = [0];
+  rebuildSents();
+  saveSession();
+  renderChainBar(false);
+  renderProgress();
+  renderStage(0);
+}
+
+/* L7 (v2.2): 上滑/跳到下一条 — 记录 skipped_at_stage 并推进 */
+function skipCurrentClip(){
+  const stageAtSkip = state.current_stage;
+  state.skipped_clips.push({
+    clip_id: curClip().audio,
+    skipped_at_stage: stageAtSkip,
+    skipped_at: new Date().toISOString()
+  });
+  detachAudioListeners();
+  if(audio){ try{ audio.pause(); }catch(e){} }
+  saveSession();
+  if(isLastClip()){
+    // 最后一条跳 → 也进全局结束页（避免黑屏）
+    goToStage(99);
+  } else {
+    nextClip();
+  }
+}
+function renderSkipButton(container){
+  // 仅在 Stage 0-4 渲染；Stage 5 / end pages 不需要
+  const s = state.current_stage;
+  if(s < 0 || s > 4) return;
+  const card = container.querySelector(".stage-card");
+  if(!card) return;
+  const btn = el("button","skip-next-btn");
+  btn.type = "button";
+  btn.innerHTML = "⇢ 跳到下一条";
+  btn.title = "跳过当前 clip，进入下一条";
+  btn.addEventListener("click", ()=>{
+    if(!confirm("跳到下一条？本 clip 当前进度不会进入 completed 统计")) return;
+    skipCurrentClip();
+  });
+  card.appendChild(btn);
+}
+
+/* ---------- 10. Stage renderers ---------- */
+function renderStage(idx){
+  const c = document.getElementById("stage-container");
+  detachAudioListeners();
+  if(audio){ try{audio.pause();}catch(e){} }
+  c.innerHTML = "";
+  switch(idx){
+    case 0: renderStage0(c); break;
+    case 1: renderStage1(c); break;
+    case 2: renderStage2(c); break;
+    case 3: renderStage3(c); break;
+    case 4: renderStage4(c); break;
+    case 5: renderStage5(c); break;
+    case 6: renderSingleClipEnd(c); break;
+    case 99: renderGlobalEnd(c); break;
+    default: renderGlobalEnd(c);
+  }
+  // L7 · 在 Stage 0-4 追加"跳到下一条"入口
+  renderSkipButton(c);
+}
+
+/* ---- Stage 0 ---- */
+function renderStage0(c){
+  const clip = curClip();
+  const podName = clip.source.podcast || "";
+  const epName  = clip.source.episode || "";
+  const tsRange = (clip.source.timestamp_start && clip.source.timestamp_end)
+    ? ` · ${clip.source.timestamp_start}–${clip.source.timestamp_end}` : "";
+  const searchQ = encodeURIComponent(`${podName} ${epName}`.trim());
+  const appleUrl = `https://podcasts.apple.com/search?term=${searchQ}`;
+  const spotifyUrl = `https://open.spotify.com/search/${searchQ}`;
+  const card = el("div","stage-card");
+  card.innerHTML = `
+    <div class="stage-title">阶段 0 · 预听 — Clip ${state.current_clip_index+1}/${CLIPS.length}（${CLIP_TYPES[state.current_clip_index]}类）</div>
+    <div class="stage-headline">${esc(clip.title)}</div>
+    <div class="clip-source">来源：${esc(podName)} · ${esc(epName)}${tsRange}</div>
+    <div class="source-links">
+      <a class="src-link" href="${appleUrl}" target="_blank" rel="noopener">Apple Podcasts ↗</a>
+      <a class="src-link" href="${spotifyUrl}" target="_blank" rel="noopener">Spotify ↗</a>
+      <span class="src-note">·　听完一段精选片段，回原节目订阅听全集</span>
+    </div>
+    <div class="keyword-chips">
+      ${KEYWORDS_PER_CLIP[state.current_clip_index].map(k=>`<span class="keyword-chip">${esc(k)}</span>`).join("")}
+    </div>
+    <p style="color:var(--text-dim);font-size:13px;margin-bottom:18px">先看标题和关键词，用 10-15 秒猜一下这段在讲什么。</p>
+  `;
+  c.appendChild(card);
+  showQuestionsInline(c, getQuestions(0), ()=> nextStage());
+}
+
+/* ---- Stage 1 ---- */
+function renderStage1(c){
+  const card = el("div","stage-card");
+  card.innerHTML = `
+    <div class="stage-title">阶段 1 · 第一遍 · 把意思（Gist）</div>
+    <div class="stage-headline">只看中文，沉浸听一遍</div>
+    <div class="subtitle-area" id="sub-area"></div>
+    <div class="audio-bar-wrap"><div class="audio-bar"><div class="audio-fill" id="audio-fill"></div></div></div>
+    <div class="audio-locked-note">这一遍不能暂停 / 不能回退　·　听完会问 1 道主旨题</div>
+  `;
+  c.appendChild(card);
+  const sub = card.querySelector("#sub-area");
+  CURRENT_SENTS.forEach((ln, i)=>{
+    const d = el("div","sub-line zh-only");
+    d.dataset.idx = i;
+    d.innerHTML = `<span class="en">${esc(ln.en)}</span><span class="zh">${esc(ln.zh)}</span>`;
+    sub.appendChild(d);
+  });
+  const fill = card.querySelector("#audio-fill");
+  setupAudio({
+    allowPause:false,
+    onTimeUpdate:(t)=>{ fill.style.width = Math.min(100,(t/clipDuration())*100)+"%"; highlightLine(sub, t); },
+    onEnded:()=>{ showQuestionsInline(c, getQuestions(1), ()=> nextStage()); }
+  });
+  playFresh();
+}
+
+/* ---- Stage 2 ---- */
+function renderStage2(c){
+  const card = el("div","stage-card");
+  card.innerHTML = `
+    <div class="stage-title">阶段 2 · 第二遍 · 解码（Decode）</div>
+    <div class="stage-headline">看英文字幕，需要时点 <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:middle;color:var(--accent)"><text x="1" y="11" font-size="11" font-family="serif" font-weight="700" fill="currentColor">文</text><text x="12" y="22" font-size="11" font-family="serif" font-weight="700" fill="currentColor">A</text></svg> 看中文</div>
+    <div class="subtitle-area" id="sub-area"></div>
+    <div class="audio-bar-wrap"><div class="audio-bar"><div class="audio-fill" id="audio-fill"></div></div></div>
+    <div class="audio-controls">
+      <button class="audio-btn" id="back3">↶ 3s</button>
+      <button class="audio-btn primary" id="playpause">⏸</button>
+    </div>
+    <div class="audio-locked-note">可暂停　·　只能后退 3 秒，不给快进</div>
+  `;
+  c.appendChild(card);
+  const sub = card.querySelector("#sub-area");
+  CURRENT_SENTS.forEach((ln,i)=>{
+    const d = el("div","sub-line");
+    d.dataset.idx = i;
+    d.innerHTML = `
+      <span class="en">${esc(ln.en)}</span>
+      <button class="zh-toggle" data-i="${i}" title="看中文" aria-label="看中文">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+          <text x="1" y="11" font-size="11" font-family="serif" font-weight="700" fill="currentColor">文</text>
+          <text x="12" y="22" font-size="11" font-family="serif" font-weight="700" fill="currentColor">A</text>
+        </svg>
+      </button>
+      <div class="zh-inline">${esc(ln.zh)}</div>
+    `;
+    sub.appendChild(d);
+  });
+  sub.querySelectorAll(".zh-toggle").forEach(btn=>{
+    btn.addEventListener("click", e=>{
+      e.stopPropagation();
+      const line = btn.closest(".sub-line");
+      line.classList.toggle("zh-shown");
+      btn.classList.toggle("active", line.classList.contains("zh-shown"));
+    });
+  });
+  const fill = card.querySelector("#audio-fill");
+  const pp = card.querySelector("#playpause");
+  const back3 = card.querySelector("#back3");
+  back3.addEventListener("click", ()=>{ audio.currentTime = Math.max(0, audio.currentTime - 3); });
+  pp.addEventListener("click", ()=>{
+    if(audio.paused){ audio.play(); pp.textContent="⏸"; }
+    else { audio.pause(); pp.textContent="▶"; }
+  });
+  setupAudio({
+    allowPause:true,
+    onTimeUpdate:(t)=>{ fill.style.width = Math.min(100,(t/clipDuration())*100)+"%"; highlightLine(sub, t); },
+    // L3 (v2.2): 整段听完后统一答题，答题期间音频不恢复播放
+    onEnded:()=>{
+      pp.textContent="▶"; pp.disabled = true; back3.disabled = true;
+      detachAudioListeners();
+      card.querySelector(".audio-locked-note").textContent = "这段结束 · 答完下面 2 道题进入下一阶段";
+      showQuestionsInline(c, getQuestions(2), ()=> nextStage());
+    }
+  });
+  playFresh();
+}
+
+/* ---- Stage 3 ---- */
+function renderStage3(c){
+  const card = el("div","stage-card");
+  card.innerHTML = `
+    <div class="stage-title">阶段 3 · 第三遍 · 渐隐</div>
+    <div class="stage-headline">实词消失，靠功能词架子撑住</div>
+    <div class="subtitle-area" id="sub-area"></div>
+    <div class="audio-bar-wrap"><div class="audio-bar"><div class="audio-fill" id="audio-fill"></div></div></div>
+    <div class="audio-controls">
+      <button class="audio-btn" id="back3">↶ 3s</button>
+      <button class="audio-btn primary" id="playpause">⏸</button>
+    </div>
+    <div class="audio-locked-note">实词被隐藏（占位 ▁），高级词（B2+）和功能词保留</div>
+  `;
+  c.appendChild(card);
+  const sub = card.querySelector("#sub-area");
+  CURRENT_SENTS.forEach((ln,i)=>{
+    const d = el("div","sub-line");
+    d.dataset.idx = i;
+    const wordsHtml = ln.words.map(w=>{
+      const visible = isWordVisible(w);
+      const cls = visible ? "word word-visible" : "word word-hidden";
+      const text = visible ? w.word : "▁".repeat(Math.max(2, w.word.length));
+      return `<span class="${cls}" data-w-start="${w.start}" data-w-end="${w.end}">${esc(text)}</span>`;
+    }).join(" ");
+    d.innerHTML = wordsHtml;
+    sub.appendChild(d);
+  });
+  const fill = card.querySelector("#audio-fill");
+  const pp = card.querySelector("#playpause");
+  const back3 = card.querySelector("#back3");
+  back3.addEventListener("click", ()=>{ audio.currentTime = Math.max(0, audio.currentTime - 3); });
+  pp.addEventListener("click", ()=>{
+    if(audio.paused){ audio.play(); pp.textContent="⏸"; }
+    else { audio.pause(); pp.textContent="▶"; }
+  });
+  setupAudio({
+    allowPause:true,
+    onTimeUpdate:(t)=>{ fill.style.width = Math.min(100,(t/clipDuration())*100)+"%"; highlightLine(sub, t); },
+    // L3 (v2.2): 整段听完后统一答题，答题期间音频不恢复播放
+    onEnded:()=>{
+      pp.textContent="▶"; pp.disabled = true; back3.disabled = true;
+      detachAudioListeners();
+      card.querySelector(".audio-locked-note").textContent = "这段结束 · 答完下面 2-3 道题进入下一阶段";
+      showQuestionsInline(c, getQuestions(3), ()=> nextStage());
+    }
+  });
+  playFresh();
+}
+
+function isWordVisible(w){
+  const lower = (w.word||"").toLowerCase().replace(/[^a-z']+$/,"").replace(/^[^a-z']+/,"");
+  if(FUNC_WORDS.has(lower)) return true;
+  if(w.cefr === "B2" || w.cefr === "C1" || w.cefr === "C2") return true;
+  return false;
+}
+
+/* ---- Stage 4 ---- */
+function renderStage4(c){
+  const card = el("div","stage-card");
+  card.innerHTML = `
+    <div class="stage-title">阶段 4 · 检验 + 归因</div>
+    <div class="stage-headline">先无字幕听一遍，再标记没听清的句子</div>
+    <div id="s4-phase">
+      <div style="text-align:center;padding:36px 12px">
+        <div style="font-size:36px;margin-bottom:14px">🎧</div>
+        <div id="s4-status" style="color:var(--text-dim);font-size:14px;margin-bottom:18px">点下方播放 → 全程无字幕</div>
+        <div class="audio-bar"><div class="audio-fill" id="audio-fill"></div></div>
+        <button class="audio-btn primary" id="s4-play" style="margin-top:18px">▶</button>
+      </div>
+    </div>
+  `;
+  c.appendChild(card);
+  const fill = card.querySelector("#audio-fill");
+  const playBtn = card.querySelector("#s4-play");
+  let started = false;
+  playBtn.addEventListener("click", ()=>{
+    if(started) return;
+    started = true; playBtn.disabled = true; playBtn.textContent = "⏸";
+    setupAudio({
+      allowPause:false,
+      onTimeUpdate:(t)=>{ fill.style.width = Math.min(100,(t/clipDuration())*100)+"%"; },
+      onEnded:()=>{ renderS4Attribution(card); }
+    });
+    playFresh();
+    card.querySelector("#s4-status").textContent = "正在播放（无字幕，不可暂停）...";
+  });
+}
+
+/* Two-step attribution per spec increment:
+ *   Step 1 (always): segment-level chip multi-select (6 tags)
+ *   Step 2 (only if "unknown" was picked): per-sentence vocab refinement
+ *     - tap a sentence → its B2+ words become tappable chips
+ *     - tap word → toggle picked
+ *     - "完成" → save vocab_picked → Stage 5; "我说不清" → Stage 5 (CEFR fallback)
+ */
+const ATTR_ICONS = {
+  // 词层：问号 bubble（"这词是啥"）
+  unknown: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  // 声层：耳朵（"听不清"）
+  unclear: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.5a6.5 6.5 0 1 1 13 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0"/><path d="M15 8.5a2.5 2.5 0 0 0-5 0"/></svg>',
+  // 义层：思考气泡（"懂词不懂意思"）
+  meaning: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>'
+};
+
+function renderS4Attribution(card){
+  const phase = card.querySelector("#s4-phase");
+  const segPicked = new Set();
+
+  function renderStep1(){
+    phase.innerHTML = `
+      <div class="attr-step1">
+        <div class="attr-q">这段你主要卡在哪？</div>
+        <div class="chip-grid" id="seg-chips">
+          ${ATTR_TAGS.map(t=>`
+            <button class="seg-chip" data-key="${t.key}" style="--chip-color:${t.color}">
+              <span class="seg-chip-icon">${ATTR_ICONS[t.key] || ""}</span>
+              <span>${t.label}</span>
+            </button>
+          `).join("")}
+        </div>
+        <div class="attr-cta">
+          <button class="cta-primary" id="seg-submit" disabled>提交</button>
+          <button class="cta-secondary" id="seg-skip">全都听懂了</button>
+        </div>
+      </div>
+    `;
+    const grid = phase.querySelector("#seg-chips");
+    const submitBtn = phase.querySelector("#seg-submit");
+    grid.querySelectorAll(".seg-chip").forEach(chip=>{
+      chip.addEventListener("click", ()=>{
+        const k = chip.dataset.key;
+        if(segPicked.has(k)){ segPicked.delete(k); chip.classList.remove("selected"); }
+        else { segPicked.add(k); chip.classList.add("selected"); }
+        submitBtn.disabled = (segPicked.size === 0);
+      });
+    });
+    submitBtn.addEventListener("click", ()=>{
+      const r = curResult();
+      r.attribution_segment = Array.from(segPicked);
+      r.submitted_at = new Date().toISOString();
+      saveSession();
+      if(segPicked.has("unknown")){ renderStep2(); }
+      else { nextStage(); }
+    });
+    phase.querySelector("#seg-skip").addEventListener("click", ()=>{
+      const r = curResult();
+      r.attribution_segment = [];
+      r.vocab_picked = [];
+      r.submitted_at = new Date().toISOString();
+      saveSession();
+      nextStage();
+    });
+  }
+
+  function renderStep2(){
+    const wordPicks = []; // [{word, sentence_id}]
+    let activeIdx = null;
+    phase.innerHTML = `
+      <div class="attr-step2">
+        <div class="attr-q">点一下有生词的句子，告诉系统是哪些词</div>
+        <div class="attr-sub">点句子展开 → B2+ 词变成 chip → 点词选中　·　可以多选</div>
+        <div id="vocab-pick-list"></div>
+        <div class="attr-cta">
+          <button class="cta-primary" id="vp-done" disabled>完成</button>
+          <button class="cta-secondary" id="vp-skip">我说不清具体哪个词</button>
+        </div>
+      </div>
+    `;
+    const list = phase.querySelector("#vocab-pick-list");
+    const doneBtn = phase.querySelector("#vp-done");
+
+    function rebuild(){
+      list.innerHTML = "";
+      CURRENT_SENTS.forEach((ln, sidx)=>{
+        const row = el("div","vp-row");
+        row.dataset.idx = sidx;
+        const sentencePicks = wordPicks.filter(p => p.sentence_id === sidx);
+        if(sentencePicks.length) row.classList.add("has-pick");
+        if(activeIdx === sidx) row.classList.add("expanded");
+        // Header
+        const head = el("div","vp-head");
+        head.innerHTML = `
+          <div class="vp-text">
+            <div class="en">${esc(ln.en)}</div>
+            <div class="zh">${esc(ln.zh)}</div>
+          </div>
+          <button class="vp-play" title="再听一遍">▶</button>
+        `;
+        head.querySelector(".vp-text").addEventListener("click", ()=>{
+          activeIdx = (activeIdx === sidx) ? null : sidx;
+          rebuild();
+        });
+        head.querySelector(".vp-play").addEventListener("click", e=>{
+          e.stopPropagation();
+          playSentence(sidx, row);
+        });
+        row.appendChild(head);
+        // Word picker (when expanded)
+        if(activeIdx === sidx){
+          const picker = el("div","vp-words");
+          const b2plus = ln.words.filter(w => w.cefr === "B2" || w.cefr === "C1" || w.cefr === "C2");
+          if(b2plus.length === 0){
+            picker.innerHTML = `<span class="vp-empty">这句没有 B2+ 的词，换一句试试</span>`;
+          } else {
+            picker.innerHTML = b2plus.map(w=>{
+              const sel = wordPicks.some(p => p.sentence_id === sidx && p.word === w.word) ? "selected" : "";
+              return `<button class="vp-word ${sel}" data-word="${esc(w.word)}" data-cefr="${w.cefr}">${esc(w.word)}<span class="vp-cefr">${w.cefr}</span></button>`;
+            }).join("");
+            picker.querySelectorAll(".vp-word").forEach(btn=>{
+              btn.addEventListener("click", ()=>{
+                const wd = btn.dataset.word;
+                const ix = wordPicks.findIndex(p => p.sentence_id === sidx && p.word === wd);
+                if(ix >= 0) wordPicks.splice(ix, 1);
+                else wordPicks.push({ word: wd, sentence_id: sidx });
+                rebuild();
+              });
+            });
+          }
+          row.appendChild(picker);
+        }
+        // Picks summary (when collapsed but has picks)
+        if(activeIdx !== sidx && sentencePicks.length){
+          const sum = el("div","vp-picksum");
+          sum.innerHTML = sentencePicks.map(p=>`<span class="vp-pickchip">${esc(p.word)}</span>`).join("");
+          row.appendChild(sum);
+        }
+        list.appendChild(row);
+      });
+      doneBtn.disabled = (wordPicks.length === 0);
+    }
+
+    phase.querySelector("#vp-done").addEventListener("click", ()=>{
+      const r = curResult();
+      r.vocab_picked = wordPicks.slice();
+      saveSession();
+      nextStage();
+    });
+    phase.querySelector("#vp-skip").addEventListener("click", ()=>{
+      const r = curResult();
+      r.vocab_picked = []; // empty → Stage 5 falls back to CEFR auto-pick
+      saveSession();
+      nextStage();
+    });
+
+    rebuild();
+  }
+
+  renderStep1();
+}
+
+function playSentence(idx, rowEl){
+  detachAudioListeners();
+  const ln = CURRENT_SENTS[idx];
+  const a = ensureAudio();
+  segmentPauseTime = ln.end;
+  document.querySelectorAll(".attr-line.playing").forEach(r=>r.classList.remove("playing"));
+  if(rowEl) rowEl.classList.add("playing");
+  setupAudio({ allowPause:true, onTimeUpdate:()=>{}, onEnded:()=>{} });
+  a.currentTime = ln.start;
+  a.play().catch(()=>{});
+  setTimeout(()=>{ if(rowEl) rowEl.classList.remove("playing"); }, (ln.end - ln.start)*1000 + 200);
+}
+
+/* ---- Stage 5 (vocab review) ----
+ * 词来源优先级：
+ *   1. 用户在 Stage 4 第二步亲自点选的 vocab_picked（user-picked，最高优先）
+ *   2. 兜底：从 CURRENT_SENTS 中筛 CEFR ≥ C1 的词，去重选 3-5 个
+ */
+function renderStage5(c){
+  const card = el("div","stage-card");
+  const r = curResult();
+  const sourceLabel = r.vocab_picked.length > 0 ? "你刚才标的生词" : "系统从这条 clip 的 C1+ 词里挑的";
+
+  let picked = [];
+  if(r.vocab_picked.length > 0){
+    // Use user-picked words; rebuild full word objects from sentences
+    r.vocab_picked.forEach(({word, sentence_id})=>{
+      const sent = CURRENT_SENTS[sentence_id];
+      if(!sent) return;
+      const w = sent.words.find(x => x.word === word);
+      if(w) picked.push({ ...w, sentence_idx: sentence_id });
+    });
+  }
+  if(picked.length === 0){
+    // Fallback: CEFR auto-pick
+    const pool = [];
+    CURRENT_SENTS.forEach((ln, sidx)=>{
+      ln.words.forEach(w=>{
+        if(w.cefr === "C1" || w.cefr === "C2"){
+          pool.push({ ...w, sentence_idx: sidx });
+        }
+      });
+    });
+    const seen = new Set();
+    for(const w of pool){
+      const k = w.word.toLowerCase();
+      if(seen.has(k)) continue;
+      seen.add(k); picked.push(w);
+      if(picked.length >= 5) break;
+    }
+  }
+  let cur = 0;
+  card.innerHTML = `
+    <div class="stage-title">阶段 5 · 词汇复习</div>
+    <div class="stage-headline">${esc(sourceLabel)}</div>
+    <div id="vocab-slot"></div>
+    <div class="vocab-pager">
+      <div class="vocab-counter" id="v-counter"></div>
+      <div class="vocab-pager-btns">
+        <button id="v-prev">上一个</button>
+        <button id="v-next">下一个</button>
+      </div>
+    </div>
+    <div class="attr-cta">
+      <button class="cta-secondary" id="v-skip">跳过 → 本 clip 结束</button>
+    </div>
+  `;
+  c.appendChild(card);
+
+  function renderOne(){
+    const w = picked[cur];
+    const ln = CURRENT_SENTS[w.sentence_idx];
+    const slot = card.querySelector("#vocab-slot");
+    slot.innerHTML = `
+      <div class="vocab-card">
+        <div class="vocab-word">${esc(w.word)}<span class="vocab-cefr">${w.cefr}</span></div>
+        <div class="vocab-zh empty">释义暂缺（demo 不接 GPT 兜底，按 PRD §4.5）</div>
+        <div class="vocab-example">${esc(ln.en)}<br><span style="color:var(--text-faint);font-size:12px">${esc(ln.zh)}</span></div>
+        <button class="vocab-listen" id="v-listen">🔊 听这个词</button>
+      </div>
+    `;
+    card.querySelector("#v-counter").textContent = `${cur+1} / ${picked.length}`;
+    card.querySelector("#v-prev").disabled = cur === 0;
+    card.querySelector("#v-next").textContent = (cur === picked.length-1) ? "完成 → 本 clip 结束" : "下一个";
+    card.querySelector("#v-listen").addEventListener("click", ()=>{
+      const a = ensureAudio();
+      detachAudioListeners();
+      const start = Math.max(0, w.start - 0.05);
+      const end = w.end + 0.05;
+      segmentPauseTime = end;
+      setupAudio({ allowPause:true, onTimeUpdate:()=>{}, onEnded:()=>{} });
+      a.currentTime = start;
+      a.play().catch(()=>{});
+    });
+  }
+
+  if(picked.length === 0){
+    card.querySelector("#vocab-slot").innerHTML = `<p style="color:var(--text-dim);text-align:center;padding:24px">本 clip 没有 C1+ 词，跳过此阶段。</p>`;
+    card.querySelector(".vocab-pager").style.display = "none";
+    card.querySelector("#v-skip").textContent = "继续 → 本 clip 结束";
+  } else {
+    renderOne();
+  }
+  card.querySelector("#v-prev").addEventListener("click", ()=>{ if(cur>0){ cur--; renderOne(); } });
+  card.querySelector("#v-next").addEventListener("click", ()=>{
+    if(cur === picked.length-1){ goToStage(6); }
+    else { cur++; renderOne(); }
+  });
+  card.querySelector("#v-skip").addEventListener("click", ()=>{ goToStage(6); });
+}
+
+/* Helper: 统一遍历 quiz_results（新 schema） */
+function iterateQuizResults(r, cb){
+  ["stage1","stage2","stage3"].forEach(sk => {
+    const v = r.quiz_results ? r.quiz_results[sk] : undefined;
+    if(!v) return;
+    const arr = Array.isArray(v) ? v : [v];
+    arr.forEach((rec, i) => cb(rec, sk, i));
+  });
+}
+function tallyAnswers(r){
+  let correct = 0, answered = 0;
+  iterateQuizResults(r, rec => { answered++; if(rec.correct) correct++; });
+  return { correct, answered };
+}
+
+/* ---- Single-clip end page ---- */
+function renderSingleClipEnd(c){
+  const r = curResult();
+  const { correct, answered } = tallyAnswers(r);
+  const tagSummary = ATTR_TAGS.filter(t=> r.attribution_segment.includes(t.key))
+    .map(t=>`<span class="seg-chip selected" style="--chip-color:${t.color};background:${t.color};border-color:${t.color}"><span class="seg-chip-icon">${ATTR_ICONS[t.key]||""}</span><span>${t.label}</span></span>`).join(" ");
+
+  // D2 · per-clip distractor tally（本 clip 的误听模式快照）
+  const clipQs = QUESTIONS_PER_CLIP[state.current_clip_index] || [];
+  const clipDT = {};
+  iterateQuizResults(r, (rec, stageKey, i) => {
+    if(rec.correct) return;
+    const stageNum = +stageKey.slice(5);
+    const stageQs = clipQs.filter(q => q.stage === stageNum);
+    const q = stageQs[i];
+    if(!q || !q.explanation || !Array.isArray(q.explanation.why_wrong)) return;
+    const hit = q.explanation.why_wrong.find(w => typeof w === "object" && w.option_idx === rec.selected_option);
+    if(hit && hit.distractor_type) clipDT[hit.distractor_type] = (clipDT[hit.distractor_type] || 0) + 1;
+  });
+  const clipTopDT = Object.entries(clipDT).sort((a,b)=>b[1]-a[1]).slice(0,2);
+  const dtypeLine = clipTopDT.length > 0
+    ? `<div class="end-loop-note" style="background:rgba(103,179,255,.08);border-color:rgba(103,179,255,.18);font-size:13px;color:var(--text)">
+         本 clip 最常被 <b style="color:${DISTRACTOR_TYPES[clipTopDT[0][0]].color}">${clipTopDT[0][0]} · ${DISTRACTOR_TYPES[clipTopDT[0][0]].label}</b> 类干扰项误导 <b>${clipTopDT[0][1]}</b> 次${clipTopDT[1] ? `，其次是 ${clipTopDT[1][0]} · ${DISTRACTOR_TYPES[clipTopDT[1][0]].label}（${clipTopDT[1][1]} 次）` : ""}
+       </div>`
+    : "";
+
+  const card = el("div","stage-card end-card");
+  card.innerHTML = `
+    <div class="end-emoji">✓</div>
+    <div class="end-title">Clip ${state.current_clip_index+1}/${CLIPS.length} 完成</div>
+    <div class="end-sub">${esc(curClip().title)}　·　${CLIP_TYPES[state.current_clip_index]}类</div>
+    <div class="end-stat"><span class="end-stat-k">本 clip 答对 / 总题</span><span class="end-stat-v">${correct} / ${answered}</span></div>
+    <div class="end-stat"><span class="end-stat-k">本 clip 段级归因</span><span class="end-stat-v">${r.attribution_segment.length} 类</span></div>
+    ${dtypeLine}
+    ${tagSummary ? `
+      <div class="end-section-title">本 clip 标的归因</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">${tagSummary}</div>
+    ` : ""}
+    ${r.vocab_picked.length > 0 ? `
+      <div class="end-section-title">本 clip 标的生词（${r.vocab_picked.length}）</div>
+      <div style="color:var(--text);font-size:14px;margin-bottom:14px">${r.vocab_picked.map(v=>esc(v.word)).join("　·　")}</div>
+    ` : ""}
+    <div class="end-cta">
+      <button class="cta-primary" id="next-btn">${isLastClip() ? "查看总结 →" : "继续下一条 →"}</button>
+    </div>
+  `;
+  c.appendChild(card);
+  card.querySelector("#next-btn").addEventListener("click", ()=> nextClip());
+}
+
+/* ---- Global end page ---- */
+function renderGlobalEnd(c){
+  pushCompleted();
+  // Aggregate
+  const aggAttr = {};
+  ATTR_TAGS.forEach(t=> aggAttr[t.key] = 0);
+  const aggVocab = []; // [{word, cefr, from_clip_title}]
+  // D2 (v2.2): distractor_type tally · 产品「识别误听模式」的呈现层
+  const dtypeTally = {}; Object.keys(DISTRACTOR_TYPES).forEach(k => dtypeTally[k] = 0);
+  state.clip_results.forEach((r, idx)=>{
+    r.attribution_segment.forEach(k => { aggAttr[k] = (aggAttr[k]||0) + 1; });
+    r.vocab_picked.forEach(({word})=>{
+      if(!aggVocab.find(x=>x.word.toLowerCase() === word.toLowerCase())){
+        const clip = CLIPS[idx];
+        let cefr = "C1";
+        outer: for(const ln of clip.lines){
+          for(const wd of ln.words){
+            if(wd.word === word){ cefr = wd.cefr || "C1"; break outer; }
+          }
+        }
+        aggVocab.push({ word, cefr, from: clip.title });
+      }
+    });
+    // 把 quiz_results 里的错题按 selected_option 回查对应 distractor_type
+    const clipQs = QUESTIONS_PER_CLIP[idx] || [];
+    iterateQuizResults(r, (rec, stageKey, i) => {
+      if(rec.correct) return;  // 只统计错选
+      const stageNum = +stageKey.slice(5);
+      const stageQs = clipQs.filter(q => q.stage === stageNum);
+      const q = stageQs[i];
+      if(!q || !q.explanation || !Array.isArray(q.explanation.why_wrong)) return;
+      const hit = q.explanation.why_wrong.find(w => typeof w === "object" && w.option_idx === rec.selected_option);
+      if(hit && hit.distractor_type && dtypeTally.hasOwnProperty(hit.distractor_type)){
+        dtypeTally[hit.distractor_type] += 1;
+      }
+    });
+  });
+  const totalAttr = Object.values(aggAttr).reduce((a,b)=>a+b,0);
+  const totalDT = Object.values(dtypeTally).reduce((a,b)=>a+b,0);
+  // 找错选最多的 1-2 类 distractor_type
+  const topDT = Object.entries(dtypeTally)
+    .filter(([,n]) => n > 0)
+    .sort((a,b) => b[1] - a[1])
+    .slice(0, 2);
+
+  // Pie chart via conic-gradient
+  let pieGrad = "";
+  if(totalAttr > 0){
+    let acc = 0;
+    const segs = ATTR_TAGS.map(t=>{
+      const v = aggAttr[t.key];
+      if(v <= 0) return null;
+      const pct = (v/totalAttr)*100;
+      const seg = `${t.color} ${acc}% ${acc+pct}%`;
+      acc += pct;
+      return seg;
+    }).filter(Boolean);
+    pieGrad = `conic-gradient(${segs.join(", ")})`;
+  } else {
+    pieGrad = `var(--bg-card-hi)`;
+  }
+
+  // Per-clip table
+  const rows = state.clip_results.map((r, i)=>{
+    const { correct, answered } = tallyAnswers(r);
+    return `
+      <tr>
+        <td><span class="ttype">${i+1} ${CLIP_TYPES[i]}</span></td>
+        <td>${esc(r.title.length > 18 ? r.title.slice(0,18) + "…" : r.title)}</td>
+        <td>${correct}/${answered}</td>
+        <td>${r.attribution_segment.length}</td>
+        <td>${r.vocab_picked.length}</td>
+      </tr>
+    `;
+  }).join("");
+
+  // 消费路径（简化后 3 类）— 对应 PRD §10.3 的简化版
+  const LOOP_INFO = {
+    unknown: {p1:"✓ 进生词本 + Stage 5 复习", p2:"已闭环"},
+    unclear: {p1:"聚合到弱点图谱", p2:"P2 推多听练习 / 降速重播"},
+    meaning: {p1:"聚合到弱点图谱", p2:"P2 推语境/搭配/习语专项"}
+  };
+
+  // D2 highlight row（PRD v2.2 §4.6 核心展示）
+  const dtypeHeadline = (totalDT > 0 && topDT.length > 0)
+    ? `你最常被 <b style="color:${DISTRACTOR_TYPES[topDT[0][0]].color}">${topDT[0][0]} · ${DISTRACTOR_TYPES[topDT[0][0]].label}</b> 类干扰项误导 <b>${topDT[0][1]}</b> 次` +
+      (topDT[1] ? `，其次是 <b style="color:${DISTRACTOR_TYPES[topDT[1][0]].color}">${topDT[1][0]} · ${DISTRACTOR_TYPES[topDT[1][0]].label}</b>（${topDT[1][1]} 次）` : "")
+    : "本次没有错题（或错题不足以判断误听模式）";
+  const dtypeBarsHTML = Object.entries(DISTRACTOR_TYPES).map(([k, meta]) => {
+    const n = dtypeTally[k] || 0;
+    const pct = totalDT > 0 ? (n/totalDT)*100 : 0;
+    return `
+      <div class="weak-row">
+        <div class="weak-row-head">
+          <span class="weak-dot" style="background:${meta.color}"></span>
+          <span class="weak-lbl">${k} · ${meta.label}</span>
+          <span class="weak-num">${n}</span>
+        </div>
+        <div class="weak-bar"><div class="weak-fill" style="width:${pct}%;background:${meta.color}"></div></div>
+        <div class="weak-loop"><span class="loop-pill p2" style="font-size:10px">${meta.desc}</span></div>
+      </div>`;
+  }).join("");
+
+  const card = el("div","stage-card end-card");
+  card.innerHTML = `
+    <div class="end-emoji">🎯</div>
+    <div class="end-title">3 条 clip 全部完成</div>
+    <div class="end-sub">叙事 → 观点 → 信息　·　Phase 1a 流程闭环</div>
+
+    <div class="end-section-title">误听模式（distractor type）</div>
+    <div class="end-loop-note" style="font-size:13px;color:var(--text)">${dtypeHeadline}</div>
+    <div class="weakness-bars" style="margin-top:10px">${dtypeBarsHTML}</div>
+
+    <div class="end-section-title">累积归因分布（3 条 clip 总和）</div>
+    <div class="pie-wrap">
+      <div class="pie-disc" style="background:${pieGrad}"></div>
+      <div class="pie-legend">
+        ${ATTR_TAGS.map(t=>{
+          const v = aggAttr[t.key];
+          const pct = totalAttr>0 ? Math.round(v/totalAttr*100) : 0;
+          return `<div class="pie-row"><span class="pie-dot" style="background:${t.color}"></span><span class="pie-lbl">${t.label}</span><span class="pie-num">${v}　${totalAttr>0?'('+pct+'%)':''}</span></div>`;
+        }).join("")}
+      </div>
+    </div>
+
+    <div class="end-section-title">每条 clip 答题统计</div>
+    <table class="clip-table">
+      <thead><tr><th>类型</th><th>标题</th><th>对/总</th><th>归因类</th><th>生词</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    ${aggVocab.length > 0 ? `
+      <div class="end-section-title">累积生词（${aggVocab.length}）</div>
+      <div class="vocab-summary">
+        ${aggVocab.map(v=>`
+          <div class="vocab-sum-row">
+            <div class="vocab-sum-word">${esc(v.word)}<span class="vocab-sum-cefr">${esc(v.cefr)}</span></div>
+            <div class="vocab-sum-from">来自：${esc(v.from)}</div>
+          </div>
+        `).join("")}
+      </div>
+    ` : `
+      <div class="end-section-title">累积生词</div>
+      <div style="color:var(--text-faint);font-size:13px;margin-bottom:14px">本次没有标注生词，跳过此节</div>
+    `}
+
+    <div class="end-section-title">弱点图谱与反馈闭环（PRD §10.3）</div>
+    <div class="weakness-bars">
+      ${ATTR_TAGS.map(t=>{
+        const cnt = aggAttr[t.key];
+        const pct = totalAttr > 0 ? (cnt/totalAttr)*100 : 0;
+        return `
+          <div class="weak-row">
+            <div class="weak-row-head">
+              <span class="weak-dot" style="background:${t.color}"></span>
+              <span class="weak-lbl">${t.label}</span>
+              <span class="weak-num">${cnt}</span>
+            </div>
+            <div class="weak-bar"><div class="weak-fill" style="width:${pct}%;background:${t.color}"></div></div>
+            <div class="weak-loop"><span class="loop-pill p1">本期：${LOOP_INFO[t.key].p1}</span><span class="loop-pill p2">P2：${LOOP_INFO[t.key].p2}</span></div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+    <div class="end-loop-note">
+      Phase 1a 闭环承诺：仅"生词"标签全闭环（→ Stage 5 → 累积生词）；"听不太清 / 听不懂意思"只存数据。<br>
+      把 6 chip 简化成 3 chip（词 / 声 / 义），用户真能感知的分层就这三种。
+    </div>
+
+    <div class="end-cta">
+      <button class="cta-primary" id="restart">再走一遍（清记录回 Clip 1）</button>
+    </div>
+  `;
+  c.appendChild(card);
+  card.querySelector("#restart").addEventListener("click", ()=>{
+    clearSession();
+    state = freshState();
+    state.clip_results.forEach((r,i)=> r.type = CLIP_TYPES[i]);
+    rebuildSents();
+    saveSession();
+    renderChainBar(false);
+    renderProgress();
+    renderStage(0);
+  });
+}
+
+/* ---------- 11. Question UI ---------- */
+function getQuestions(stageIdx){
+  return QUESTIONS_PER_CLIP[state.current_clip_index].filter(q => q.stage === stageIdx);
+}
+function showQuestionsInline(container, qs, onAllDone){
+  const wrap = el("div","");
+  wrap.style.marginTop = "20px";
+  container.appendChild(wrap);
+  let qi = 0;
+  function show(){
+    wrap.innerHTML = "";
+    if(qi >= qs.length){ onAllDone(); return; }
+    const q = qs[qi];
+    const card = el("div","");
+    card.style.cssText = "background:var(--bg-secondary);border:1px solid var(--border);border-radius:14px;padding:20px;margin-top:16px";
+    card.innerHTML = `
+      <div class="q-progress">题 ${qi+1} / ${qs.length}</div>
+      <div class="q-stem">${esc(q.question)}</div>
+      <div class="q-options"></div>
+      <div class="q-actions" style="display:none"></div>
+      <div class="q-explain" style="display:none"></div>
+    `;
+    const opts = card.querySelector(".q-options");
+    const actions = card.querySelector(".q-actions");
+    const explainSlot = card.querySelector(".q-explain");
+    let picked = -1;
+    let qRecord = null;  // D2 + D4: 用户答题的 selected_option + explanation_opened 指针
+
+    function renderActions(isCorrect){
+      // 主/次按钮规则：
+      //   答错 → 主「点击解释」 + 次「继续」
+      //   答对 → 主「继续」     + 次「点击解释」
+      // 点解释后（toggle 展开）→ 「继续」自动变成主按钮
+      let explainOpen = false;
+      function rebuild(){
+        actions.innerHTML = "";
+        const explainCls = (isCorrect || explainOpen) ? "q-act-secondary" : "q-act-primary";
+        const continueCls = (isCorrect || explainOpen) ? "q-act-primary" : "q-act-secondary";
+        if(q.explanation){
+          const explainBtn = el("button", explainCls);
+          explainBtn.innerHTML = `<span>${explainOpen ? "收起解释 ▴" : "点击解释 ▾"}</span>`;
+          explainBtn.addEventListener("click", ()=>{
+            explainOpen = !explainOpen;
+            if(explainOpen){
+              explainSlot.innerHTML = renderExplanationHTML(q);
+              explainSlot.style.display = "block";
+              // D4 (v2.2): 记录用户曾经打开过解释
+              if(qRecord){ qRecord.explanation_opened = true; saveSession(); }
+            } else {
+              explainSlot.style.display = "none";
+              explainSlot.innerHTML = "";
+            }
+            rebuild();
+          });
+          actions.appendChild(explainBtn);
+        }
+        const nextBtn = el("button", continueCls);
+        nextBtn.textContent = "继续 →";
+        nextBtn.addEventListener("click", ()=>{ qi++; show(); });
+        actions.appendChild(nextBtn);
+      }
+      rebuild();
+      actions.style.display = "flex";
+    }
+
+    if(q.noFeedback){
+      actions.style.display = "none";
+    }
+    q.options.forEach((opt,oi)=>{
+      const b = el("button","q-opt");
+      b.textContent = opt;
+      b.addEventListener("click", ()=>{
+        if(picked !== -1) return;
+        picked = oi;
+        const isCorrect = (oi === q.answer);
+        const r = curResult();
+        if(q.noFeedback){
+          // L1 (v2.2): Stage 0 预测题独立落点，不进 quiz_results
+          r.topic_familiarity_signal = {
+            correct: isCorrect,
+            selected_option: oi,
+            topic_tag: q.topic_tag || CLIP_TYPES[state.current_clip_index] || null
+          };
+          saveSession();
+          b.classList.add("picked");
+          setTimeout(()=>{ qi++; show(); }, 250);
+          return;
+        }
+        // D2 + D4 (v2.2): quiz_results 升级为对象，记录 selected_option + explanation_opened
+        //   stage 1 (单题) → 对象；stage 2/3 (多题) → 数组
+        qRecord = { correct: isCorrect, selected_option: oi, explanation_opened: false };
+        const stageKey = "stage" + q.stage;
+        if(q.stage === 1){
+          r.quiz_results[stageKey] = qRecord;
+        } else {
+          if(!Array.isArray(r.quiz_results[stageKey])) r.quiz_results[stageKey] = [];
+          r.quiz_results[stageKey].push(qRecord);
+        }
+        saveSession();
+        opts.querySelectorAll(".q-opt").forEach((eb,j)=>{
+          eb.classList.remove("picked");
+          if(j === q.answer) eb.classList.add("correct");
+          else if(j === oi) eb.classList.add("wrong");
+        });
+        renderActions(isCorrect);
+      });
+      opts.appendChild(b);
+    });
+    wrap.appendChild(card);
+    card.scrollIntoView({behavior:"smooth", block:"center"});
+  }
+  show();
+}
+
+function renderExplanationHTML(q){
+  if(!q.explanation) return "";
+  // Highlight `...` segments inside source as <mark>
+  const sourceHTML = esc(q.explanation.source).replace(/`([^`]+)`/g, '<mark class="ex-hl">$1</mark>');
+  // why_wrong schema (v2.2): [{option_idx, reason, distractor_type}, ...]
+  // 兼容旧版 [string, ...]（以防未升级的数据）
+  const why_wrong_arr = q.explanation.why_wrong || [];
+  const wrongHTML = why_wrong_arr.map((ww, k) => {
+    let idx, reason, dtype;
+    if(typeof ww === "string"){
+      // 老格式 fallback：按顺序匹配非答案选项
+      const wrongOpts = q.options.map((opt,i)=> i === q.answer ? null : i).filter(x => x !== null);
+      idx = wrongOpts[k]; reason = ww; dtype = null;
+    } else {
+      idx = ww.option_idx; reason = ww.reason; dtype = ww.distractor_type || null;
+    }
+    const optText = (typeof idx === "number" && q.options[idx]) ? q.options[idx] : "";
+    const dtypeBadge = dtype && DISTRACTOR_TYPES[dtype]
+      ? `<span class="ex-dtype" title="${esc(DISTRACTOR_TYPES[dtype].desc)}" style="background:${DISTRACTOR_TYPES[dtype].color}22;color:${DISTRACTOR_TYPES[dtype].color};border:1px solid ${DISTRACTOR_TYPES[dtype].color}44;font-size:10px;padding:1px 6px;border-radius:5px;margin-left:6px;font-weight:700;letter-spacing:.3px">${esc(dtype)} · ${esc(DISTRACTOR_TYPES[dtype].label)}</span>`
+      : "";
+    return `<div class="ex-wrong-row"><div class="ex-wrong-opt">${esc(optText)}${dtypeBadge}</div><div class="ex-wrong-why">${esc(reason)}</div></div>`;
+  }).join("");
+  return `
+    <div class="ex-card">
+      <div class="ex-section">
+        <div class="ex-label">原文依据</div>
+        <div class="ex-source">${sourceHTML}</div>
+      </div>
+      <div class="ex-section">
+        <div class="ex-label ok">为什么这个选项对</div>
+        <div class="ex-text">${esc(q.explanation.why_correct)}</div>
+      </div>
+      <div class="ex-section">
+        <div class="ex-label bad">为什么其他选项是陷阱</div>
+        ${wrongHTML}
+      </div>
+    </div>
+  `;
+}
+
+/* ---------- 12. Helpers ---------- */
+function el(tag, cls){ const x = document.createElement(tag); if(cls) x.className = cls; return x; }
+function esc(s){ return String(s).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+function highlightLine(sub, t){
+  const lines = sub.querySelectorAll(".sub-line");
+  let activeIdx = -1;
+  for(let i=0;i<CURRENT_SENTS.length;i++){
+    const ln = CURRENT_SENTS[i];
+    if(t >= ln.start && t < ln.end){ activeIdx = i; break; }
+    if(t >= ln.start) activeIdx = i;
+  }
+  lines.forEach((d,i)=>{
+    d.classList.remove("active","spoken");
+    if(i < activeIdx) d.classList.add("spoken");
+    if(i === activeIdx) d.classList.add("active");
+  });
+  if(activeIdx >= 0){
+    const elx = lines[activeIdx];
+    if(elx && elx.offsetTop !== undefined){
+      const top = elx.offsetTop - sub.offsetTop;
+      sub.scrollTop = Math.max(0, top - sub.clientHeight/2 + elx.clientHeight/2);
+    }
+  }
+}
+
+/* ---------- 13. Init ---------- */
+async function boot(){
+  try{
+    // 并行 fetch: clip 数据 + GPT 生成的题目
+    const [respClips, respQs] = await Promise.all([
+      fetch("./practice-v2-demo-data.json", {cache:"no-store"}),
+      fetch("./practice-v2-demo-questions-v2.json", {cache:"no-store"})
+    ]);
+    if(!respClips.ok) throw new Error("data HTTP " + respClips.status);
+    if(!respQs.ok)    throw new Error("questions HTTP " + respQs.status);
+    const data = await respClips.json();
+    const qSets = await respQs.json();
+    CLIPS = data.clips;
+    if(!Array.isArray(CLIPS) || CLIPS.length !== 3){
+      throw new Error("Expected 3 clips, got " + (CLIPS?.length || 0));
+    }
+    if(!Array.isArray(qSets) || qSets.length !== 3){
+      throw new Error("Expected 3 question sets, got " + (qSets?.length || 0));
+    }
+    // 把 GPT 生成的题按 clip_idx 重排成 QUESTIONS_PER_CLIP[i] = [q0, q1, q2, ...]
+    QUESTIONS_PER_CLIP = [null, null, null];
+    qSets.forEach(qs => {
+      const idx = qs.clip_idx;
+      if(typeof idx !== "number" || idx < 0 || idx > 2)
+        throw new Error("Invalid clip_idx in questions JSON: " + idx);
+      QUESTIONS_PER_CLIP[idx] = qs.questions || [];
+    });
+    if(QUESTIONS_PER_CLIP.some(x => !Array.isArray(x) || x.length === 0)){
+      throw new Error("questions JSON missing data for one or more clips");
+    }
+    // PRD §12.1 — every page load resets
+    clearSession();
+    state = freshState();
+    state.clip_results.forEach((r,i)=> r.type = CLIP_TYPES[i]);
+    rebuildSents();
+    saveSession();
+    renderChainBar(false);
+    renderProgress();
+    renderStage(0);
+  }catch(e){
+    document.getElementById("stage-container").innerHTML = `
+      <div class="stage-card" style="text-align:center;color:var(--bad)">
+        <div style="font-size:32px;margin-bottom:14px">⚠️</div>
+        <div>加载 clip 数据失败：${esc(e.message)}</div>
+        <div style="color:var(--text-faint);font-size:12px;margin-top:14px">
+          这个 demo 必须从 HTTP server 打开（不能 file:// 直接打开）。<br>
+          在项目根跑 <code>python3 -m http.server 8000</code>，然后访问<br>
+          <code>http://localhost:8000/practice-v2-demo.html</code>
+        </div>
+      </div>
+    `;
+  }
+}
+document.addEventListener("DOMContentLoaded", boot);
+</script>
+</body>
+</html>

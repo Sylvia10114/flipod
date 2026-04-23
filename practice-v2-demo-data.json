@@ -1,0 +1,4157 @@
+{
+  "clips": [
+    {
+      "title": "美国在菲律宾的水刑与焚村",
+      "source": {
+        "podcast": "Throughline (NPR)",
+        "episode": "How the US became America ",
+        "episode_url": "",
+        "timestamp_start": "03:33",
+        "timestamp_end": "04:59",
+        "pub_date": "",
+        "tier": "Culture"
+      },
+      "audio": "clips/clip76.mp3",
+      "lines": [
+        {
+          "en": "It should be the earnest wish and paramount aim of the military administration",
+          "zh": "军方的首要目标和真心愿望应该是",
+          "start": 0,
+          "end": 4.39,
+          "words": [
+            {
+              "word": "It",
+              "start": 0,
+              "end": 0,
+              "cefr": "A1"
+            },
+            {
+              "word": "should",
+              "start": 0,
+              "end": 0.15,
+              "cefr": "A1"
+            },
+            {
+              "word": "be",
+              "start": 0.15,
+              "end": 0.33,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 0.33,
+              "end": 0.65,
+              "cefr": "A1"
+            },
+            {
+              "word": "earnest",
+              "start": 0.65,
+              "end": 0.93,
+              "cefr": "B1"
+            },
+            {
+              "word": "wish",
+              "start": 0.93,
+              "end": 1.51,
+              "cefr": "A1"
+            },
+            {
+              "word": "and",
+              "start": 1.51,
+              "end": 2.27,
+              "cefr": "A1"
+            },
+            {
+              "word": "paramount",
+              "start": 2.27,
+              "end": 2.63,
+              "cefr": "C2"
+            },
+            {
+              "word": "aim",
+              "start": 2.63,
+              "end": 3.05,
+              "cefr": "B1"
+            },
+            {
+              "word": "of",
+              "start": 3.05,
+              "end": 3.23,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 3.23,
+              "end": 3.39,
+              "cefr": "A1"
+            },
+            {
+              "word": "military",
+              "start": 3.39,
+              "end": 3.75,
+              "cefr": "A2"
+            },
+            {
+              "word": "administration",
+              "start": 3.75,
+              "end": 4.39,
+              "cefr": "B1"
+            }
+          ]
+        },
+        {
+          "en": "to win the confidence, respect, and affection of the inhabitants of the Philippines.",
+          "zh": "赢得菲律宾居民的信任、尊重和好感。",
+          "start": 4.49,
+          "end": 9.33,
+          "words": [
+            {
+              "word": "to",
+              "start": 4.49,
+              "end": 5.33,
+              "cefr": "A1"
+            },
+            {
+              "word": "win",
+              "start": 5.33,
+              "end": 5.55,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 5.55,
+              "end": 5.79,
+              "cefr": "A1"
+            },
+            {
+              "word": "confidence",
+              "start": 5.79,
+              "end": 6.21,
+              "cefr": "B1"
+            },
+            {
+              "word": "respect",
+              "start": 6.91,
+              "end": 6.91,
+              "cefr": "B1"
+            },
+            {
+              "word": "and",
+              "start": 7.11,
+              "end": 7.37,
+              "cefr": "A1"
+            },
+            {
+              "word": "affection",
+              "start": 7.37,
+              "end": 7.63,
+              "cefr": "B1"
+            },
+            {
+              "word": "of",
+              "start": 7.63,
+              "end": 7.93,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 7.93,
+              "end": 8.41,
+              "cefr": "A1"
+            },
+            {
+              "word": "inhabitants",
+              "start": 8.41,
+              "end": 8.41,
+              "cefr": "B2"
+            },
+            {
+              "word": "of",
+              "start": 8.41,
+              "end": 8.69,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 8.69,
+              "end": 9.33,
+              "cefr": "A1"
+            },
+            {
+              "word": "Philippines",
+              "start": 9.33,
+              "end": 9.33,
+              "cefr": null
+            }
+          ]
+        },
+        {
+          "en": "President William McKinley.",
+          "zh": "总统威廉·麦金莱。",
+          "start": 10.43,
+          "end": 11.57,
+          "words": [
+            {
+              "word": "President",
+              "start": 10.43,
+              "end": 10.85,
+              "cefr": "B1"
+            },
+            {
+              "word": "William",
+              "start": 10.85,
+              "end": 11.15,
+              "cefr": null
+            },
+            {
+              "word": "McKinley",
+              "start": 11.15,
+              "end": 11.57,
+              "cefr": null
+            }
+          ]
+        },
+        {
+          "en": "In February 1899, Filipinos began a new fight for independence.",
+          "zh": "1899年2月，菲律宾人开始新的独立斗争。",
+          "start": 17.31,
+          "end": 22.35,
+          "words": [
+            {
+              "word": "In",
+              "start": 17.31,
+              "end": 17.83,
+              "cefr": "A1"
+            },
+            {
+              "word": "February",
+              "start": 17.83,
+              "end": 18.33,
+              "cefr": "A1"
+            },
+            {
+              "word": "1899",
+              "start": 18.33,
+              "end": 19.43,
+              "cefr": null
+            },
+            {
+              "word": "Filipinos",
+              "start": 20.17,
+              "end": 20.27,
+              "cefr": null
+            },
+            {
+              "word": "began",
+              "start": 20.27,
+              "end": 20.73,
+              "cefr": "A1"
+            },
+            {
+              "word": "a",
+              "start": 20.73,
+              "end": 21.05,
+              "cefr": "A1"
+            },
+            {
+              "word": "new",
+              "start": 21.05,
+              "end": 21.49,
+              "cefr": "A1"
+            },
+            {
+              "word": "fight",
+              "start": 21.49,
+              "end": 21.55,
+              "cefr": "A1"
+            },
+            {
+              "word": "for",
+              "start": 21.55,
+              "end": 22.35,
+              "cefr": "A1"
+            },
+            {
+              "word": "independence",
+              "start": 22.35,
+              "end": 22.35,
+              "cefr": "A2"
+            }
+          ]
+        },
+        {
+          "en": "This time against the United States.",
+          "zh": "这次是对抗美国。",
+          "start": 23.11,
+          "end": 25.19,
+          "words": [
+            {
+              "word": "This",
+              "start": 23.11,
+              "end": 23.23,
+              "cefr": "A1"
+            },
+            {
+              "word": "time",
+              "start": 23.23,
+              "end": 23.61,
+              "cefr": "A1"
+            },
+            {
+              "word": "against",
+              "start": 23.61,
+              "end": 24.05,
+              "cefr": "A2"
+            },
+            {
+              "word": "the",
+              "start": 24.05,
+              "end": 24.27,
+              "cefr": "A1"
+            },
+            {
+              "word": "United",
+              "start": 24.27,
+              "end": 24.69,
+              "cefr": "B2"
+            },
+            {
+              "word": "States",
+              "start": 24.69,
+              "end": 25.19,
+              "cefr": "B1"
+            }
+          ]
+        },
+        {
+          "en": "You know, you can imagine the dashed hopes of people who'd been fighting for independence.",
+          "zh": "你可以想象，那些一直为独立而战的人希望破灭的心情。",
+          "start": 26.25,
+          "end": 29.95,
+          "words": [
+            {
+              "word": "You",
+              "start": 26.25,
+              "end": 26.39,
+              "cefr": "A1"
+            },
+            {
+              "word": "know",
+              "start": 26.39,
+              "end": 26.49,
+              "cefr": "A1"
+            },
+            {
+              "word": "you",
+              "start": 26.55,
+              "end": 26.75,
+              "cefr": "A1"
+            },
+            {
+              "word": "can",
+              "start": 26.75,
+              "end": 27.07,
+              "cefr": "A1"
+            },
+            {
+              "word": "imagine",
+              "start": 27.07,
+              "end": 27.37,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 27.37,
+              "end": 27.61,
+              "cefr": "A1"
+            },
+            {
+              "word": "dashed",
+              "start": 27.61,
+              "end": 28.11,
+              "cefr": "B2"
+            },
+            {
+              "word": "hopes",
+              "start": 28.11,
+              "end": 28.11,
+              "cefr": "A2"
+            },
+            {
+              "word": "of",
+              "start": 28.11,
+              "end": 28.33,
+              "cefr": "A1"
+            },
+            {
+              "word": "people",
+              "start": 28.33,
+              "end": 28.49,
+              "cefr": "A1"
+            },
+            {
+              "word": "who'd",
+              "start": 28.49,
+              "end": 28.73,
+              "cefr": "B2"
+            },
+            {
+              "word": "been",
+              "start": 28.73,
+              "end": 29.01,
+              "cefr": "A2"
+            },
+            {
+              "word": "fighting",
+              "start": 29.01,
+              "end": 29.17,
+              "cefr": "B2"
+            },
+            {
+              "word": "for",
+              "start": 29.17,
+              "end": 29.63,
+              "cefr": "A1"
+            },
+            {
+              "word": "independence",
+              "start": 29.63,
+              "end": 29.95,
+              "cefr": "A2"
+            }
+          ]
+        },
+        {
+          "en": "Suddenly you have to realize they have to do it again.",
+          "zh": "突然他们意识到还得再来一次。",
+          "start": 30.55,
+          "end": 32.37,
+          "words": [
+            {
+              "word": "Suddenly",
+              "start": 30.55,
+              "end": 30.73,
+              "cefr": "B1"
+            },
+            {
+              "word": "you",
+              "start": 30.73,
+              "end": 30.91,
+              "cefr": "A1"
+            },
+            {
+              "word": "have",
+              "start": 30.91,
+              "end": 30.97,
+              "cefr": "A1"
+            },
+            {
+              "word": "to",
+              "start": 30.97,
+              "end": 31.19,
+              "cefr": "A1"
+            },
+            {
+              "word": "realize",
+              "start": 31.19,
+              "end": 31.33,
+              "cefr": "B1"
+            },
+            {
+              "word": "they",
+              "start": 31.33,
+              "end": 31.67,
+              "cefr": "A1"
+            },
+            {
+              "word": "have",
+              "start": 31.67,
+              "end": 31.83,
+              "cefr": "A1"
+            },
+            {
+              "word": "to",
+              "start": 31.83,
+              "end": 31.95,
+              "cefr": "A1"
+            },
+            {
+              "word": "do",
+              "start": 31.95,
+              "end": 31.97,
+              "cefr": "A1"
+            },
+            {
+              "word": "it",
+              "start": 31.97,
+              "end": 32.15,
+              "cefr": "A1"
+            },
+            {
+              "word": "again",
+              "start": 32.15,
+              "end": 32.37,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "And they do do it again.",
+          "zh": "而他们确实又干了。",
+          "start": 32.75,
+          "end": 33.85,
+          "words": [
+            {
+              "word": "And",
+              "start": 32.75,
+              "end": 32.95,
+              "cefr": "A1"
+            },
+            {
+              "word": "they",
+              "start": 32.95,
+              "end": 33.07,
+              "cefr": "A1"
+            },
+            {
+              "word": "do",
+              "start": 33.07,
+              "end": 33.37,
+              "cefr": "A1"
+            },
+            {
+              "word": "do",
+              "start": 33.37,
+              "end": 33.53,
+              "cefr": "A1"
+            },
+            {
+              "word": "it",
+              "start": 33.53,
+              "end": 33.67,
+              "cefr": "A1"
+            },
+            {
+              "word": "again",
+              "start": 33.67,
+              "end": 33.85,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "This is Daniel Imarvar.",
+          "zh": "我是丹尼尔·伊马尔瓦。",
+          "start": 33.89,
+          "end": 35.49,
+          "words": [
+            {
+              "word": "This",
+              "start": 33.89,
+              "end": 34.37,
+              "cefr": "A1"
+            },
+            {
+              "word": "is",
+              "start": 34.37,
+              "end": 34.63,
+              "cefr": "A1"
+            },
+            {
+              "word": "Daniel",
+              "start": 34.63,
+              "end": 35.01,
+              "cefr": null
+            },
+            {
+              "word": "Imarvar",
+              "start": 35.01,
+              "end": 35.49,
+              "cefr": null
+            }
+          ]
+        },
+        {
+          "en": "I wrote a book called How to Hide an Empire, a History of the Greater United States.",
+          "zh": "我写了一本书，叫《如何隐藏一个帝国：大美国的历史》。",
+          "start": 35.91,
+          "end": 40.39,
+          "words": [
+            {
+              "word": "I",
+              "start": 35.91,
+              "end": 36.07,
+              "cefr": "A1"
+            },
+            {
+              "word": "wrote",
+              "start": 36.07,
+              "end": 36.17,
+              "cefr": "A2"
+            },
+            {
+              "word": "a",
+              "start": 36.17,
+              "end": 36.39,
+              "cefr": "A1"
+            },
+            {
+              "word": "book",
+              "start": 36.39,
+              "end": 36.39,
+              "cefr": "A1"
+            },
+            {
+              "word": "called",
+              "start": 36.39,
+              "end": 36.71,
+              "cefr": "A2"
+            },
+            {
+              "word": "How",
+              "start": 36.71,
+              "end": 37.01,
+              "cefr": "A1"
+            },
+            {
+              "word": "to",
+              "start": 37.01,
+              "end": 37.29,
+              "cefr": "A1"
+            },
+            {
+              "word": "Hide",
+              "start": 37.29,
+              "end": 37.31,
+              "cefr": "A1"
+            },
+            {
+              "word": "an",
+              "start": 37.31,
+              "end": 37.57,
+              "cefr": "A1"
+            },
+            {
+              "word": "Empire",
+              "start": 37.57,
+              "end": 37.77,
+              "cefr": "B1"
+            },
+            {
+              "word": "a",
+              "start": 38.15,
+              "end": 38.49,
+              "cefr": "A1"
+            },
+            {
+              "word": "History",
+              "start": 38.49,
+              "end": 38.49,
+              "cefr": "A1"
+            },
+            {
+              "word": "of",
+              "start": 38.49,
+              "end": 38.75,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 38.75,
+              "end": 39.01,
+              "cefr": "A1"
+            },
+            {
+              "word": "Greater",
+              "start": 39.01,
+              "end": 39.41,
+              "cefr": "A2"
+            },
+            {
+              "word": "United",
+              "start": 39.41,
+              "end": 39.97,
+              "cefr": "B2"
+            },
+            {
+              "word": "States",
+              "start": 39.97,
+              "end": 40.39,
+              "cefr": "B1"
+            }
+          ]
+        },
+        {
+          "en": "He's a history professor at Northwestern University.",
+          "zh": "他是西北大学的历史教授。",
+          "start": 40.39,
+          "end": 43.29,
+          "words": [
+            {
+              "word": "He's",
+              "start": 40.39,
+              "end": 40.81,
+              "cefr": "A1"
+            },
+            {
+              "word": "a",
+              "start": 40.81,
+              "end": 41.01,
+              "cefr": "A1"
+            },
+            {
+              "word": "history",
+              "start": 41.01,
+              "end": 41.27,
+              "cefr": "A1"
+            },
+            {
+              "word": "professor",
+              "start": 41.27,
+              "end": 41.63,
+              "cefr": "B1"
+            },
+            {
+              "word": "at",
+              "start": 41.63,
+              "end": 42.03,
+              "cefr": "A1"
+            },
+            {
+              "word": "Northwestern",
+              "start": 42.03,
+              "end": 42.71,
+              "cefr": "B1"
+            },
+            {
+              "word": "University",
+              "start": 42.71,
+              "end": 43.29,
+              "cefr": "A2"
+            }
+          ]
+        },
+        {
+          "en": "And it becomes a war that just consumes so many lives.",
+          "zh": "这场战争吞噬了无数生命。",
+          "start": 44.05,
+          "end": 48.41,
+          "words": [
+            {
+              "word": "And",
+              "start": 44.05,
+              "end": 44.09,
+              "cefr": "A1"
+            },
+            {
+              "word": "it",
+              "start": 44.09,
+              "end": 44.21,
+              "cefr": "A1"
+            },
+            {
+              "word": "becomes",
+              "start": 44.21,
+              "end": 44.59,
+              "cefr": "A1"
+            },
+            {
+              "word": "a",
+              "start": 44.59,
+              "end": 45.43,
+              "cefr": "A1"
+            },
+            {
+              "word": "war",
+              "start": 45.43,
+              "end": 45.67,
+              "cefr": "A1"
+            },
+            {
+              "word": "that",
+              "start": 45.67,
+              "end": 45.87,
+              "cefr": "A1"
+            },
+            {
+              "word": "just",
+              "start": 45.87,
+              "end": 46.25,
+              "cefr": "A1"
+            },
+            {
+              "word": "consumes",
+              "start": 46.25,
+              "end": 46.97,
+              "cefr": "B2"
+            },
+            {
+              "word": "so",
+              "start": 46.97,
+              "end": 47.65,
+              "cefr": "A1"
+            },
+            {
+              "word": "many",
+              "start": 47.65,
+              "end": 47.95,
+              "cefr": "A1"
+            },
+            {
+              "word": "lives",
+              "start": 47.95,
+              "end": 48.41,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "I hope that when they are conquered, they will be made to see for many years",
+          "zh": "我希望他们被征服后，能被迫认清很多年",
+          "start": 49.51,
+          "end": 53.45,
+          "words": [
+            {
+              "word": "I",
+              "start": 49.51,
+              "end": 49.51,
+              "cefr": "A1"
+            },
+            {
+              "word": "hope",
+              "start": 49.51,
+              "end": 49.75,
+              "cefr": "A1"
+            },
+            {
+              "word": "that",
+              "start": 49.75,
+              "end": 50.05,
+              "cefr": "A1"
+            },
+            {
+              "word": "when",
+              "start": 50.05,
+              "end": 50.17,
+              "cefr": "A1"
+            },
+            {
+              "word": "they",
+              "start": 50.17,
+              "end": 50.35,
+              "cefr": "A1"
+            },
+            {
+              "word": "are",
+              "start": 50.35,
+              "end": 50.95,
+              "cefr": "A1"
+            },
+            {
+              "word": "conquered",
+              "start": 50.95,
+              "end": 50.95,
+              "cefr": "B2"
+            },
+            {
+              "word": "they",
+              "start": 51.37,
+              "end": 51.45,
+              "cefr": "A1"
+            },
+            {
+              "word": "will",
+              "start": 51.45,
+              "end": 51.61,
+              "cefr": "A1"
+            },
+            {
+              "word": "be",
+              "start": 51.61,
+              "end": 51.87,
+              "cefr": "A1"
+            },
+            {
+              "word": "made",
+              "start": 51.87,
+              "end": 52.09,
+              "cefr": "A1"
+            },
+            {
+              "word": "to",
+              "start": 52.09,
+              "end": 52.39,
+              "cefr": "A1"
+            },
+            {
+              "word": "see",
+              "start": 52.39,
+              "end": 52.57,
+              "cefr": "A1"
+            },
+            {
+              "word": "for",
+              "start": 52.57,
+              "end": 52.85,
+              "cefr": "A1"
+            },
+            {
+              "word": "many",
+              "start": 52.85,
+              "end": 53.13,
+              "cefr": "A1"
+            },
+            {
+              "word": "years",
+              "start": 53.13,
+              "end": 53.45,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "the iron hand of military rule, the only kind for which they are suited.",
+          "zh": "只有铁腕的军管才适合他们。",
+          "start": 53.45,
+          "end": 58.29,
+          "words": [
+            {
+              "word": "the",
+              "start": 53.45,
+              "end": 53.87,
+              "cefr": "A1"
+            },
+            {
+              "word": "iron",
+              "start": 53.87,
+              "end": 54.17,
+              "cefr": "B1"
+            },
+            {
+              "word": "hand",
+              "start": 54.17,
+              "end": 54.57,
+              "cefr": "A1"
+            },
+            {
+              "word": "of",
+              "start": 54.57,
+              "end": 54.93,
+              "cefr": "A1"
+            },
+            {
+              "word": "military",
+              "start": 54.93,
+              "end": 55.19,
+              "cefr": "A2"
+            },
+            {
+              "word": "rule",
+              "start": 55.19,
+              "end": 55.63,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 56.37,
+              "end": 56.51,
+              "cefr": "A1"
+            },
+            {
+              "word": "only",
+              "start": 56.51,
+              "end": 56.83,
+              "cefr": "A1"
+            },
+            {
+              "word": "kind",
+              "start": 56.83,
+              "end": 57.23,
+              "cefr": "A1"
+            },
+            {
+              "word": "for",
+              "start": 57.23,
+              "end": 57.43,
+              "cefr": "A1"
+            },
+            {
+              "word": "which",
+              "start": 57.43,
+              "end": 57.59,
+              "cefr": "A1"
+            },
+            {
+              "word": "they",
+              "start": 57.59,
+              "end": 57.77,
+              "cefr": "A1"
+            },
+            {
+              "word": "are",
+              "start": 57.77,
+              "end": 58.21,
+              "cefr": "A1"
+            },
+            {
+              "word": "suited",
+              "start": 58.21,
+              "end": 58.29,
+              "cefr": "B2"
+            }
+          ]
+        },
+        {
+          "en": "The United States is burning villages.",
+          "zh": "美国在烧村子。",
+          "start": 60.15,
+          "end": 62.17,
+          "words": [
+            {
+              "word": "The",
+              "start": 60.15,
+              "end": 60.75,
+              "cefr": "A1"
+            },
+            {
+              "word": "United",
+              "start": 60.75,
+              "end": 61.03,
+              "cefr": "B2"
+            },
+            {
+              "word": "States",
+              "start": 61.03,
+              "end": 61.09,
+              "cefr": "B1"
+            },
+            {
+              "word": "is",
+              "start": 61.09,
+              "end": 61.45,
+              "cefr": "A1"
+            },
+            {
+              "word": "burning",
+              "start": 61.45,
+              "end": 61.57,
+              "cefr": "B1"
+            },
+            {
+              "word": "villages",
+              "start": 61.57,
+              "end": 62.17,
+              "cefr": "A2"
+            }
+          ]
+        },
+        {
+          "en": "U.S.",
+          "zh": "美国",
+          "start": 63.49,
+          "end": 63.67,
+          "words": [
+            {
+              "word": "U",
+              "start": 63.49,
+              "end": 63.67,
+              "cefr": null
+            },
+            {
+              "word": "S",
+              "start": 63.67,
+              "end": 63.67,
+              "cefr": null
+            }
+          ]
+        },
+        {
+          "en": "forces are concentrating people in camps or garrison towns",
+          "zh": "军队把人集中到营地或驻军城镇",
+          "start": 63.87,
+          "end": 67.73,
+          "words": [
+            {
+              "word": "forces",
+              "start": 63.87,
+              "end": 63.95,
+              "cefr": "B1"
+            },
+            {
+              "word": "are",
+              "start": 63.95,
+              "end": 65.01,
+              "cefr": "A1"
+            },
+            {
+              "word": "concentrating",
+              "start": 65.01,
+              "end": 65.31,
+              "cefr": "B1"
+            },
+            {
+              "word": "people",
+              "start": 65.31,
+              "end": 65.77,
+              "cefr": "A1"
+            },
+            {
+              "word": "in",
+              "start": 65.77,
+              "end": 66.51,
+              "cefr": "A1"
+            },
+            {
+              "word": "camps",
+              "start": 66.51,
+              "end": 66.51,
+              "cefr": "A2"
+            },
+            {
+              "word": "or",
+              "start": 66.51,
+              "end": 66.81,
+              "cefr": "A1"
+            },
+            {
+              "word": "garrison",
+              "start": 66.81,
+              "end": 67.15,
+              "cefr": "C1"
+            },
+            {
+              "word": "towns",
+              "start": 67.15,
+              "end": 67.73,
+              "cefr": "A2"
+            }
+          ]
+        },
+        {
+          "en": "where they're cut off from food supplies.",
+          "zh": "在那里他们被切断了粮食供应。",
+          "start": 67.89,
+          "end": 69.95,
+          "words": [
+            {
+              "word": "where",
+              "start": 67.89,
+              "end": 68.49,
+              "cefr": "A1"
+            },
+            {
+              "word": "they're",
+              "start": 68.49,
+              "end": 68.75,
+              "cefr": "A1"
+            },
+            {
+              "word": "cut",
+              "start": 68.75,
+              "end": 68.91,
+              "cefr": "A1"
+            },
+            {
+              "word": "off",
+              "start": 68.91,
+              "end": 69.03,
+              "cefr": "A1"
+            },
+            {
+              "word": "from",
+              "start": 69.03,
+              "end": 69.29,
+              "cefr": "A1"
+            },
+            {
+              "word": "food",
+              "start": 69.29,
+              "end": 69.47,
+              "cefr": "A1"
+            },
+            {
+              "word": "supplies",
+              "start": 69.47,
+              "end": 69.95,
+              "cefr": "B1"
+            }
+          ]
+        },
+        {
+          "en": "It's torturing people with a kind of water-based torture",
+          "zh": "他们用一种跟水有关的酷刑折磨人",
+          "start": 70.39,
+          "end": 73.73,
+          "words": [
+            {
+              "word": "It's",
+              "start": 70.39,
+              "end": 70.91,
+              "cefr": "A1"
+            },
+            {
+              "word": "torturing",
+              "start": 70.91,
+              "end": 71.15,
+              "cefr": "C1"
+            },
+            {
+              "word": "people",
+              "start": 71.15,
+              "end": 71.59,
+              "cefr": "A1"
+            },
+            {
+              "word": "with",
+              "start": 71.59,
+              "end": 72.37,
+              "cefr": "A1"
+            },
+            {
+              "word": "a",
+              "start": 72.37,
+              "end": 72.57,
+              "cefr": "A1"
+            },
+            {
+              "word": "kind",
+              "start": 72.57,
+              "end": 72.81,
+              "cefr": "A1"
+            },
+            {
+              "word": "of",
+              "start": 72.81,
+              "end": 73.09,
+              "cefr": "A1"
+            },
+            {
+              "word": "water",
+              "start": 73.09,
+              "end": 73.23,
+              "cefr": "A1"
+            },
+            {
+              "word": "based",
+              "start": 73.23,
+              "end": 73.47,
+              "cefr": "A2"
+            },
+            {
+              "word": "torture",
+              "start": 73.47,
+              "end": 73.73,
+              "cefr": "B2"
+            }
+          ]
+        },
+        {
+          "en": "that bears a discomforting resemblance to waterboarding today.",
+          "zh": "跟现在的水刑很像，让人很不舒服。",
+          "start": 73.73,
+          "end": 76.77,
+          "words": [
+            {
+              "word": "that",
+              "start": 73.73,
+              "end": 74.03,
+              "cefr": "A1"
+            },
+            {
+              "word": "bears",
+              "start": 74.03,
+              "end": 74.29,
+              "cefr": "A1"
+            },
+            {
+              "word": "a",
+              "start": 74.29,
+              "end": 74.65,
+              "cefr": "A1"
+            },
+            {
+              "word": "discomforting",
+              "start": 74.65,
+              "end": 75.57,
+              "cefr": "C1"
+            },
+            {
+              "word": "resemblance",
+              "start": 75.57,
+              "end": 75.57,
+              "cefr": "B2"
+            },
+            {
+              "word": "to",
+              "start": 75.57,
+              "end": 75.85,
+              "cefr": "A1"
+            },
+            {
+              "word": "waterboarding",
+              "start": 75.85,
+              "end": 76.31,
+              "cefr": "C2"
+            },
+            {
+              "word": "today",
+              "start": 76.31,
+              "end": 76.77,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "Back then it was called the water cure, where dirty water was put into insurgents' mouths",
+          "zh": "那时候叫水刑，就是把脏水灌进叛乱分子的嘴里",
+          "start": 77.31,
+          "end": 81.85,
+          "words": [
+            {
+              "word": "Back",
+              "start": 77.31,
+              "end": 77.39,
+              "cefr": "A1"
+            },
+            {
+              "word": "then",
+              "start": 77.39,
+              "end": 77.49,
+              "cefr": "A1"
+            },
+            {
+              "word": "it",
+              "start": 77.49,
+              "end": 77.59,
+              "cefr": "A1"
+            },
+            {
+              "word": "was",
+              "start": 77.59,
+              "end": 77.71,
+              "cefr": "A1"
+            },
+            {
+              "word": "called",
+              "start": 77.71,
+              "end": 77.85,
+              "cefr": "A2"
+            },
+            {
+              "word": "the",
+              "start": 77.85,
+              "end": 78.03,
+              "cefr": "A1"
+            },
+            {
+              "word": "water",
+              "start": 78.03,
+              "end": 78.29,
+              "cefr": "A1"
+            },
+            {
+              "word": "cure",
+              "start": 78.29,
+              "end": 78.73,
+              "cefr": "B1"
+            },
+            {
+              "word": "where",
+              "start": 79.35,
+              "end": 79.51,
+              "cefr": "A1"
+            },
+            {
+              "word": "dirty",
+              "start": 79.51,
+              "end": 79.73,
+              "cefr": "A1"
+            },
+            {
+              "word": "water",
+              "start": 79.73,
+              "end": 80.03,
+              "cefr": "A1"
+            },
+            {
+              "word": "was",
+              "start": 80.03,
+              "end": 80.23,
+              "cefr": "A1"
+            },
+            {
+              "word": "put",
+              "start": 80.23,
+              "end": 80.43,
+              "cefr": "A1"
+            },
+            {
+              "word": "into",
+              "start": 80.43,
+              "end": 80.97,
+              "cefr": "A1"
+            },
+            {
+              "word": "mouths",
+              "start": 81.85,
+              "end": 81.85,
+              "cefr": "A2"
+            }
+          ]
+        },
+        {
+          "en": "or suspected mouths until they just sort of couldn't take it anymore",
+          "zh": "或者怀疑的人嘴里，直到他们实在受不了为止",
+          "start": 81.85,
+          "end": 85.79,
+          "words": [
+            {
+              "word": "or",
+              "start": 81.85,
+              "end": 82.05,
+              "cefr": "A1"
+            },
+            {
+              "word": "suspected",
+              "start": 82.05,
+              "end": 82.41,
+              "cefr": "B1"
+            },
+            {
+              "word": "mouths",
+              "start": 83.27,
+              "end": 83.27,
+              "cefr": "A2"
+            },
+            {
+              "word": "until",
+              "start": 83.27,
+              "end": 84.07,
+              "cefr": "A1"
+            },
+            {
+              "word": "they",
+              "start": 84.07,
+              "end": 84.49,
+              "cefr": "A1"
+            },
+            {
+              "word": "just",
+              "start": 84.49,
+              "end": 84.77,
+              "cefr": "A1"
+            },
+            {
+              "word": "sort",
+              "start": 84.77,
+              "end": 84.83,
+              "cefr": "B1"
+            },
+            {
+              "word": "of",
+              "start": 84.83,
+              "end": 85.09,
+              "cefr": "A1"
+            },
+            {
+              "word": "couldn't",
+              "start": 85.09,
+              "end": 85.09,
+              "cefr": "A2"
+            },
+            {
+              "word": "take",
+              "start": 85.09,
+              "end": 85.33,
+              "cefr": "A1"
+            },
+            {
+              "word": "it",
+              "start": 85.33,
+              "end": 85.47,
+              "cefr": "A1"
+            },
+            {
+              "word": "anymore",
+              "start": 85.47,
+              "end": 85.79,
+              "cefr": "A2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "AI不是魔法也不是终结者",
+      "source": {
+        "podcast": "Throughline (NPR)",
+        "episode": "Will AI destroy us... or save us?",
+        "episode_url": "",
+        "timestamp_start": "01:04",
+        "timestamp_end": "02:32",
+        "pub_date": "",
+        "tier": "Culture"
+      },
+      "audio": "clips/clip45.mp3",
+      "lines": [
+        {
+          "en": "Most of us, when we hear the term AI, we think about Hollywood.",
+          "zh": "大多数人一听到人工智能，就想到好莱坞。",
+          "start": 0,
+          "end": 4.28,
+          "words": [
+            {
+              "word": "Most",
+              "start": 0,
+              "end": 0.54,
+              "cefr": "A1"
+            },
+            {
+              "word": "of",
+              "start": 0.54,
+              "end": 0.72,
+              "cefr": "A1"
+            },
+            {
+              "word": "us",
+              "start": 0.72,
+              "end": 1.02,
+              "cefr": "A1"
+            },
+            {
+              "word": "when",
+              "start": 1.1,
+              "end": 1.12,
+              "cefr": "A1"
+            },
+            {
+              "word": "we",
+              "start": 1.12,
+              "end": 1.42,
+              "cefr": "A1"
+            },
+            {
+              "word": "hear",
+              "start": 1.42,
+              "end": 1.62,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 1.62,
+              "end": 2.18,
+              "cefr": "A1"
+            },
+            {
+              "word": "term",
+              "start": 2.18,
+              "end": 2.18,
+              "cefr": "B1"
+            },
+            {
+              "word": "AI",
+              "start": 2.18,
+              "end": 2.7,
+              "cefr": null
+            },
+            {
+              "word": "we",
+              "start": 2.96,
+              "end": 3.36,
+              "cefr": "A1"
+            },
+            {
+              "word": "think",
+              "start": 3.36,
+              "end": 3.54,
+              "cefr": "A1"
+            },
+            {
+              "word": "about",
+              "start": 3.54,
+              "end": 3.92,
+              "cefr": "A1"
+            },
+            {
+              "word": "Hollywood",
+              "start": 3.92,
+              "end": 4.28,
+              "cefr": null
+            }
+          ]
+        },
+        {
+          "en": "Why do you cry?",
+          "zh": "你为什么哭？",
+          "start": 4.54,
+          "end": 5.46,
+          "words": [
+            {
+              "word": "Why",
+              "start": 4.54,
+              "end": 4.84,
+              "cefr": "A1"
+            },
+            {
+              "word": "do",
+              "start": 4.84,
+              "end": 4.98,
+              "cefr": "A1"
+            },
+            {
+              "word": "you",
+              "start": 4.98,
+              "end": 5.18,
+              "cefr": "A1"
+            },
+            {
+              "word": "cry",
+              "start": 5.18,
+              "end": 5.46,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "You mean people?",
+          "zh": "你是指人类吗？",
+          "start": 6.44,
+          "end": 7.22,
+          "words": [
+            {
+              "word": "You",
+              "start": 6.44,
+              "end": 6.64,
+              "cefr": "A1"
+            },
+            {
+              "word": "mean",
+              "start": 6.64,
+              "end": 6.82,
+              "cefr": "A1"
+            },
+            {
+              "word": "people",
+              "start": 6.82,
+              "end": 7.22,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "Yeah.",
+          "zh": "嗯。",
+          "start": 7.46,
+          "end": 7.74,
+          "words": [
+            {
+              "word": "Yeah",
+              "start": 7.46,
+              "end": 7.74,
+              "cefr": "A2"
+            }
+          ]
+        },
+        {
+          "en": "I don't know.",
+          "zh": "我不知道。",
+          "start": 8.08,
+          "end": 8.68,
+          "words": [
+            {
+              "word": "I",
+              "start": 8.08,
+              "end": 8.5,
+              "cefr": "A1"
+            },
+            {
+              "word": "don't",
+              "start": 8.5,
+              "end": 8.5,
+              "cefr": "A1"
+            },
+            {
+              "word": "know",
+              "start": 8.5,
+              "end": 8.68,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "We just cry.",
+          "zh": "我们就是会哭。",
+          "start": 9.18,
+          "end": 10.32,
+          "words": [
+            {
+              "word": "We",
+              "start": 9.18,
+              "end": 9.72,
+              "cefr": "A1"
+            },
+            {
+              "word": "just",
+              "start": 9.72,
+              "end": 9.98,
+              "cefr": "A1"
+            },
+            {
+              "word": "cry",
+              "start": 9.98,
+              "end": 10.32,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "We think about the Terminator.",
+          "zh": "我们会想到《终结者》。",
+          "start": 10.88,
+          "end": 12.18,
+          "words": [
+            {
+              "word": "We",
+              "start": 10.88,
+              "end": 11.08,
+              "cefr": "A1"
+            },
+            {
+              "word": "think",
+              "start": 11.08,
+              "end": 11.2,
+              "cefr": "A1"
+            },
+            {
+              "word": "about",
+              "start": 11.2,
+              "end": 11.4,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 11.4,
+              "end": 11.6,
+              "cefr": "A1"
+            },
+            {
+              "word": "Terminator",
+              "start": 11.6,
+              "end": 12.18,
+              "cefr": null
+            }
+          ]
+        },
+        {
+          "en": "We think about Ex Machina.",
+          "zh": "我们会想到《机械姬》。",
+          "start": 12.44,
+          "end": 14.72,
+          "words": [
+            {
+              "word": "We",
+              "start": 12.44,
+              "end": 12.62,
+              "cefr": "A1"
+            },
+            {
+              "word": "think",
+              "start": 12.62,
+              "end": 12.84,
+              "cefr": "A1"
+            },
+            {
+              "word": "about",
+              "start": 12.84,
+              "end": 13.8,
+              "cefr": "A1"
+            },
+            {
+              "word": "Ex",
+              "start": 13.8,
+              "end": 14.44,
+              "cefr": "B1"
+            },
+            {
+              "word": "Machina",
+              "start": 14.44,
+              "end": 14.72,
+              "cefr": null
+            }
+          ]
+        },
+        {
+          "en": "You programmed her to flirt with me.",
+          "zh": "你是故意让她跟我调情的。",
+          "start": 14.92,
+          "end": 16.6,
+          "words": [
+            {
+              "word": "You",
+              "start": 14.92,
+              "end": 15.12,
+              "cefr": "A1"
+            },
+            {
+              "word": "programmed",
+              "start": 15.12,
+              "end": 15.56,
+              "cefr": "B2"
+            },
+            {
+              "word": "her",
+              "start": 15.56,
+              "end": 15.76,
+              "cefr": "A1"
+            },
+            {
+              "word": "to",
+              "start": 15.76,
+              "end": 16.14,
+              "cefr": "A1"
+            },
+            {
+              "word": "flirt",
+              "start": 16.14,
+              "end": 16.14,
+              "cefr": "B2"
+            },
+            {
+              "word": "with",
+              "start": 16.14,
+              "end": 16.38,
+              "cefr": "A1"
+            },
+            {
+              "word": "me",
+              "start": 16.38,
+              "end": 16.6,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "If I did, would that be cheating?",
+          "zh": "如果我这么做，那算作弊吗？",
+          "start": 16.6,
+          "end": 18.6,
+          "words": [
+            {
+              "word": "If",
+              "start": 16.6,
+              "end": 17.24,
+              "cefr": "A1"
+            },
+            {
+              "word": "I",
+              "start": 17.24,
+              "end": 17.44,
+              "cefr": "A1"
+            },
+            {
+              "word": "did",
+              "start": 17.44,
+              "end": 17.56,
+              "cefr": "A1"
+            },
+            {
+              "word": "would",
+              "start": 17.7,
+              "end": 17.7,
+              "cefr": "A1"
+            },
+            {
+              "word": "that",
+              "start": 17.7,
+              "end": 17.82,
+              "cefr": "A1"
+            },
+            {
+              "word": "be",
+              "start": 17.82,
+              "end": 18.6,
+              "cefr": "A1"
+            },
+            {
+              "word": "cheating",
+              "start": 18.6,
+              "end": 18.6,
+              "cefr": "B2"
+            }
+          ]
+        },
+        {
+          "en": "Wouldn't it?",
+          "zh": "不是吗？",
+          "start": 18.88,
+          "end": 19.2,
+          "words": [
+            {
+              "word": "Wouldn't",
+              "start": 18.88,
+              "end": 18.88,
+              "cefr": "A2"
+            },
+            {
+              "word": "it",
+              "start": 18.88,
+              "end": 19.2,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "We think about Star Trek.",
+          "zh": "我们会想到《星际迷航》。",
+          "start": 19.5,
+          "end": 20.9,
+          "words": [
+            {
+              "word": "We",
+              "start": 19.5,
+              "end": 19.68,
+              "cefr": "A1"
+            },
+            {
+              "word": "think",
+              "start": 19.68,
+              "end": 19.9,
+              "cefr": "A1"
+            },
+            {
+              "word": "about",
+              "start": 19.9,
+              "end": 20.3,
+              "cefr": "A1"
+            },
+            {
+              "word": "Star",
+              "start": 20.3,
+              "end": 20.64,
+              "cefr": "A1"
+            },
+            {
+              "word": "Trek",
+              "start": 20.64,
+              "end": 20.9,
+              "cefr": "B2"
+            }
+          ]
+        },
+        {
+          "en": "Please state the nature of the medical emergency.",
+          "zh": "请说明是什么医疗急症。",
+          "start": 21.94,
+          "end": 23.72,
+          "words": [
+            {
+              "word": "Please",
+              "start": 21.94,
+              "end": 22.24,
+              "cefr": "A1"
+            },
+            {
+              "word": "state",
+              "start": 22.24,
+              "end": 22.42,
+              "cefr": "A2"
+            },
+            {
+              "word": "the",
+              "start": 22.42,
+              "end": 22.8,
+              "cefr": "A1"
+            },
+            {
+              "word": "nature",
+              "start": 22.8,
+              "end": 22.8,
+              "cefr": "A2"
+            },
+            {
+              "word": "of",
+              "start": 22.8,
+              "end": 22.94,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 22.94,
+              "end": 23.06,
+              "cefr": "A1"
+            },
+            {
+              "word": "medical",
+              "start": 23.06,
+              "end": 23.26,
+              "cefr": "A2"
+            },
+            {
+              "word": "emergency",
+              "start": 23.26,
+              "end": 23.72,
+              "cefr": "A2"
+            }
+          ]
+        },
+        {
+          "en": "Or maybe Star Wars.",
+          "zh": "或者可能是《星球大战》。",
+          "start": 24.68,
+          "end": 26.36,
+          "words": [
+            {
+              "word": "Or",
+              "start": 24.68,
+              "end": 25.02,
+              "cefr": "A1"
+            },
+            {
+              "word": "maybe",
+              "start": 25.02,
+              "end": 25.4,
+              "cefr": "A1"
+            },
+            {
+              "word": "Star",
+              "start": 25.4,
+              "end": 25.78,
+              "cefr": "A1"
+            },
+            {
+              "word": "Wars",
+              "start": 25.78,
+              "end": 26.36,
+              "cefr": "A2"
+            }
+          ]
+        },
+        {
+          "en": "Hollywood is so deeply embedded in our brains.",
+          "zh": "好莱坞已经深深刻在我们脑子里了。",
+          "start": 28.58,
+          "end": 32.36,
+          "words": [
+            {
+              "word": "Hollywood",
+              "start": 28.58,
+              "end": 28.7,
+              "cefr": null
+            },
+            {
+              "word": "is",
+              "start": 28.7,
+              "end": 29.78,
+              "cefr": "A1"
+            },
+            {
+              "word": "so",
+              "start": 29.78,
+              "end": 30.6,
+              "cefr": "A1"
+            },
+            {
+              "word": "deeply",
+              "start": 30.6,
+              "end": 30.6,
+              "cefr": "A2"
+            },
+            {
+              "word": "embedded",
+              "start": 30.6,
+              "end": 31.02,
+              "cefr": "B2"
+            },
+            {
+              "word": "in",
+              "start": 31.02,
+              "end": 31.6,
+              "cefr": "A1"
+            },
+            {
+              "word": "our",
+              "start": 31.6,
+              "end": 31.98,
+              "cefr": "A1"
+            },
+            {
+              "word": "brains",
+              "start": 31.98,
+              "end": 32.36,
+              "cefr": "B1"
+            }
+          ]
+        },
+        {
+          "en": "I'll be back.",
+          "zh": "我会回来的。",
+          "start": 34.02,
+          "end": 35.18,
+          "words": [
+            {
+              "word": "I'll",
+              "start": 34.02,
+              "end": 34.48,
+              "cefr": "A1"
+            },
+            {
+              "word": "be",
+              "start": 34.48,
+              "end": 34.68,
+              "cefr": "A1"
+            },
+            {
+              "word": "back",
+              "start": 34.68,
+              "end": 35.18,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "What does AI actually mean, you know?",
+          "zh": "你知道，AI到底是什么意思？",
+          "start": 38.8,
+          "end": 41.92,
+          "words": [
+            {
+              "word": "What",
+              "start": 38.8,
+              "end": 39.56,
+              "cefr": "A1"
+            },
+            {
+              "word": "does",
+              "start": 39.56,
+              "end": 40.04,
+              "cefr": "A1"
+            },
+            {
+              "word": "AI",
+              "start": 40.04,
+              "end": 40.4,
+              "cefr": null
+            },
+            {
+              "word": "actually",
+              "start": 40.4,
+              "end": 40.8,
+              "cefr": "A2"
+            },
+            {
+              "word": "mean",
+              "start": 40.8,
+              "end": 41.26,
+              "cefr": "A1"
+            },
+            {
+              "word": "you",
+              "start": 41.52,
+              "end": 41.92,
+              "cefr": "A1"
+            },
+            {
+              "word": "know",
+              "start": 41.92,
+              "end": 41.92,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "Really mean.",
+          "zh": "真正的意思。",
+          "start": 42.34,
+          "end": 43.1,
+          "words": [
+            {
+              "word": "Really",
+              "start": 42.34,
+              "end": 42.8,
+              "cefr": "A1"
+            },
+            {
+              "word": "mean",
+              "start": 42.8,
+              "end": 43.1,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "AI is not a magic wand, but it's not a Terminator.",
+          "zh": "AI不是魔法棒，也不是终结者。",
+          "start": 45.32,
+          "end": 49.3,
+          "words": [
+            {
+              "word": "AI",
+              "start": 45.32,
+              "end": 46,
+              "cefr": null
+            },
+            {
+              "word": "is",
+              "start": 46,
+              "end": 46.48,
+              "cefr": "A1"
+            },
+            {
+              "word": "not",
+              "start": 46.48,
+              "end": 46.78,
+              "cefr": "A1"
+            },
+            {
+              "word": "a",
+              "start": 46.78,
+              "end": 47.58,
+              "cefr": "A1"
+            },
+            {
+              "word": "magic",
+              "start": 47.58,
+              "end": 47.92,
+              "cefr": "A2"
+            },
+            {
+              "word": "wand",
+              "start": 47.92,
+              "end": 48.3,
+              "cefr": "B2"
+            },
+            {
+              "word": "but",
+              "start": 48.42,
+              "end": 48.44,
+              "cefr": "A1"
+            },
+            {
+              "word": "it's",
+              "start": 48.44,
+              "end": 48.58,
+              "cefr": "A1"
+            },
+            {
+              "word": "not",
+              "start": 48.58,
+              "end": 48.74,
+              "cefr": "A1"
+            },
+            {
+              "word": "a",
+              "start": 48.74,
+              "end": 48.96,
+              "cefr": "A1"
+            },
+            {
+              "word": "Terminator",
+              "start": 48.96,
+              "end": 49.3,
+              "cefr": null
+            }
+          ]
+        },
+        {
+          "en": "The system learns by accessing data.",
+          "zh": "这个系统是通过获取数据来学习的。",
+          "start": 49.9,
+          "end": 52.32,
+          "words": [
+            {
+              "word": "The",
+              "start": 49.9,
+              "end": 50.04,
+              "cefr": "A1"
+            },
+            {
+              "word": "system",
+              "start": 50.04,
+              "end": 50.4,
+              "cefr": "A2"
+            },
+            {
+              "word": "learns",
+              "start": 50.4,
+              "end": 50.8,
+              "cefr": "A2"
+            },
+            {
+              "word": "by",
+              "start": 50.8,
+              "end": 51.36,
+              "cefr": "A1"
+            },
+            {
+              "word": "accessing",
+              "start": 51.36,
+              "end": 51.72,
+              "cefr": "B2"
+            },
+            {
+              "word": "data",
+              "start": 51.72,
+              "end": 52.32,
+              "cefr": "B2"
+            }
+          ]
+        },
+        {
+          "en": "AI is not a harbinger of utopia or dystopia.",
+          "zh": "AI不是乌托邦或反乌托邦的预兆。",
+          "start": 53.02,
+          "end": 55.3,
+          "words": [
+            {
+              "word": "AI",
+              "start": 53.02,
+              "end": 53.04,
+              "cefr": null
+            },
+            {
+              "word": "is",
+              "start": 53.04,
+              "end": 53.34,
+              "cefr": "A1"
+            },
+            {
+              "word": "not",
+              "start": 53.34,
+              "end": 53.48,
+              "cefr": "A1"
+            },
+            {
+              "word": "a",
+              "start": 53.48,
+              "end": 53.64,
+              "cefr": "A1"
+            },
+            {
+              "word": "harbinger",
+              "start": 53.64,
+              "end": 54.06,
+              "cefr": "C2"
+            },
+            {
+              "word": "of",
+              "start": 54.06,
+              "end": 54.38,
+              "cefr": "A1"
+            },
+            {
+              "word": "utopia",
+              "start": 54.38,
+              "end": 54.62,
+              "cefr": "C1"
+            },
+            {
+              "word": "or",
+              "start": 54.62,
+              "end": 55.2,
+              "cefr": "A1"
+            },
+            {
+              "word": "dystopia",
+              "start": 55.2,
+              "end": 55.3,
+              "cefr": "C1"
+            }
+          ]
+        },
+        {
+          "en": "And it changes its configuration in order to be able to predict stuff.",
+          "zh": "它会调整自己的结构来预测东西。",
+          "start": 55.5,
+          "end": 59.28,
+          "words": [
+            {
+              "word": "And",
+              "start": 55.5,
+              "end": 55.74,
+              "cefr": "A1"
+            },
+            {
+              "word": "it",
+              "start": 55.74,
+              "end": 56.24,
+              "cefr": "A1"
+            },
+            {
+              "word": "changes",
+              "start": 56.24,
+              "end": 56.24,
+              "cefr": "A2"
+            },
+            {
+              "word": "its",
+              "start": 56.24,
+              "end": 56.64,
+              "cefr": "A1"
+            },
+            {
+              "word": "configuration",
+              "start": 56.64,
+              "end": 57.12,
+              "cefr": "C1"
+            },
+            {
+              "word": "in",
+              "start": 57.12,
+              "end": 58,
+              "cefr": "A1"
+            },
+            {
+              "word": "order",
+              "start": 58,
+              "end": 58.02,
+              "cefr": "A1"
+            },
+            {
+              "word": "to",
+              "start": 58.02,
+              "end": 58.22,
+              "cefr": "A1"
+            },
+            {
+              "word": "be",
+              "start": 58.22,
+              "end": 58.42,
+              "cefr": "A1"
+            },
+            {
+              "word": "able",
+              "start": 58.42,
+              "end": 58.5,
+              "cefr": "B1"
+            },
+            {
+              "word": "to",
+              "start": 58.5,
+              "end": 58.98,
+              "cefr": "A1"
+            },
+            {
+              "word": "predict",
+              "start": 58.98,
+              "end": 58.98,
+              "cefr": "A2"
+            },
+            {
+              "word": "stuff",
+              "start": 58.98,
+              "end": 59.28,
+              "cefr": "A2"
+            }
+          ]
+        },
+        {
+          "en": "AI is something invented by us to advance our progress.",
+          "zh": "AI是我们发明来推动进步的东西。",
+          "start": 59.56,
+          "end": 63.88,
+          "words": [
+            {
+              "word": "AI",
+              "start": 59.56,
+              "end": 59.88,
+              "cefr": null
+            },
+            {
+              "word": "is",
+              "start": 59.88,
+              "end": 60.54,
+              "cefr": "A1"
+            },
+            {
+              "word": "something",
+              "start": 60.54,
+              "end": 60.88,
+              "cefr": "A1"
+            },
+            {
+              "word": "invented",
+              "start": 60.88,
+              "end": 61.18,
+              "cefr": "B2"
+            },
+            {
+              "word": "by",
+              "start": 61.18,
+              "end": 61.48,
+              "cefr": "A1"
+            },
+            {
+              "word": "us",
+              "start": 61.48,
+              "end": 61.74,
+              "cefr": "A1"
+            },
+            {
+              "word": "to",
+              "start": 61.74,
+              "end": 61.96,
+              "cefr": "A1"
+            },
+            {
+              "word": "advance",
+              "start": 61.96,
+              "end": 62.54,
+              "cefr": "B1"
+            },
+            {
+              "word": "our",
+              "start": 62.54,
+              "end": 63.6,
+              "cefr": "A1"
+            },
+            {
+              "word": "progress",
+              "start": 63.6,
+              "end": 63.88,
+              "cefr": "B1"
+            }
+          ]
+        },
+        {
+          "en": "It's really complicated, beautiful math, but it is fundamentally just math.",
+          "zh": "它是很复杂又漂亮的数学，但本质上就是数学。",
+          "start": 64.18,
+          "end": 71.7,
+          "words": [
+            {
+              "word": "It's",
+              "start": 64.18,
+              "end": 64.84,
+              "cefr": "A1"
+            },
+            {
+              "word": "really",
+              "start": 64.84,
+              "end": 65.32,
+              "cefr": "A1"
+            },
+            {
+              "word": "complicated",
+              "start": 65.32,
+              "end": 66.02,
+              "cefr": "B1"
+            },
+            {
+              "word": "beautiful",
+              "start": 67.12,
+              "end": 67.28,
+              "cefr": "A1"
+            },
+            {
+              "word": "math",
+              "start": 67.28,
+              "end": 67.84,
+              "cefr": "B1"
+            },
+            {
+              "word": "but",
+              "start": 67.96,
+              "end": 68.5,
+              "cefr": "A1"
+            },
+            {
+              "word": "it",
+              "start": 68.5,
+              "end": 68.86,
+              "cefr": "A1"
+            },
+            {
+              "word": "is",
+              "start": 68.86,
+              "end": 69.22,
+              "cefr": "A1"
+            },
+            {
+              "word": "fundamentally",
+              "start": 69.22,
+              "end": 69.96,
+              "cefr": "C1"
+            },
+            {
+              "word": "just",
+              "start": 69.96,
+              "end": 71.34,
+              "cefr": "A1"
+            },
+            {
+              "word": "math",
+              "start": 71.34,
+              "end": 71.7,
+              "cefr": "B1"
+            }
+          ]
+        },
+        {
+          "en": "AI is deeply entangled with our desire to be in control,",
+          "zh": "AI和我们想掌控的欲望紧密相连，",
+          "start": 71.7,
+          "end": 75.68,
+          "words": [
+            {
+              "word": "AI",
+              "start": 71.7,
+              "end": 72.44,
+              "cefr": null
+            },
+            {
+              "word": "is",
+              "start": 72.44,
+              "end": 72.74,
+              "cefr": "A1"
+            },
+            {
+              "word": "deeply",
+              "start": 72.74,
+              "end": 73.08,
+              "cefr": "A2"
+            },
+            {
+              "word": "entangled",
+              "start": 73.08,
+              "end": 73.56,
+              "cefr": "C1"
+            },
+            {
+              "word": "with",
+              "start": 73.56,
+              "end": 73.92,
+              "cefr": "A1"
+            },
+            {
+              "word": "our",
+              "start": 73.92,
+              "end": 74.28,
+              "cefr": "A1"
+            },
+            {
+              "word": "desire",
+              "start": 74.28,
+              "end": 74.6,
+              "cefr": "B1"
+            },
+            {
+              "word": "to",
+              "start": 74.6,
+              "end": 74.8,
+              "cefr": "A1"
+            },
+            {
+              "word": "be",
+              "start": 74.8,
+              "end": 74.98,
+              "cefr": "A1"
+            },
+            {
+              "word": "in",
+              "start": 74.98,
+              "end": 75.68,
+              "cefr": "A1"
+            },
+            {
+              "word": "control",
+              "start": 75.68,
+              "end": 75.68,
+              "cefr": "A2"
+            }
+          ]
+        },
+        {
+          "en": "both of ourselves and the world around us.",
+          "zh": "既想掌控自己，也想掌控周围的世界。",
+          "start": 75.92,
+          "end": 78.46,
+          "words": [
+            {
+              "word": "both",
+              "start": 75.92,
+              "end": 76.06,
+              "cefr": "A1"
+            },
+            {
+              "word": "of",
+              "start": 76.06,
+              "end": 76.38,
+              "cefr": "A1"
+            },
+            {
+              "word": "ourselves",
+              "start": 76.38,
+              "end": 76.78,
+              "cefr": "A2"
+            },
+            {
+              "word": "and",
+              "start": 76.78,
+              "end": 77.12,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 77.12,
+              "end": 77.26,
+              "cefr": "A1"
+            },
+            {
+              "word": "world",
+              "start": 77.26,
+              "end": 77.54,
+              "cefr": "A1"
+            },
+            {
+              "word": "around",
+              "start": 77.54,
+              "end": 78.06,
+              "cefr": "A1"
+            },
+            {
+              "word": "us",
+              "start": 78.06,
+              "end": 78.46,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "To control human behavior, to control the future,",
+          "zh": "掌控人的行为，掌控未来，",
+          "start": 78.84,
+          "end": 81.6,
+          "words": [
+            {
+              "word": "To",
+              "start": 78.84,
+              "end": 78.9,
+              "cefr": "A1"
+            },
+            {
+              "word": "control",
+              "start": 78.9,
+              "end": 79.34,
+              "cefr": "A2"
+            },
+            {
+              "word": "human",
+              "start": 79.34,
+              "end": 79.82,
+              "cefr": "A2"
+            },
+            {
+              "word": "behavior",
+              "start": 79.82,
+              "end": 80.2,
+              "cefr": "B1"
+            },
+            {
+              "word": "to",
+              "start": 80.5,
+              "end": 81.06,
+              "cefr": "A1"
+            },
+            {
+              "word": "control",
+              "start": 81.06,
+              "end": 81.06,
+              "cefr": "A2"
+            },
+            {
+              "word": "the",
+              "start": 81.06,
+              "end": 81.3,
+              "cefr": "A1"
+            },
+            {
+              "word": "future",
+              "start": 81.3,
+              "end": 81.6,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "to control environmental outcomes, to control institutions and societies.",
+          "zh": "掌控环境结果，掌控机构和社会。",
+          "start": 81.98,
+          "end": 86.22,
+          "words": [
+            {
+              "word": "to",
+              "start": 81.98,
+              "end": 82.54,
+              "cefr": "A1"
+            },
+            {
+              "word": "control",
+              "start": 82.54,
+              "end": 82.54,
+              "cefr": "A2"
+            },
+            {
+              "word": "environmental",
+              "start": 82.54,
+              "end": 83.08,
+              "cefr": "B1"
+            },
+            {
+              "word": "outcomes",
+              "start": 83.08,
+              "end": 83.58,
+              "cefr": "B2"
+            },
+            {
+              "word": "to",
+              "start": 83.94,
+              "end": 84.5,
+              "cefr": "A1"
+            },
+            {
+              "word": "control",
+              "start": 84.5,
+              "end": 84.5,
+              "cefr": "A2"
+            },
+            {
+              "word": "institutions",
+              "start": 84.5,
+              "end": 85.12,
+              "cefr": "B2"
+            },
+            {
+              "word": "and",
+              "start": 85.12,
+              "end": 86.22,
+              "cefr": "A1"
+            },
+            {
+              "word": "societies",
+              "start": 86.22,
+              "end": 86.22,
+              "cefr": "B2"
+            }
+          ]
+        },
+        {
+          "en": "AI is already here.",
+          "zh": "AI已经存在了。",
+          "start": 87.02,
+          "end": 88.26,
+          "words": [
+            {
+              "word": "AI",
+              "start": 87.02,
+              "end": 87.34,
+              "cefr": null
+            },
+            {
+              "word": "is",
+              "start": 87.34,
+              "end": 87.56,
+              "cefr": "A1"
+            },
+            {
+              "word": "already",
+              "start": 87.56,
+              "end": 87.88,
+              "cefr": "A1"
+            },
+            {
+              "word": "here",
+              "start": 87.88,
+              "end": 88.26,
+              "cefr": "A1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "海峡封锁如何瘫痪全球供应链",
+      "source": {
+        "podcast": "Big Take (Bloomberg)",
+        "episode": "It’s Not Just Oil. War in Iran Will Hike the Price of Nearly Everything You Buy",
+        "episode_url": "",
+        "timestamp_start": "03:00",
+        "timestamp_end": "04:06",
+        "pub_date": "",
+        "tier": "Business"
+      },
+      "audio": "clips/clip43.mp3",
+      "lines": [
+        {
+          "en": "been chronicling how the conflict in the Gulf",
+          "zh": "一直在记录海湾冲突的情况",
+          "start": 0,
+          "end": 1.94,
+          "words": [
+            {
+              "word": "been",
+              "start": 0,
+              "end": 0.26,
+              "cefr": "A2"
+            },
+            {
+              "word": "chronicling",
+              "start": 0.26,
+              "end": 0.6,
+              "cefr": "C2"
+            },
+            {
+              "word": "how",
+              "start": 0.6,
+              "end": 0.84,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 0.84,
+              "end": 1,
+              "cefr": "A1"
+            },
+            {
+              "word": "conflict",
+              "start": 1,
+              "end": 1.46,
+              "cefr": "B1"
+            },
+            {
+              "word": "in",
+              "start": 1.46,
+              "end": 1.62,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 1.62,
+              "end": 1.94,
+              "cefr": "A1"
+            },
+            {
+              "word": "Gulf",
+              "start": 1.94,
+              "end": 1.94,
+              "cefr": "B2"
+            }
+          ]
+        },
+        {
+          "en": "has been disrupting a wider array of raw materials and consumer goods,",
+          "zh": "它扰乱了更多原材料和消费品的供应",
+          "start": 1.94,
+          "end": 6.88,
+          "words": [
+            {
+              "word": "has",
+              "start": 1.94,
+              "end": 2.54,
+              "cefr": "A1"
+            },
+            {
+              "word": "been",
+              "start": 2.54,
+              "end": 2.86,
+              "cefr": "A2"
+            },
+            {
+              "word": "disrupting",
+              "start": 2.86,
+              "end": 3.34,
+              "cefr": "C1"
+            },
+            {
+              "word": "a",
+              "start": 3.34,
+              "end": 3.62,
+              "cefr": "A1"
+            },
+            {
+              "word": "wider",
+              "start": 3.62,
+              "end": 4.06,
+              "cefr": "B2"
+            },
+            {
+              "word": "array",
+              "start": 4.06,
+              "end": 4.48,
+              "cefr": "B2"
+            },
+            {
+              "word": "of",
+              "start": 4.48,
+              "end": 4.86,
+              "cefr": "A1"
+            },
+            {
+              "word": "raw",
+              "start": 4.86,
+              "end": 5.02,
+              "cefr": "A2"
+            },
+            {
+              "word": "materials",
+              "start": 5.02,
+              "end": 5.54,
+              "cefr": "B1"
+            },
+            {
+              "word": "and",
+              "start": 5.54,
+              "end": 6.1,
+              "cefr": "A1"
+            },
+            {
+              "word": "consumer",
+              "start": 6.1,
+              "end": 6.58,
+              "cefr": "B1"
+            },
+            {
+              "word": "goods",
+              "start": 6.58,
+              "end": 6.88,
+              "cefr": "B1"
+            }
+          ]
+        },
+        {
+          "en": "with potential longer-term and worldwide ripple effects.",
+          "zh": "可能会带来长期、全球性的连锁反应",
+          "start": 6.88,
+          "end": 11.6,
+          "words": [
+            {
+              "word": "with",
+              "start": 6.88,
+              "end": 7.54,
+              "cefr": "A1"
+            },
+            {
+              "word": "potential",
+              "start": 7.54,
+              "end": 8.2,
+              "cefr": "B1"
+            },
+            {
+              "word": "longer",
+              "start": 8.2,
+              "end": 8.72,
+              "cefr": "A2"
+            },
+            {
+              "word": "term",
+              "start": 8.72,
+              "end": 9.2,
+              "cefr": "B1"
+            },
+            {
+              "word": "and",
+              "start": 9.2,
+              "end": 9.84,
+              "cefr": "A1"
+            },
+            {
+              "word": "worldwide",
+              "start": 9.84,
+              "end": 10.66,
+              "cefr": "A2"
+            },
+            {
+              "word": "ripple",
+              "start": 10.66,
+              "end": 11.16,
+              "cefr": "C1"
+            },
+            {
+              "word": "effects",
+              "start": 11.16,
+              "end": 11.6,
+              "cefr": "B1"
+            }
+          ]
+        },
+        {
+          "en": "I always like to say that one of the things that Odd Lots tends to do well",
+          "zh": "我常说，Odd Lots 有个优势",
+          "start": 11.96,
+          "end": 16.36,
+          "words": [
+            {
+              "word": "I",
+              "start": 11.96,
+              "end": 12.06,
+              "cefr": "A1"
+            },
+            {
+              "word": "always",
+              "start": 12.06,
+              "end": 12.32,
+              "cefr": "A1"
+            },
+            {
+              "word": "like",
+              "start": 12.32,
+              "end": 12.52,
+              "cefr": "A1"
+            },
+            {
+              "word": "to",
+              "start": 12.52,
+              "end": 12.74,
+              "cefr": "A1"
+            },
+            {
+              "word": "say",
+              "start": 12.74,
+              "end": 12.94,
+              "cefr": "A1"
+            },
+            {
+              "word": "that",
+              "start": 12.94,
+              "end": 13.78,
+              "cefr": "A1"
+            },
+            {
+              "word": "one",
+              "start": 13.78,
+              "end": 13.94,
+              "cefr": "A1"
+            },
+            {
+              "word": "of",
+              "start": 13.94,
+              "end": 14.04,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 14.04,
+              "end": 14.22,
+              "cefr": "A1"
+            },
+            {
+              "word": "things",
+              "start": 14.22,
+              "end": 14.48,
+              "cefr": "A1"
+            },
+            {
+              "word": "that",
+              "start": 14.48,
+              "end": 15.26,
+              "cefr": "A1"
+            },
+            {
+              "word": "Odd",
+              "start": 15.26,
+              "end": 15.44,
+              "cefr": "B2"
+            },
+            {
+              "word": "Lots",
+              "start": 15.44,
+              "end": 15.56,
+              "cefr": "A1"
+            },
+            {
+              "word": "tends",
+              "start": 15.56,
+              "end": 15.78,
+              "cefr": "B2"
+            },
+            {
+              "word": "to",
+              "start": 15.78,
+              "end": 15.98,
+              "cefr": "A1"
+            },
+            {
+              "word": "do",
+              "start": 15.98,
+              "end": 16.18,
+              "cefr": "A1"
+            },
+            {
+              "word": "well",
+              "start": 16.18,
+              "end": 16.36,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "is we uncover the supply chains when they're affected,",
+          "zh": "就是能挖出受影响的供应链",
+          "start": 16.36,
+          "end": 19.3,
+          "words": [
+            {
+              "word": "is",
+              "start": 16.36,
+              "end": 16.58,
+              "cefr": "A1"
+            },
+            {
+              "word": "we",
+              "start": 16.58,
+              "end": 17.08,
+              "cefr": "A1"
+            },
+            {
+              "word": "uncover",
+              "start": 17.08,
+              "end": 17.36,
+              "cefr": "B1"
+            },
+            {
+              "word": "the",
+              "start": 17.36,
+              "end": 17.7,
+              "cefr": "A1"
+            },
+            {
+              "word": "supply",
+              "start": 17.7,
+              "end": 17.92,
+              "cefr": "B1"
+            },
+            {
+              "word": "chains",
+              "start": 17.92,
+              "end": 18.34,
+              "cefr": "B1"
+            },
+            {
+              "word": "when",
+              "start": 18.34,
+              "end": 18.66,
+              "cefr": "A1"
+            },
+            {
+              "word": "they're",
+              "start": 18.66,
+              "end": 18.94,
+              "cefr": "A2"
+            },
+            {
+              "word": "affected",
+              "start": 18.94,
+              "end": 19.3,
+              "cefr": "B2"
+            }
+          ]
+        },
+        {
+          "en": "and right now is kind of like a bull market in supply chain shocks, right?",
+          "zh": "现在就像是供应链冲击的牛市，对吧？",
+          "start": 19.54,
+          "end": 25.16,
+          "words": [
+            {
+              "word": "and",
+              "start": 19.54,
+              "end": 19.7,
+              "cefr": "A1"
+            },
+            {
+              "word": "right",
+              "start": 19.7,
+              "end": 19.96,
+              "cefr": "A1"
+            },
+            {
+              "word": "now",
+              "start": 19.96,
+              "end": 20.36,
+              "cefr": "A1"
+            },
+            {
+              "word": "is",
+              "start": 20.36,
+              "end": 21.14,
+              "cefr": "A1"
+            },
+            {
+              "word": "kind",
+              "start": 21.14,
+              "end": 21.42,
+              "cefr": "A1"
+            },
+            {
+              "word": "of",
+              "start": 21.42,
+              "end": 21.62,
+              "cefr": "A1"
+            },
+            {
+              "word": "like",
+              "start": 21.62,
+              "end": 22.28,
+              "cefr": "A1"
+            },
+            {
+              "word": "a",
+              "start": 22.28,
+              "end": 22.56,
+              "cefr": "A1"
+            },
+            {
+              "word": "bull",
+              "start": 22.56,
+              "end": 22.7,
+              "cefr": "B1"
+            },
+            {
+              "word": "market",
+              "start": 22.7,
+              "end": 23.02,
+              "cefr": "A2"
+            },
+            {
+              "word": "in",
+              "start": 23.02,
+              "end": 23.38,
+              "cefr": "A1"
+            },
+            {
+              "word": "supply",
+              "start": 23.38,
+              "end": 23.72,
+              "cefr": "B1"
+            },
+            {
+              "word": "chain",
+              "start": 23.72,
+              "end": 24.32,
+              "cefr": "A2"
+            },
+            {
+              "word": "shocks",
+              "start": 24.32,
+              "end": 24.7,
+              "cefr": "B2"
+            },
+            {
+              "word": "right",
+              "start": 24.7,
+              "end": 25.16,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "I think one thing to understand about our current moment in the petrochemicals",
+          "zh": "我觉得要理解现在石化行业的情况",
+          "start": 25.2,
+          "end": 30.14,
+          "words": [
+            {
+              "word": "I",
+              "start": 25.2,
+              "end": 25.7,
+              "cefr": "A1"
+            },
+            {
+              "word": "think",
+              "start": 25.7,
+              "end": 25.82,
+              "cefr": "A1"
+            },
+            {
+              "word": "one",
+              "start": 25.82,
+              "end": 26,
+              "cefr": "A1"
+            },
+            {
+              "word": "thing",
+              "start": 26,
+              "end": 26.1,
+              "cefr": "A1"
+            },
+            {
+              "word": "to",
+              "start": 26.1,
+              "end": 26.8,
+              "cefr": "A1"
+            },
+            {
+              "word": "understand",
+              "start": 26.8,
+              "end": 26.8,
+              "cefr": "A2"
+            },
+            {
+              "word": "about",
+              "start": 26.8,
+              "end": 27.06,
+              "cefr": "A1"
+            },
+            {
+              "word": "our",
+              "start": 27.06,
+              "end": 27.32,
+              "cefr": "A1"
+            },
+            {
+              "word": "current",
+              "start": 27.32,
+              "end": 27.6,
+              "cefr": "B1"
+            },
+            {
+              "word": "moment",
+              "start": 27.6,
+              "end": 28.02,
+              "cefr": "A1"
+            },
+            {
+              "word": "in",
+              "start": 28.02,
+              "end": 28.82,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 28.82,
+              "end": 29.32,
+              "cefr": "A1"
+            },
+            {
+              "word": "petrochemicals",
+              "start": 29.32,
+              "end": 30.14,
+              "cefr": "C1"
+            }
+          ]
+        },
+        {
+          "en": "and also broader energy space is that this is the scenario that people were worried about for years.",
+          "zh": "还有更广泛能源领域，这正是人们多年来担心的局面",
+          "start": 30.14,
+          "end": 36.26,
+          "words": [
+            {
+              "word": "and",
+              "start": 30.14,
+              "end": 30.26,
+              "cefr": "A1"
+            },
+            {
+              "word": "also",
+              "start": 30.26,
+              "end": 30.82,
+              "cefr": "A1"
+            },
+            {
+              "word": "broader",
+              "start": 30.82,
+              "end": 30.88,
+              "cefr": "B2"
+            },
+            {
+              "word": "energy",
+              "start": 30.88,
+              "end": 31.32,
+              "cefr": "B2"
+            },
+            {
+              "word": "space",
+              "start": 31.32,
+              "end": 31.7,
+              "cefr": "A2"
+            },
+            {
+              "word": "is",
+              "start": 31.7,
+              "end": 32.08,
+              "cefr": "A1"
+            },
+            {
+              "word": "that",
+              "start": 32.08,
+              "end": 32.44,
+              "cefr": "A1"
+            },
+            {
+              "word": "this",
+              "start": 32.44,
+              "end": 32.98,
+              "cefr": "A1"
+            },
+            {
+              "word": "is",
+              "start": 32.98,
+              "end": 33.16,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 33.16,
+              "end": 33.82,
+              "cefr": "A1"
+            },
+            {
+              "word": "scenario",
+              "start": 33.82,
+              "end": 34.14,
+              "cefr": "C1"
+            },
+            {
+              "word": "that",
+              "start": 34.14,
+              "end": 34.48,
+              "cefr": "A1"
+            },
+            {
+              "word": "people",
+              "start": 34.48,
+              "end": 34.62,
+              "cefr": "A1"
+            },
+            {
+              "word": "were",
+              "start": 34.62,
+              "end": 34.92,
+              "cefr": "A1"
+            },
+            {
+              "word": "worried",
+              "start": 34.92,
+              "end": 35.18,
+              "cefr": "A2"
+            },
+            {
+              "word": "about",
+              "start": 35.18,
+              "end": 35.54,
+              "cefr": "A1"
+            },
+            {
+              "word": "for",
+              "start": 35.54,
+              "end": 35.96,
+              "cefr": "A1"
+            },
+            {
+              "word": "years",
+              "start": 35.96,
+              "end": 36.26,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "This is the thought experiment that used to dominate bar talk for oil traders in London.",
+          "zh": "这就是以前伦敦油商酒吧里常聊的假设情景",
+          "start": 36.26,
+          "end": 42.6,
+          "words": [
+            {
+              "word": "This",
+              "start": 36.26,
+              "end": 36.68,
+              "cefr": "A1"
+            },
+            {
+              "word": "is",
+              "start": 36.68,
+              "end": 36.94,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 36.94,
+              "end": 37.14,
+              "cefr": "A1"
+            },
+            {
+              "word": "thought",
+              "start": 37.14,
+              "end": 37.6,
+              "cefr": "A2"
+            },
+            {
+              "word": "experiment",
+              "start": 37.6,
+              "end": 38.04,
+              "cefr": "B1"
+            },
+            {
+              "word": "that",
+              "start": 38.04,
+              "end": 38.32,
+              "cefr": "A1"
+            },
+            {
+              "word": "used",
+              "start": 38.32,
+              "end": 38.5,
+              "cefr": "A2"
+            },
+            {
+              "word": "to",
+              "start": 38.5,
+              "end": 39.18,
+              "cefr": "A1"
+            },
+            {
+              "word": "dominate",
+              "start": 39.18,
+              "end": 39.18,
+              "cefr": "B2"
+            },
+            {
+              "word": "bar",
+              "start": 39.18,
+              "end": 40.44,
+              "cefr": "A1"
+            },
+            {
+              "word": "talk",
+              "start": 40.44,
+              "end": 40.72,
+              "cefr": "A1"
+            },
+            {
+              "word": "for",
+              "start": 40.72,
+              "end": 41.1,
+              "cefr": "A1"
+            },
+            {
+              "word": "oil",
+              "start": 41.1,
+              "end": 41.46,
+              "cefr": "A2"
+            },
+            {
+              "word": "traders",
+              "start": 41.46,
+              "end": 41.92,
+              "cefr": "B2"
+            },
+            {
+              "word": "in",
+              "start": 41.92,
+              "end": 42.6,
+              "cefr": "A1"
+            },
+            {
+              "word": "London",
+              "start": 42.6,
+              "end": 42.6,
+              "cefr": null
+            }
+          ]
+        },
+        {
+          "en": "What if the Strait of Hormuz was closed?",
+          "zh": "如果霍尔木兹海峡被封了会怎样？",
+          "start": 42.78,
+          "end": 44.3,
+          "words": [
+            {
+              "word": "What",
+              "start": 42.78,
+              "end": 42.98,
+              "cefr": "A1"
+            },
+            {
+              "word": "if",
+              "start": 42.98,
+              "end": 43.26,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 43.26,
+              "end": 43.44,
+              "cefr": "A1"
+            },
+            {
+              "word": "Strait",
+              "start": 43.44,
+              "end": 43.6,
+              "cefr": "B2"
+            },
+            {
+              "word": "of",
+              "start": 43.6,
+              "end": 43.8,
+              "cefr": "A1"
+            },
+            {
+              "word": "Hormuz",
+              "start": 43.8,
+              "end": 43.8,
+              "cefr": null
+            },
+            {
+              "word": "was",
+              "start": 43.8,
+              "end": 44.18,
+              "cefr": "A1"
+            },
+            {
+              "word": "closed",
+              "start": 44.18,
+              "end": 44.3,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "What if the Strait of Hormuz was closed?",
+          "zh": "如果霍尔木兹海峡被封了会怎样？",
+          "start": 44.34,
+          "end": 45.48,
+          "words": [
+            {
+              "word": "What",
+              "start": 44.34,
+              "end": 44.36,
+              "cefr": "A1"
+            },
+            {
+              "word": "if",
+              "start": 44.36,
+              "end": 44.44,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 44.44,
+              "end": 44.54,
+              "cefr": "A1"
+            },
+            {
+              "word": "Strait",
+              "start": 44.54,
+              "end": 44.54,
+              "cefr": "B2"
+            },
+            {
+              "word": "of",
+              "start": 44.54,
+              "end": 44.8,
+              "cefr": "A1"
+            },
+            {
+              "word": "Hormuz",
+              "start": 44.8,
+              "end": 44.8,
+              "cefr": null
+            },
+            {
+              "word": "was",
+              "start": 44.8,
+              "end": 45.12,
+              "cefr": "A1"
+            },
+            {
+              "word": "closed",
+              "start": 45.12,
+              "end": 45.48,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "And now we're actually experiencing it, and so now we're getting a much fuller understanding",
+          "zh": "现在我们真的遇到了，所以理解就更全面了",
+          "start": 45.52,
+          "end": 50.46,
+          "words": [
+            {
+              "word": "And",
+              "start": 45.52,
+              "end": 45.8,
+              "cefr": "A1"
+            },
+            {
+              "word": "now",
+              "start": 45.8,
+              "end": 45.98,
+              "cefr": "A1"
+            },
+            {
+              "word": "we're",
+              "start": 45.98,
+              "end": 46.12,
+              "cefr": "A2"
+            },
+            {
+              "word": "actually",
+              "start": 46.12,
+              "end": 46.66,
+              "cefr": "A2"
+            },
+            {
+              "word": "experiencing",
+              "start": 46.66,
+              "end": 47.08,
+              "cefr": "B2"
+            },
+            {
+              "word": "it",
+              "start": 47.08,
+              "end": 47.48,
+              "cefr": "A1"
+            },
+            {
+              "word": "and",
+              "start": 47.5,
+              "end": 47.66,
+              "cefr": "A1"
+            },
+            {
+              "word": "so",
+              "start": 47.66,
+              "end": 47.9,
+              "cefr": "A1"
+            },
+            {
+              "word": "now",
+              "start": 47.9,
+              "end": 48.1,
+              "cefr": "A1"
+            },
+            {
+              "word": "we're",
+              "start": 48.1,
+              "end": 48.26,
+              "cefr": "A2"
+            },
+            {
+              "word": "getting",
+              "start": 48.26,
+              "end": 48.56,
+              "cefr": "A2"
+            },
+            {
+              "word": "a",
+              "start": 48.56,
+              "end": 48.88,
+              "cefr": "A1"
+            },
+            {
+              "word": "much",
+              "start": 48.88,
+              "end": 49.54,
+              "cefr": "A1"
+            },
+            {
+              "word": "fuller",
+              "start": 49.54,
+              "end": 49.94,
+              "cefr": "B2"
+            },
+            {
+              "word": "understanding",
+              "start": 49.94,
+              "end": 50.46,
+              "cefr": "B2"
+            }
+          ]
+        },
+        {
+          "en": "of exactly how all of that energy, all those carbons or whatever,",
+          "zh": "到底这些能源、这些碳之类的",
+          "start": 50.46,
+          "end": 54.66,
+          "words": [
+            {
+              "word": "of",
+              "start": 50.46,
+              "end": 50.98,
+              "cefr": "A1"
+            },
+            {
+              "word": "exactly",
+              "start": 50.98,
+              "end": 51.4,
+              "cefr": "A2"
+            },
+            {
+              "word": "how",
+              "start": 51.4,
+              "end": 51.9,
+              "cefr": "A1"
+            },
+            {
+              "word": "all",
+              "start": 51.9,
+              "end": 52.34,
+              "cefr": "A1"
+            },
+            {
+              "word": "of",
+              "start": 52.34,
+              "end": 52.5,
+              "cefr": "A1"
+            },
+            {
+              "word": "that",
+              "start": 52.5,
+              "end": 52.76,
+              "cefr": "A1"
+            },
+            {
+              "word": "energy",
+              "start": 52.76,
+              "end": 53.02,
+              "cefr": "B2"
+            },
+            {
+              "word": "all",
+              "start": 53.24,
+              "end": 53.28,
+              "cefr": "A1"
+            },
+            {
+              "word": "those",
+              "start": 53.28,
+              "end": 53.7,
+              "cefr": "A1"
+            },
+            {
+              "word": "carbons",
+              "start": 53.7,
+              "end": 54.18,
+              "cefr": "C1"
+            },
+            {
+              "word": "or",
+              "start": 54.18,
+              "end": 54.4,
+              "cefr": "A1"
+            },
+            {
+              "word": "whatever",
+              "start": 54.4,
+              "end": 54.66,
+              "cefr": "A2"
+            }
+          ]
+        },
+        {
+          "en": "actually routes throughout the entire world.",
+          "zh": "是怎么流向全世界的",
+          "start": 54.82,
+          "end": 56.92,
+          "words": [
+            {
+              "word": "actually",
+              "start": 54.82,
+              "end": 55.34,
+              "cefr": "A2"
+            },
+            {
+              "word": "routes",
+              "start": 55.34,
+              "end": 55.72,
+              "cefr": "B1"
+            },
+            {
+              "word": "throughout",
+              "start": 55.72,
+              "end": 56.04,
+              "cefr": "B1"
+            },
+            {
+              "word": "the",
+              "start": 56.04,
+              "end": 56.28,
+              "cefr": "A1"
+            },
+            {
+              "word": "entire",
+              "start": 56.28,
+              "end": 56.54,
+              "cefr": "B1"
+            },
+            {
+              "word": "world",
+              "start": 56.54,
+              "end": 56.92,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "Thanks to the brilliance of sort of advanced chemistry,",
+          "zh": "多亏了先进化学的聪明设计",
+          "start": 57.16,
+          "end": 60.22,
+          "words": [
+            {
+              "word": "Thanks",
+              "start": 57.16,
+              "end": 57.46,
+              "cefr": "A1"
+            },
+            {
+              "word": "to",
+              "start": 57.46,
+              "end": 57.82,
+              "cefr": "A1"
+            },
+            {
+              "word": "the",
+              "start": 57.82,
+              "end": 58.52,
+              "cefr": "A1"
+            },
+            {
+              "word": "brilliance",
+              "start": 58.52,
+              "end": 58.8,
+              "cefr": "C1"
+            },
+            {
+              "word": "of",
+              "start": 58.8,
+              "end": 59.2,
+              "cefr": "A1"
+            },
+            {
+              "word": "sort",
+              "start": 59.2,
+              "end": 59.32,
+              "cefr": "B1"
+            },
+            {
+              "word": "of",
+              "start": 59.32,
+              "end": 59.52,
+              "cefr": "A1"
+            },
+            {
+              "word": "advanced",
+              "start": 59.52,
+              "end": 59.84,
+              "cefr": "A2"
+            },
+            {
+              "word": "chemistry",
+              "start": 59.84,
+              "end": 60.22,
+              "cefr": "B1"
+            }
+          ]
+        },
+        {
+          "en": "everything can be kind of everything else.",
+          "zh": "几乎什么都能变成别的东西",
+          "start": 60.7,
+          "end": 63.08,
+          "words": [
+            {
+              "word": "everything",
+              "start": 60.7,
+              "end": 61.08,
+              "cefr": "A1"
+            },
+            {
+              "word": "can",
+              "start": 61.08,
+              "end": 61.4,
+              "cefr": "A1"
+            },
+            {
+              "word": "be",
+              "start": 61.4,
+              "end": 61.72,
+              "cefr": "A1"
+            },
+            {
+              "word": "kind",
+              "start": 61.72,
+              "end": 62,
+              "cefr": "A1"
+            },
+            {
+              "word": "of",
+              "start": 62,
+              "end": 62.14,
+              "cefr": "A1"
+            },
+            {
+              "word": "everything",
+              "start": 62.14,
+              "end": 62.66,
+              "cefr": "A1"
+            },
+            {
+              "word": "else",
+              "start": 62.66,
+              "end": 63.08,
+              "cefr": "A1"
+            }
+          ]
+        },
+        {
+          "en": "In some sense, you turn oil into plastic.",
+          "zh": "比如说，把石油变成塑料",
+          "start": 63.08,
+          "end": 66.06,
+          "words": [
+            {
+              "word": "In",
+              "start": 63.08,
+              "end": 63.32,
+              "cefr": "A1"
+            },
+            {
+              "word": "some",
+              "start": 63.32,
+              "end": 63.68,
+              "cefr": "A1"
+            },
+            {
+              "word": "sense",
+              "start": 63.68,
+              "end": 64.14,
+              "cefr": "A2"
+            },
+            {
+              "word": "you",
+              "start": 64.2,
+              "end": 64.74,
+              "cefr": "A1"
+            },
+            {
+              "word": "turn",
+              "start": 64.74,
+              "end": 64.9,
+              "cefr": "A1"
+            },
+            {
+              "word": "oil",
+              "start": 64.9,
+              "end": 65.42,
+              "cefr": "A2"
+            },
+            {
+              "word": "into",
+              "start": 65.42,
+              "end": 65.68,
+              "cefr": "A1"
+            },
+            {
+              "word": "plastic",
+              "start": 65.68,
+              "end": 66.06,
+              "cefr": "A2"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
