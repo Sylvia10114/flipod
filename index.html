@@ -2819,8 +2819,25 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
     if (selectedTags.length < 3) return;
     localStorage.setItem('flipodLevel', selectedLevel);
     localStorage.setItem('flipodInterests', JSON.stringify(selectedTags));
+
+    /* ── Batch 7 · D11 · 把 priming 输出写入 taste_profile ── */
+    try {
+      const fp = (typeof window._fpReadFP === 'function') ? window._fpReadFP() : {};
+      fp.taste_profile = Object.assign({}, fp.taste_profile || {}, {
+        preferred_topics: selectedTags.slice(),
+        preferred_podcasts: (fp.taste_profile && fp.taste_profile.preferred_podcasts) || [],
+        excluded_topics: (fp.taste_profile && fp.taste_profile.excluded_topics) || [],
+        level: selectedLevel,
+        calibrated_at: new Date().toISOString()
+      });
+      if (typeof window._fpWriteFP === 'function') window._fpWriteFP(fp);
+    } catch {}
+
+    /* D10 归因校准步骤已废弃（2026-04-23 PM 复盘）：
+     * 理由：3 chip (词/声/义) 已足够直觉，无需 OB 训练；且 ob_attribution_calibration
+     * 字段原本就无下游消费方，是虚荣数据。OB 保持"级别 → 兴趣 → 进 app"的最简路径。
+     */
     localStorage.setItem('onboardingDone', 'true');
-    // batch-6: OB finish → land on practice tab
     if (typeof window._fpSetActiveTab === 'function') {
       window._fpSetActiveTab('practice', { source: 'ob' });
     }
@@ -2849,8 +2866,8 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
   if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
 })();
 
-// ── Batch 6: Two-tab shell + v2 state helpers ──
-// Spec: tmp/drafts/batch6-integration-v2-tabs.md §1, §2, §5
+// ── Batch 6 + 7: Two-tab shell + v2.2 schema ──
+// Spec: tmp/drafts/batch6-integration-v2-tabs.md §1-§5 + PRD v2.2 §3.2, §4.x
 (function(){
   function readFP(){
     try {
@@ -2861,19 +2878,188 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
   function writeFP(fp){
     try { localStorage.setItem('flipodPractice', JSON.stringify(fp)); } catch {}
   }
+
+  /* ── Batch 7 · L8 跨 session 判定阈值 ── */
+  const CROSS_SESSION_THRESHOLD_MS = 30 * 60 * 1000;  // 30 分钟
+  const INCOMPLETE_CLIP_TTL_MS = 30 * 24 * 60 * 60 * 1000;  // 30 天（L6 兜底清理）
+
+  /* ── Batch 7 · D1 + L6 + L10 + D3 + D5 + D11 · 迁移函数 ──
+   * 从 v1（老 quiz_results 用 [{q_idx, picked, correct}]）升级到 v2.2 的详细对象：
+   *   - quiz_results.stage1 → 对象 {correct, selected_option, explanation_opened}
+   *   - quiz_results.stage2/3 → 数组 of {correct, selected_option, explanation_opened}
+   *   - 新增：topic_familiarity_signal（L1）、consistency_flag（L9）、shadowing_records（L10）
+   *   - 新增顶层：incomplete_clips、skipped_clips、topic_familiarity_profile、
+   *     taste_profile、tab_switch_events
+   *   - 老 Stage 0 quiz 结果（若有）→ 迁移到 topic_familiarity_signal
+   * 老数据的 selected_option / explanation_opened 在旧 schema 里未收集，只能填 null / false
+   */
+  function migrateFlipodPractice(fp){
+    const currentVersion = fp.version || 0;
+    if (currentVersion >= 2) return fp;  // already migrated
+
+    // 1) 升级每条 completed_clips 的 quiz_results
+    if (Array.isArray(fp.completed_clips)){
+      fp.completed_clips.forEach(rec => {
+        const qr = rec.quiz_results;
+        if (!qr || typeof qr !== 'object') { rec.quiz_results = {}; }
+        else {
+          const upgraded = {};
+          Object.keys(qr).forEach(stageKey => {
+            const val = qr[stageKey];
+            if (!Array.isArray(val)) { upgraded[stageKey] = val; return; }
+            if (stageKey === 'stage0') {
+              // Stage 0 老数据搬到 topic_familiarity_signal（取首题）
+              const first = val[0];
+              if (first && rec.topic_familiarity_signal == null) {
+                rec.topic_familiarity_signal = {
+                  correct: !!first.correct,
+                  selected_option: (typeof first.picked === 'number') ? first.picked : null,
+                  topic_tag: null
+                };
+              }
+              // 不再保留 stage0 在 quiz_results
+              return;
+            }
+            // Stage 1/2/3: 每个老条目 {q_idx, picked, correct} → 新对象
+            const newArr = val.map(old => ({
+              correct: !!old.correct,
+              selected_option: (typeof old.picked === 'number') ? old.picked : null,
+              explanation_opened: false  // 老 schema 没收集
+            }));
+            if (stageKey === 'stage1'){
+              // Stage 1 本应是对象（单题）。老数据若多题，取首题；保留其余到 stage1_extra
+              upgraded.stage1 = newArr.length > 0 ? newArr[0] : null;
+              if (newArr.length > 1) upgraded.stage1_extra = newArr.slice(1);
+            } else {
+              upgraded[stageKey] = newArr;
+            }
+          });
+          rec.quiz_results = upgraded;
+        }
+        // L9 补 consistency_flag（老数据默认 normal）
+        if (!rec.consistency_flag) rec.consistency_flag = 'normal';
+        // L10 预留 shadowing_records
+        if (!Array.isArray(rec.shadowing_records)) rec.shadowing_records = [];
+      });
+    }
+
+    // 2) 新增顶层字段
+    if (!Array.isArray(fp.incomplete_clips)) fp.incomplete_clips = [];
+    if (!Array.isArray(fp.skipped_clips)) fp.skipped_clips = [];
+    if (!Array.isArray(fp.tab_switch_events)) fp.tab_switch_events = [];
+    if (!fp.topic_familiarity_profile || typeof fp.topic_familiarity_profile !== 'object'){
+      fp.topic_familiarity_profile = { by_topic_tag: {} };
+    } else if (!fp.topic_familiarity_profile.by_topic_tag) {
+      fp.topic_familiarity_profile.by_topic_tag = {};
+    }
+    if (!fp.taste_profile || typeof fp.taste_profile !== 'object'){
+      fp.taste_profile = {
+        preferred_podcasts: [],
+        preferred_topics: [],
+        excluded_topics: [],
+        calibrated_at: null
+      };
+    }
+
+    // 3) 从 Batch 1 Phase 1a 的 legacy interests 回填 taste_profile（非破坏）
+    try {
+      const legacyInterests = JSON.parse(localStorage.getItem('flipodInterests') || 'null');
+      if (Array.isArray(legacyInterests) && legacyInterests.length && fp.taste_profile.preferred_topics.length === 0){
+        fp.taste_profile.preferred_topics = legacyInterests.slice();
+      }
+    } catch {}
+
+    // 4) L6 兜底清理超过 30 天的 incomplete_clips
+    const now = Date.now();
+    fp.incomplete_clips = fp.incomplete_clips.filter(r => {
+      if (!r.last_exited_at) return false;
+      const age = now - new Date(r.last_exited_at).getTime();
+      return age >= 0 && age < INCOMPLETE_CLIP_TTL_MS;
+    });
+
+    // 5) 归因 chip 简化（2026-04-23 pivot B）：6 chip → 3 chip
+    //   linking/weak/speed/accent → unclear（声层合并）
+    //   other → meaning（义层升格）
+    const ATTR_OLD_TO_NEW = {
+      linking: 'unclear', weak: 'unclear', speed: 'unclear', accent: 'unclear',
+      other: 'meaning'
+    };
+    function _rebucketAttrKey(k){
+      return ATTR_OLD_TO_NEW[k] || k;  // unknown 保持；新键直通
+    }
+    // 5a) attribution_aggregate 顶层桶的合并
+    if (fp.attribution_aggregate && typeof fp.attribution_aggregate === 'object'){
+      const newAgg = {};
+      Object.keys(fp.attribution_aggregate).forEach(k => {
+        const nk = _rebucketAttrKey(k);
+        newAgg[nk] = (newAgg[nk] || 0) + (fp.attribution_aggregate[k] || 0);
+      });
+      fp.attribution_aggregate = newAgg;
+    }
+    // 5b) completed_clips[i].attributions[*].reasons 的老键转换
+    if (Array.isArray(fp.completed_clips)){
+      fp.completed_clips.forEach(rec => {
+        if (!Array.isArray(rec.attributions)) return;
+        rec.attributions.forEach(a => {
+          if (!Array.isArray(a.reasons)) return;
+          a.reasons = Array.from(new Set(a.reasons.map(_rebucketAttrKey)));
+        });
+      });
+    }
+
+    fp.version = 2;
+    fp._migrated_at = new Date().toISOString();
+    return fp;
+  }
+
+  // 启动时跑一次迁移
+  (function runMigration(){
+    const fp = readFP();
+    const migrated = migrateFlipodPractice(fp);
+    writeFP(migrated);
+  })();
+
+  /* ── Batch 7 · D5 · tab_switch_events 推入 ── */
+  function pushTabSwitchEvent(from, to, fromStage){
+    const fp = readFP();
+    if (!Array.isArray(fp.tab_switch_events)) fp.tab_switch_events = [];
+    fp.tab_switch_events.push({
+      from: from || null,
+      to: to,
+      at: new Date().toISOString(),
+      from_stage: (typeof fromStage === 'number') ? fromStage : null
+    });
+    // 保留最近 200 条（避免无限增长）
+    if (fp.tab_switch_events.length > 200){
+      fp.tab_switch_events = fp.tab_switch_events.slice(-200);
+    }
+    writeFP(fp);
+  }
+
   function setActiveTab(tab, opts){
     opts = opts || {};
     if (tab !== 'practice' && tab !== 'just_listen') tab = 'practice';
+    const fp = readFP();
+    const prevTab = fp.ui_state && fp.ui_state.current_tab;
     document.body.dataset.tab = tab;
     document.querySelectorAll('#tab-switcher .tab-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.tab === tab);
     });
-    const fp = readFP();
     fp.ui_state = Object.assign({}, fp.ui_state || {}, {
       current_tab: tab,
       last_active_at: new Date().toISOString()
     });
     writeFP(fp);
+    // D5 · tab 切换流水（跳过初始化默认落位 source==='ob'/'init'，只记用户切换与 OB 落位）
+    if (prevTab !== tab){
+      // 读取当前 practice 阶段（如果能拿到）
+      let fromStage = null;
+      try {
+        const s = fp.session;
+        if (s && typeof s.current_stage === 'number') fromStage = s.current_stage;
+      } catch {}
+      pushTabSwitchEvent(prevTab, tab, fromStage);
+    }
     window.dispatchEvent(new CustomEvent('flipodTabChange', {
       detail: { tab: tab, source: opts.source || 'user' }
     }));
@@ -2910,6 +3096,89 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
   document.querySelectorAll('#tab-switcher .tab-btn').forEach(btn => {
     btn.addEventListener('click', () => setActiveTab(btn.dataset.tab));
   });
+
+  /* ── Batch 7 · L8 · 跨 session 判定 ──
+   * 规则（PRD v2.2 §4.4）:
+   *   关 tab / 刷新 = 跨 session（刷新已由 PRD §12.1 处理）
+   *   visibility=hidden > 30min = 跨 session → 触发 session 清零
+   *   切 tab / 切侧边栏 / 锁屏 < 30min = 不跨（进度保留）
+   */
+  let _visHiddenAt = null;
+  function onVisibilityChange(){
+    const fp = readFP();
+    if (document.visibilityState === 'hidden'){
+      _visHiddenAt = Date.now();
+      // 记录 last_active_at（持久化 L8 用）
+      fp.ui_state = Object.assign({}, fp.ui_state || {}, {
+        last_active_at: new Date().toISOString()
+      });
+      writeFP(fp);
+    } else if (document.visibilityState === 'visible'){
+      const elapsed = _visHiddenAt ? (Date.now() - _visHiddenAt) : 0;
+      _visHiddenAt = null;
+      if (elapsed >= CROSS_SESSION_THRESHOLD_MS){
+        // 跨 session：清掉 session（进度清零），下次进入从 Stage 0 开始
+        if (fp.session){
+          // 但先把当前进度写进 incomplete_clips（L6 + L8 联动）
+          _captureIncompleteFromSession(fp);
+          delete fp.session;
+          writeFP(fp);
+        }
+        // 广播让 practice tab 重置
+        window.dispatchEvent(new CustomEvent('flipodCrossSession', {
+          detail: { elapsed_ms: elapsed }
+        }));
+      }
+    }
+  }
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  // beforeunload 时也捕获 incomplete（刷新/关 tab）
+  window.addEventListener('beforeunload', () => {
+    try {
+      const fp = readFP();
+      if (fp.session) {
+        _captureIncompleteFromSession(fp);
+        writeFP(fp);
+      }
+    } catch {}
+  });
+
+  /* ── Batch 7 · L6 · 把当前 session 快照写进 incomplete_clips ──
+   * 仅当 current_stage 在 0-4（未到 Stage 5 或结束页）时才算"未完成"
+   */
+  function _captureIncompleteFromSession(fp){
+    const s = fp.session;
+    if (!s || !s.active_clip_id) return;
+    const stage = s.current_stage;
+    if (typeof stage !== 'number' || stage < 0 || stage > 4) return;
+    if (!Array.isArray(fp.incomplete_clips)) fp.incomplete_clips = [];
+    // 同 clip 只保留最近一次
+    fp.incomplete_clips = fp.incomplete_clips.filter(r => r.clip_id !== s.active_clip_id);
+    // 读取 practice tab in-memory 最新 clip_result（如果可得）
+    let partial = null;
+    try {
+      if (typeof window._fpGetCurrentClipResult === 'function'){
+        partial = window._fpGetCurrentClipResult();
+      }
+    } catch {}
+    fp.incomplete_clips.push({
+      clip_id: s.active_clip_id,
+      last_stage: stage,
+      last_exited_at: new Date().toISOString(),
+      partial_quiz_results: (partial && partial.quiz_results) || {},
+      partial_attribution_segment: (partial && partial.attribution_segment) || [],
+      partial_vocab_picked: (partial && partial.vocab_picked) || [],
+      partial_topic_familiarity_signal: (partial && partial.topic_familiarity_signal) || null
+    });
+  }
+
+  /* ── Batch 7 · 开放给 practice tab 的写入/读取 helpers ──
+   *   _fpPushTabSwitchEvent / _fpReadFP / _fpWriteFP
+   *   practice tab IIFE 里用这些统一走 localStorage（避免多份 readFP）
+   */
+  window._fpReadFP = readFP;
+  window._fpWriteFP = writeFP;
+  window._fpPushTabSwitchEvent = pushTabSwitchEvent;
 
   // Vocab inbox stub — "AI 生成练习（本周生词）" → toast "下一轮开放"
   // TODO(batch-7): wire vocab_inbox + relocate 4-step overlay here
@@ -5932,21 +6201,19 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
 //   PRD : tmp/drafts/PRD-listening-flow-v2.md §8.x, §12.1
 // ═══════════════════════════════════════════════════════════════════════
 (function(){
+  /* Attribution chips · 3 层简化 (2026-04-23 pivot B)
+   * 从 6 chip (连读/弱读/语速/口音/其他) 简化为用户真能感知的 3 层：词 / 声 / 义
+   * 旧键迁移：linking/weak/speed/accent → unclear; other → meaning
+   */
   const ATTR_TAGS = [
-    {key:'unknown',  label:'生词', color:'#FFB347'},
-    {key:'linking',  label:'连读', color:'#8B9CF7'},
-    {key:'weak',     label:'弱读', color:'#5CD9A6'},
-    {key:'speed',    label:'语速', color:'#FF8AB8'},
-    {key:'accent',   label:'口音', color:'#B68EE6'},
-    {key:'other',    label:'其他', color:'#9AA0A6'}
+    {key:'unknown',  label:'生词',       color:'#FFB347'},  // 词 层
+    {key:'unclear',  label:'听不太清',   color:'#8B9CF7'},  // 声 层
+    {key:'meaning',  label:'听不懂意思', color:'#5CD9A6'}   // 义 层
   ];
   const ATTR_ICONS = {
     unknown:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-    linking:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
-    weak:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-7h3v5z"/><path d="M3 19a2 2 0 0 0 2 2h1v-7H3v5z"/></svg>',
-    speed:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
-    accent:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
-    other:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>'
+    unclear:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.5a6.5 6.5 0 1 1 13 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0"/><path d="M15 8.5a2.5 2.5 0 0 0-5 0"/></svg>',
+    meaning:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>'
   };
   const STAGE_LABELS = ['预听','Gist','Decode','渐隐','归因','词汇'];
   const FUNC_WORDS = new Set([
@@ -6021,12 +6288,24 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
       clip_id: getClipKey(clip, idx),
       title: clip.title || '',
       tab_entered_from: 'practice',
+      // D1 (v2.2): quiz_results 新 schema
+      //   stage1: { correct, selected_option, explanation_opened } | null
+      //   stage2: [ { correct, selected_option, explanation_opened }, ... ]
+      //   stage3: [ { ... }, ... ]
       quiz_results: {},
+      // L1 (v2.2): Stage 0 预测独立落点
+      topic_familiarity_signal: null,  // { correct, selected_option, topic_tag }
       attribution_segment: [],
       vocab_picked: [],
+      // L9: consistency_flag 在 "全都听懂了" 时打
+      consistency_flag: null,  // "normal" | "suspicious"
+      // L10: shadowing 预留
+      shadowing_records: [],
       started_at: new Date().toISOString()
     };
   }
+  // Expose for L6 visibility capture (batch-6 IIFE 通过 window 拿 in-memory 状态)
+  window._fpGetCurrentClipResult = function(){ return (state && state.clip_result) || null; };
   function freshState(clipIdx){
     return {
       current_clip_index: clipIdx,
@@ -6112,6 +6391,20 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
     delete fp.session;
     writeFP(fp);
   }
+  /* helper: 遍历新 schema 的 quiz_results（stage1 对象 / stage2-3 数组） */
+  function _iterateQuizResults(qr, cb){
+    if (!qr || typeof qr !== 'object') return;
+    ['stage1','stage2','stage3'].forEach(sk => {
+      const v = qr[sk]; if (!v) return;
+      const arr = Array.isArray(v) ? v : [v];
+      arr.forEach((rec, i) => cb(rec, sk, i));
+    });
+  }
+  function _tallyAnswers(r){
+    let correct = 0, answered = 0;
+    _iterateQuizResults(r.quiz_results, rec => { answered++; if (rec.correct) correct++; });
+    return { correct, answered };
+  }
   function pushCompletedClip(){
     const fp = readFP();
     if (!Array.isArray(fp.completed_clips)) fp.completed_clips = [];
@@ -6125,9 +6418,37 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
         reasons: r.attribution_segment.slice(),
         vocab_picked: r.vocab_picked.slice()
       }],
+      // D1 (v2.2): quiz_results 升级结构
       quiz_results: r.quiz_results,
+      // L1 (v2.2): Stage 0 预测结果独立落点
+      topic_familiarity_signal: r.topic_familiarity_signal || null,
+      // L9 (v2.2): 一致性标记
+      consistency_flag: r.consistency_flag || 'normal',
+      // L10 (v2.2): 跟读预留
+      shadowing_records: r.shadowing_records || [],
       duration_sec: Math.round((Date.now() - new Date(r.started_at).getTime()) / 1000)
     });
+
+    // D3 (v2.2): topic_familiarity_profile 聚合
+    if (r.topic_familiarity_signal){
+      if (!fp.topic_familiarity_profile || typeof fp.topic_familiarity_profile !== 'object'){
+        fp.topic_familiarity_profile = { by_topic_tag: {} };
+      }
+      if (!fp.topic_familiarity_profile.by_topic_tag){
+        fp.topic_familiarity_profile.by_topic_tag = {};
+      }
+      const tag = r.topic_familiarity_signal.topic_tag || '（未标 topic_tag）';
+      const slot = fp.topic_familiarity_profile.by_topic_tag[tag] || { correct: 0, total: 0 };
+      slot.total += 1;
+      if (r.topic_familiarity_signal.correct) slot.correct += 1;
+      fp.topic_familiarity_profile.by_topic_tag[tag] = slot;
+    }
+
+    // L6 (v2.2): 清掉 incomplete_clips 里这条的快照（已完成）
+    if (Array.isArray(fp.incomplete_clips)){
+      fp.incomplete_clips = fp.incomplete_clips.filter(x => x.clip_id !== r.clip_id);
+    }
+
     // Also feed vocab_inbox (write-only per batch 6; consumption is batch-7)
     if (!fp.vocab_inbox || typeof fp.vocab_inbox !== 'object') {
       fp.vocab_inbox = { entries: [], week_window_start: new Date().toISOString() };
@@ -6303,7 +6624,11 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
       <div class="stage-headline">只看中文，沉浸听一遍</div>
       <div class="pt-subtitle-area" id="pt-sub-area"></div>
       <div class="audio-bar-wrap"><div class="audio-bar"><div class="audio-fill" id="pt-audio-fill"></div></div></div>
-      <div class="audio-locked-note">这一遍不能暂停 / 不能回退</div>
+      <div class="audio-locked-note">
+        这一遍不能暂停 / 不能回退
+        <button id="pt-s1-replay" title="重播本阶段" aria-label="重播本阶段"
+          style="background:transparent;border:1px solid var(--border);color:var(--text-2);font-size:11px;padding:3px 9px;border-radius:10px;margin-left:10px;cursor:pointer;font-family:inherit">↻ 重播本阶段</button>
+      </div>
     `;
     c.appendChild(card);
     const sub = card.querySelector('#pt-sub-area');
@@ -6320,6 +6645,33 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
       onEnded: () => showQuestionsInline(c, getQuestionsForStage(1), () => nextStage())
     });
     playFresh();
+
+    /* L2 (v2.2 §4.9): 重播本阶段入口（仅阶段级，不做句级回退） */
+    const replayBtn = card.querySelector('#pt-s1-replay');
+    if (replayBtn){
+      replayBtn.addEventListener('click', () => {
+        // 清掉可能已弹出的 Stage 1 题目
+        const existingQs = card.querySelectorAll('.q-opt, .q-stem, .q-progress');
+        if (existingQs.length){
+          // 找到题目 wrap 并移除（showQuestionsInline 在 card 下新建了一个 wrapper）
+          card.querySelectorAll(':scope > div').forEach(d => {
+            if (d.querySelector && d.querySelector('.q-opt')) d.remove();
+          });
+        }
+        // 重置音频到开头，重新走一遍
+        detachAudioListeners();
+        const a = ensureAudio();
+        try { a.currentTime = 0; } catch {}
+        fill.style.width = '0%';
+        sub.querySelectorAll('.pt-sub-line').forEach(d => d.classList.remove('active','spoken'));
+        setupAudio({
+          allowPause: false,
+          onTimeUpdate: (t) => { fill.style.width = Math.min(100, (t / clipDuration()) * 100) + '%'; highlightLine(sub, t); },
+          onEnded: () => showQuestionsInline(c, getQuestionsForStage(1), () => nextStage())
+        });
+        playFresh();
+      });
+    }
   }
 
   // ── Stage 2: full english, pause ok, zh toggle per-line ──
@@ -6495,17 +6847,46 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
         const r = curResult();
         r.attribution_segment = Array.from(segPicked);
         r.submitted_at = new Date().toISOString();
+        r.consistency_flag = 'normal';  // L9: 正常提交归因
         saveSession();
         if (segPicked.has('unknown')) renderStep2();
         else nextStage();
       });
       phase.querySelector('#pt-seg-skip').addEventListener('click', () => {
         const r = curResult();
-        r.attribution_segment = [];
-        r.vocab_picked = [];
-        r.submitted_at = new Date().toISOString();
-        saveSession();
-        nextStage();
+        /* ── Batch 7 · L9 · "全都听懂了" 一致性校验（PRD v2.2 §4.5） ──
+         *   rate = Stage 1-3 答对率
+         *     >= 60%  → normal（信）
+         *     30-60%  → normal，但弹一次轻提示；用户再次确认后入库
+         *     < 30%   → suspicious（聚合时默认过滤；对用户不可见）
+         */
+        const { correct, answered } = _tallyAnswers(r);
+        const rate = answered > 0 ? (correct / answered) : 1;
+        function finalize(flag){
+          r.attribution_segment = [];
+          r.vocab_picked = [];
+          r.consistency_flag = flag;
+          r.submitted_at = new Date().toISOString();
+          saveSession();
+          nextStage();
+        }
+        if (answered === 0){
+          // 没题（edge），默认 normal
+          finalize('normal');
+          return;
+        }
+        if (rate < 0.30){
+          finalize('suspicious');
+          return;
+        }
+        if (rate < 0.60){
+          // 弹轻提示（仅一次）
+          const confirmOk = window.confirm(`你在前面 ${answered} 道题里答对 ${correct} 道。\n\n确认全都听懂了吗？（你可以看每题的"解释"反查）`);
+          if (confirmOk) finalize('normal');
+          // 如果用户取消，不推进，什么都不做（保留在归因第一步）
+          return;
+        }
+        finalize('normal');
       });
     }
 
@@ -6697,8 +7078,7 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
   // ── Single-clip end ──
   function renderSingleClipEnd(c){
     const r = curResult();
-    let correct = 0, answered = 0;
-    Object.values(r.quiz_results).forEach(arr => (arr || []).forEach(a => { answered++; if (a.correct) correct++; }));
+    const { correct, answered } = _tallyAnswers(r);
     const tagSummary = ATTR_TAGS.filter(t => r.attribution_segment.includes(t.key))
       .map(t => `<span class="seg-chip selected" style="--chip-color:${t.color};background:${t.color};border-color:${t.color}"><span class="seg-chip-icon">${ATTR_ICONS[t.key] || ''}</span><span>${t.label}</span></span>`).join(' ');
     const card = el('div', 'stage-card end-card');
@@ -6774,7 +7154,7 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
       const actions = card.querySelector('.q-actions');
       const explainSlot = card.querySelector('.q-explain');
       let picked = -1;
-      function renderActions(isCorrect){
+      function renderActions(isCorrect, recRef){
         let explainOpen = false;
         function rebuild(){
           actions.innerHTML = '';
@@ -6785,8 +7165,10 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
           explainBtn.addEventListener('click', () => {
             explainOpen = !explainOpen;
             if (explainOpen){
-              explainSlot.innerHTML = q.explanation ? renderExplanationHTML(q) : `<div class="q-placeholder">本题暂无详细解释 · TODO(batch-7): 补 explanation 字段</div>`;
+              explainSlot.innerHTML = q.explanation ? renderExplanationHTML(q) : `<div class="q-placeholder">本题暂无详细解释 · TODO: 补 explanation 字段</div>`;
               explainSlot.style.display = 'block';
+              // D4 (v2.2): 记录用户曾打开过解释
+              if (recRef){ recRef.explanation_opened = true; saveSession(); }
             } else {
               explainSlot.style.display = 'none';
               explainSlot.innerHTML = '';
@@ -6803,6 +7185,7 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
         actions.style.display = 'flex';
       }
       if (q.noFeedback) actions.style.display = 'none';
+      let qRecord = null;  // D2 + D4: selected_option + explanation_opened 指针
       (q.options || []).forEach((opt, oi) => {
         const b = el('button', 'q-opt');
         b.textContent = opt;
@@ -6810,22 +7193,52 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
           if (picked !== -1) return;
           picked = oi;
           const isCorrect = (oi === q.answer);
+          const r = curResult();
+          const stageNum = (q.stage != null ? q.stage : state.current_stage);
+          // L1 (v2.2): Stage 0 预测（无论 noFeedback 与否）→ topic_familiarity_signal，不进 quiz_results
+          if (stageNum === 0){
+            r.topic_familiarity_signal = {
+              correct: isCorrect,
+              selected_option: oi,
+              topic_tag: q.topic_tag || null
+            };
+            saveSession();
+            if (q.noFeedback){
+              b.classList.add('picked');
+              setTimeout(() => { qi++; show(); }, 250);
+              return;
+            }
+            // 有反馈的 Stage 0 题：正常高亮 + 显示 Continue/Explain 动作
+            opts.querySelectorAll('.q-opt').forEach((eb, j) => {
+              eb.classList.remove('picked');
+              if (j === q.answer) eb.classList.add('correct');
+              else if (j === oi) eb.classList.add('wrong');
+            });
+            renderActions(isCorrect, null);  // Stage 0 没有 quiz_results 记录指针
+            return;
+          }
           if (q.noFeedback){
+            // 非 Stage 0 的 noFeedback 题（罕见）：只自动推进，不写记录
             b.classList.add('picked');
             setTimeout(() => { qi++; show(); }, 250);
             return;
           }
-          const r = curResult();
-          const stageKey = 'stage' + (q.stage != null ? q.stage : state.current_stage);
-          if (!r.quiz_results[stageKey]) r.quiz_results[stageKey] = [];
-          r.quiz_results[stageKey].push({ q_idx: qi, picked: oi, correct: isCorrect });
+          // D1 (v2.2): quiz_results 新 schema — stage1 单对象、stage2/3 数组
+          const stageKey = 'stage' + stageNum;
+          qRecord = { correct: isCorrect, selected_option: oi, explanation_opened: false };
+          if (stageNum === 1){
+            r.quiz_results[stageKey] = qRecord;
+          } else {
+            if (!Array.isArray(r.quiz_results[stageKey])) r.quiz_results[stageKey] = [];
+            r.quiz_results[stageKey].push(qRecord);
+          }
           saveSession();
           opts.querySelectorAll('.q-opt').forEach((eb, j) => {
             eb.classList.remove('picked');
             if (j === q.answer) eb.classList.add('correct');
             else if (j === oi) eb.classList.add('wrong');
           });
-          renderActions(isCorrect);
+          renderActions(isCorrect, qRecord);
         });
         opts.appendChild(b);
       });
@@ -6895,9 +7308,81 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
     rebuildSents();
     saveSession();
     renderProgress();
-    renderStage(0);
+
+    /* L6 (v2.2): 如果当前 clip 在 incomplete_clips，弹"继续 / 重头"二选一 */
+    const curKey = getClipKey(curClip(), clipIdx);
+    const inc = Array.isArray(fp.incomplete_clips)
+      ? fp.incomplete_clips.find(x => x.clip_id === curKey) : null;
+    if (inc){
+      renderResumePrompt(inc);
+    } else {
+      renderStage(0);
+    }
     booted = true;
   }
+
+  /* L6: 未完成 clip 的"继续 / 重头"面板 */
+  function renderResumePrompt(inc){
+    const card = el('div', 'stage-card');
+    card.innerHTML = `
+      <div class="stage-title">上次中途离开了</div>
+      <div class="stage-headline">你上次停在 ${STAGE_LABELS[inc.last_stage] || '阶段 ' + inc.last_stage}</div>
+      <div style="color:var(--text-2);font-size:14px;margin:12px 0 18px">${esc(new Date(inc.last_exited_at).toLocaleString())} · 可以接着做，或从头再来</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="cta-primary" id="pt-resume-cont">继续（回 ${STAGE_LABELS[inc.last_stage] || '阶段 ' + inc.last_stage}）</button>
+        <button class="cta-secondary" id="pt-resume-restart">从头走一遍</button>
+      </div>
+    `;
+    stageContainer.innerHTML = '';
+    stageContainer.appendChild(card);
+    card.querySelector('#pt-resume-cont').addEventListener('click', () => {
+      // 还原部分状态
+      const r = curResult();
+      if (inc.partial_quiz_results) r.quiz_results = inc.partial_quiz_results;
+      if (inc.partial_attribution_segment) r.attribution_segment = inc.partial_attribution_segment;
+      if (inc.partial_vocab_picked) r.vocab_picked = inc.partial_vocab_picked;
+      if (inc.partial_topic_familiarity_signal) r.topic_familiarity_signal = inc.partial_topic_familiarity_signal;
+      // 标记 visited_stages 到 last_stage
+      state.visited_stages = [];
+      for (let i = 0; i <= inc.last_stage; i++) state.visited_stages.push(i);
+      state.current_stage = inc.last_stage;
+      // 不用立刻清掉 incomplete_clips 里的记录（万一他又退出）
+      saveSession();
+      renderProgress();
+      renderStage(inc.last_stage);
+    });
+    card.querySelector('#pt-resume-restart').addEventListener('click', () => {
+      // 从头走 → 清掉 incomplete_clips 里这条
+      const fp = readFP();
+      if (Array.isArray(fp.incomplete_clips)){
+        fp.incomplete_clips = fp.incomplete_clips.filter(x => x.clip_id !== inc.clip_id);
+        writeFP(fp);
+      }
+      state.current_stage = 0;
+      state.visited_stages = [0];
+      state.clip_result = freshClipResult(curClip(), state.current_clip_index);
+      saveSession();
+      renderProgress();
+      renderStage(0);
+    });
+  }
+
+  /* L8 · 跨 session 事件：当 batch-6 IIFE 判定跨 session 时 → 重置 practice tab 到 Stage 0 */
+  window.addEventListener('flipodCrossSession', (e) => {
+    if (!booted) return;
+    // 如果当前在 practice tab，重置（incomplete_clips 已由 batch-6 IIFE 写好）
+    if (document.body.dataset.tab !== 'practice') return;
+    const fp = readFP();
+    const clipIdx = resolveStartClipIdx(fp);
+    state = freshState(clipIdx);
+    rebuildSents();
+    saveSession();
+    renderProgress();
+    const curKey = getClipKey(curClip(), clipIdx);
+    const inc = Array.isArray(fp.incomplete_clips)
+      ? fp.incomplete_clips.find(x => x.clip_id === curKey) : null;
+    if (inc){ renderResumePrompt(inc); } else { renderStage(0); }
+  });
 
   // Listen for clips ready (main app IIFE loads async)
   window.addEventListener('flipodClipsReady', () => {
