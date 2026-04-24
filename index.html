@@ -6242,6 +6242,10 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
   let audioForcePlayHandler = null;
   let timeUpdateHandler = null;
   let segmentPauseTime = null;
+  const ENABLE_STAGE_TEST_CONTINUE = (
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === 'localhost'
+  );
 
   function readFP(){ return (window._fpReadFP && window._fpReadFP()) || {}; }
   function writeFP(fp){ window._fpWriteFP && window._fpWriteFP(fp); }
@@ -6259,6 +6263,19 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
     return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   }
   function el(tag, cls){ const x = document.createElement(tag); if (cls) x.className = cls; return x; }
+  function appendStageTestContinue(container, onContinue){
+    if (!ENABLE_STAGE_TEST_CONTINUE) return;
+    const wrap = el('div', 'q-actions');
+    wrap.style.marginTop = '20px';
+    const btn = el('button', 'q-act-secondary');
+    btn.textContent = '直接继续（测试）→';
+    btn.addEventListener('click', () => {
+      pauseAudio();
+      onContinue();
+    });
+    wrap.appendChild(btn);
+    container.appendChild(wrap);
+  }
 
   function buildSentences(lines){
     const out = [];
@@ -6596,6 +6613,7 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
       <p style="color:var(--text-2);font-size:13px;margin-bottom:18px">先看标题和关键词，用 10-15 秒猜一下这段在讲什么。</p>
     `;
     c.appendChild(card);
+    appendStageTestContinue(c, () => nextStage());
     showQuestionsInline(c, getQuestionsForStage(0), () => nextStage());
   }
 
@@ -6631,6 +6649,7 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
       </div>
     `;
     c.appendChild(card);
+    appendStageTestContinue(c, () => nextStage());
     const sub = card.querySelector('#pt-sub-area');
     CURRENT_SENTS.forEach((ln, i) => {
       const d = el('div', 'pt-sub-line zh-only');
@@ -6689,6 +6708,7 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
       <div class="audio-locked-note">可暂停 · 只能后退 3 秒</div>
     `;
     c.appendChild(card);
+    appendStageTestContinue(c, () => nextStage());
     const sub = card.querySelector('#pt-sub-area');
     CURRENT_SENTS.forEach((ln, i) => {
       const d = el('div', 'pt-sub-line');
@@ -6744,6 +6764,7 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
       <div class="audio-locked-note">实词被隐藏（占位 ▁），高级词（B2+）和功能词保留</div>
     `;
     c.appendChild(card);
+    appendStageTestContinue(c, () => nextStage());
     const sub = card.querySelector('#pt-sub-area');
     CURRENT_SENTS.forEach((ln, i) => {
       const d = el('div', 'pt-sub-line');
@@ -6791,16 +6812,21 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
           <div id="pt-s4-status" style="color:var(--text-2);font-size:14px;margin-bottom:18px">点下方播放 → 全程无字幕</div>
           <div class="audio-bar"><div class="audio-fill" id="pt-audio-fill"></div></div>
           <button class="audio-btn primary" id="pt-s4-play" style="margin-top:18px">▶</button>
+          ${ENABLE_STAGE_TEST_CONTINUE ? '<button class="cta-secondary" id="pt-s4-jump-end" style="margin-top:12px">跳到倒数 3 秒（测试）→</button>' : ''}
         </div>
       </div>
     `;
     c.appendChild(card);
+    appendStageTestContinue(c, () => nextStage());
     const fill = card.querySelector('#pt-audio-fill');
     const playBtn = card.querySelector('#pt-s4-play');
+    const jumpBtn = card.querySelector('#pt-s4-jump-end');
     let started = false;
-    playBtn.addEventListener('click', () => {
+    function startBlindListen(){
       if (started) return;
-      started = true; playBtn.disabled = true; playBtn.textContent = '⏸';
+      started = true;
+      playBtn.disabled = true;
+      playBtn.textContent = '⏸';
       setupAudio({
         allowPause: false,
         onTimeUpdate: (t) => { fill.style.width = Math.min(100, (t / clipDuration()) * 100) + '%'; },
@@ -6808,7 +6834,30 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
       });
       playFresh();
       card.querySelector('#pt-s4-status').textContent = '正在播放（无字幕，不可暂停）...';
+    }
+    playBtn.addEventListener('click', () => {
+      startBlindListen();
     });
+    if (jumpBtn){
+      jumpBtn.addEventListener('click', () => {
+        startBlindListen();
+        const a = ensureAudio();
+        const seekToEndWindow = () => {
+          const target = Math.max(0, clipDuration() - 3);
+          try { a.currentTime = target; } catch {}
+          fill.style.width = Math.min(100, (target / clipDuration()) * 100) + '%';
+          if (a.paused) a.play().catch(() => showAudioBlocked());
+          card.querySelector('#pt-s4-status').textContent = '已跳到倒数 3 秒（测试）...';
+        };
+        if (a.readyState >= 1 || (!isNaN(a.duration) && a.duration > 0)) {
+          seekToEndWindow();
+        } else {
+          a.addEventListener('loadedmetadata', function onLoadedMetadata(){
+            seekToEndWindow();
+          }, { once: true });
+        }
+      });
+    }
   }
 
   function renderS4Attribution(card){
@@ -6830,6 +6879,7 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
           <div class="attr-cta">
             <button class="cta-primary" id="pt-seg-submit" disabled>提交</button>
             <button class="cta-secondary" id="pt-seg-skip">全都听懂了</button>
+            ${ENABLE_STAGE_TEST_CONTINUE ? '<button class="cta-secondary" id="pt-seg-test-continue">直接继续（测试）→</button>' : ''}
           </div>
         </div>
       `;
@@ -6888,6 +6938,17 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
         }
         finalize('normal');
       });
+      if (ENABLE_STAGE_TEST_CONTINUE) {
+        phase.querySelector('#pt-seg-test-continue')?.addEventListener('click', () => {
+          const r = curResult();
+          r.attribution_segment = [];
+          r.vocab_picked = [];
+          r.consistency_flag = 'normal';
+          r.submitted_at = new Date().toISOString();
+          saveSession();
+          nextStage();
+        });
+      }
     }
 
     function renderStep2(){
@@ -6901,6 +6962,7 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
           <div class="attr-cta">
             <button class="cta-primary" id="pt-vp-done" disabled>完成</button>
             <button class="cta-secondary" id="pt-vp-skip">我说不清具体哪个词</button>
+            ${ENABLE_STAGE_TEST_CONTINUE ? '<button class="cta-secondary" id="pt-vp-test-continue">直接继续（测试）→</button>' : ''}
           </div>
         </div>
       `;
@@ -6972,6 +7034,13 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
         saveSession();
         nextStage();
       });
+      if (ENABLE_STAGE_TEST_CONTINUE) {
+        phase.querySelector('#pt-vp-test-continue')?.addEventListener('click', () => {
+          curResult().vocab_picked = [];
+          saveSession();
+          nextStage();
+        });
+      }
       rebuild();
     }
 
