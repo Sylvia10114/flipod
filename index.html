@@ -6242,6 +6242,9 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
   let audioForcePlayHandler = null;
   let timeUpdateHandler = null;
   let segmentPauseTime = null;
+  let touchStartY = null;
+  let touchStartScrollTop = 0;
+  let touchInteractiveStart = false;
   const ENABLE_STAGE_TEST_CONTINUE = (
     window.location.hostname === '127.0.0.1' ||
     window.location.hostname === 'localhost'
@@ -6263,6 +6266,11 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
     return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   }
   function el(tag, cls){ const x = document.createElement(tag); if (cls) x.className = cls; return x; }
+  function resetPracticeViewport(){
+    if (!root) return;
+    root.scrollTop = 0;
+    requestAnimationFrame(() => { root.scrollTop = 0; });
+  }
   function appendStageTestContinue(container, onContinue){
     if (!ENABLE_STAGE_TEST_CONTINUE) return;
     const wrap = el('div', 'q-actions');
@@ -6526,6 +6534,7 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
     if (idx >= 0 && idx <= 5 && !state.visited_stages.includes(idx)) state.visited_stages.push(idx);
     saveSession();
     renderProgress();
+    resetPracticeViewport();
     renderStage(idx);
   }
   function nextStage(){
@@ -6550,6 +6559,7 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
     rebuildSents();
     saveSession();
     renderProgress();
+    resetPracticeViewport();
     renderStage(0);
   }
   function skipCurrentClip(){
@@ -6567,6 +6577,7 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
     rebuildSents();
     saveSession();
     renderProgress();
+    resetPracticeViewport();
     renderStage(0);
   }
 
@@ -7377,6 +7388,7 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
     rebuildSents();
     saveSession();
     renderProgress();
+    resetPracticeViewport();
 
     /* L6 (v2.2): 如果当前 clip 在 incomplete_clips，弹"继续 / 重头"二选一 */
     const curKey = getClipKey(curClip(), clipIdx);
@@ -7478,15 +7490,25 @@ body[data-tab="practice"] .help-btn{ display:none !important; }
 
   // Upswipe gesture → skip current clip → next clip Stage 0
   // (Replicates just-listen feed swipe semantics; scroll-snap not reused — batch-6 scope.)
-  let touchStartY = null;
   root.addEventListener('touchstart', (e) => {
     if (e.touches && e.touches.length === 1) touchStartY = e.touches[0].clientY;
+    touchStartScrollTop = root.scrollTop;
+    const t = e.target instanceof Element ? e.target : null;
+    touchInteractiveStart = !!(t && t.closest(
+      'button, a, input, textarea, select, .q-options, .q-actions, .pt-subtitle-area, .vp-row, .vocab-card-pt'
+    ));
   }, { passive: true });
   root.addEventListener('touchend', (e) => {
     if (touchStartY == null) return;
     const endY = (e.changedTouches && e.changedTouches[0] && e.changedTouches[0].clientY) || touchStartY;
     const dy = touchStartY - endY;
     touchStartY = null;
+    if (touchInteractiveStart) {
+      touchInteractiveStart = false;
+      return;
+    }
+    touchInteractiveStart = false;
+    if (Math.abs(root.scrollTop - touchStartScrollTop) > 12) return;
     // Only treat as clip-skip if nearly at bottom of scrollable area (avoid hijacking normal scroll)
     const atBottom = (root.scrollTop + root.clientHeight) >= (root.scrollHeight - 4);
     if (dy > 90 && atBottom && state && booted){
