@@ -28,7 +28,7 @@ import { GeneratedPracticeSessionModal } from './src/components/GeneratedPractic
 import { HomeTopChrome } from './src/components/HomeTopChrome';
 import { HowItWorksSheet } from './src/components/HowItWorksSheet';
 import { type MenuScreen, SlideMenu } from './src/components/SlideMenu';
-import { demoClips } from './src/demo-clips';
+import { bundledFallbackClips, bundledFallbackSource } from './src/demo-clips';
 import {
   applyRankedFeedOrder,
   buildLocalizedRecommendationReason,
@@ -343,7 +343,7 @@ export default function App() {
   const [profile, setProfile] = useState<Profile>(defaultProfile);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [practiceData, setPracticeData] = useState<PracticeMap>({});
-  const [clipsData, setClipsData] = useState<Clip[]>(demoClips);
+  const [clipsData, setClipsData] = useState<Clip[]>(bundledFallbackClips);
   const [contentTranslations, setContentTranslations] = useState<Record<string, LocalizedClipContent>>({});
   const [clipsLoaded, setClipsLoaded] = useState(false);
   const [feedOrderIds, setFeedOrderIds] = useState<number[]>([]);
@@ -388,7 +388,7 @@ export default function App() {
   const playedKeysRef = useRef<Set<string>>(new Set());
   const calibrationStateRef = useRef<CalibrationState>({});
   const lastFeedSignatureRef = useRef<string | null>(null);
-  const currentClipsRef = useRef<Clip[]>(demoClips);
+  const currentClipsRef = useRef<Clip[]>(bundledFallbackClips);
   const rankContextRef = useRef<{
     manifest: ReturnType<typeof buildClipManifest>;
     listenedClipIds: number[];
@@ -396,7 +396,7 @@ export default function App() {
     likedTopics: string[];
     wordsLookedUp: number;
   }>({
-    manifest: buildClipManifest(demoClips),
+    manifest: buildClipManifest(bundledFallbackClips),
     listenedClipIds: [],
     skippedClipIds: [],
     likedTopics: [],
@@ -791,17 +791,19 @@ export default function App() {
         if (lastError) {
           throw lastError;
         }
-        setClipsData(demoClips);
+        setClipsData(bundledFallbackClips);
         setClipsLoaded(true);
-        console.log('[clips-load] falling back to bundled demo clips', {
-          count: demoClips.length,
+        console.log('[clips-load] falling back to bundled clips', {
+          source: bundledFallbackSource,
+          count: bundledFallbackClips.length,
         });
       } catch {
         if (!cancelled) {
-          setClipsData(demoClips);
+          setClipsData(bundledFallbackClips);
           setClipsLoaded(true);
-          console.log('[clips-load] fatal fallback to bundled demo clips', {
-            count: demoClips.length,
+          console.log('[clips-load] fatal fallback to bundled clips', {
+            source: bundledFallbackSource,
+            count: bundledFallbackClips.length,
           });
         }
       }

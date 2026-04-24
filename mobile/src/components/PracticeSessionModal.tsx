@@ -478,11 +478,26 @@ export function PracticeSessionModal({
     () => new Set(challengeWords.map(item => normalizeToken(item.word))),
     [challengeWords]
   );
+  const stagePlaybackFinished = useMemo(() => {
+    if (stage !== 1 && stage !== 2 && stage !== 3) {
+      return stageAudioFinished;
+    }
+    const nearEnd = status.durationMillis > 0
+      && status.positionMillis >= Math.max(0, status.durationMillis - 180);
+    return stageAudioFinished || (nearEnd && !status.isPlaying && !status.isLoading);
+  }, [
+    stage,
+    stageAudioFinished,
+    status.durationMillis,
+    status.isLoading,
+    status.isPlaying,
+    status.positionMillis,
+  ]);
   const currentQuestionFlow = useMemo<QuestionFlow>(() => {
     if (activeQuestionFlow) return activeQuestionFlow;
     const quizStage = quizStageFromStage(stage);
     if (quizStage === null || quizStage === 0) return null;
-    if ((quizStage === 1 || quizStage === 2 || quizStage === 3) && !stageAudioFinished) {
+    if ((quizStage === 1 || quizStage === 2 || quizStage === 3) && !stagePlaybackFinished) {
       return null;
     }
     if (quizStage === 4 && (!blindListenFinished || attributionStep !== null)) {
@@ -492,7 +507,7 @@ export function PracticeSessionModal({
     const answered = quizResults[bucketKey(quizStage)].length;
     if (questions.length <= answered) return null;
     return { stage: quizStage, index: answered };
-  }, [activeQuestionFlow, attributionStep, blindListenFinished, buckets, quizResults, stage, stageAudioFinished]);
+  }, [activeQuestionFlow, attributionStep, blindListenFinished, buckets, quizResults, stage, stagePlaybackFinished]);
   const currentQuestion = useMemo(() => {
     if (!currentQuestionFlow) return null;
     const key = bucketKey(currentQuestionFlow.stage);
@@ -500,7 +515,7 @@ export function PracticeSessionModal({
   }, [buckets, currentQuestionFlow]);
   const stage1AutoLoading = stage === 1
     && !currentQuestionFlow
-    && !stageAudioFinished
+    && !stagePlaybackFinished
     && !status.isPlaying
     && (status.isLoading || status.positionMillis <= 120);
   const currentQuestionCorrectIndex = currentQuestion ? answerIndex(currentQuestion) : -1;
@@ -643,8 +658,9 @@ export function PracticeSessionModal({
     const relativePositionMillis = Math.max(0, nextStatus.positionMillis - clipWindowStartMillis);
 
     if (pendingPlaybackRef.current) {
-      const settled = Math.abs(nextStatus.positionMillis - pendingPlaybackRef.current.targetStartMillis) <= 400
-        || nextStatus.positionMillis >= pendingPlaybackRef.current.targetStartMillis;
+      const deltaFromTarget = nextStatus.positionMillis - pendingPlaybackRef.current.targetStartMillis;
+      const settled = Math.abs(deltaFromTarget) <= 400
+        || (deltaFromTarget > 0 && deltaFromTarget <= 1200);
       if (!settled) return;
       pendingPlaybackRef.current = null;
     }
@@ -666,8 +682,9 @@ export function PracticeSessionModal({
     if (reachedClipEnd || nextStatus.didJustFinish) {
       const mode = playbackModeRef.current;
       playbackModeRef.current = null;
-      setStageAudioFinished(true);
       if (mode) {
+        // Only unlock the next question flow for the playback run that this stage started.
+        setStageAudioFinished(true);
         onPlaybackEndedRef.current(mode);
       }
     }
@@ -738,8 +755,12 @@ export function PracticeSessionModal({
     return currentLoad;
   }, [clip, ensurePreparedAudioUri, handleStatus, readOnly, t, unloadSound, visible]);
 
-  const playWholeClip = useCallback(async (fromMillis = 0) => {
+  const playWholeClip = useCallback(async (fromMillis = 0, mode?: StagePlaybackMode) => {
     if (!clip || readOnly) return;
+    if (mode) {
+      playbackModeRef.current = mode;
+      setStageAudioFinished(false);
+    }
     const requestId = playbackRequestRef.current + 1;
     playbackRequestRef.current = requestId;
     const targetStartMillis = Math.max(0, Math.floor(clipRelativeToSourceSeconds(clip, fromMillis / 1000) * 1000));
@@ -773,10 +794,13 @@ export function PracticeSessionModal({
     }
   }, []);
 
-  const togglePlay = useCallback(async () => {
+  const togglePlay = useCallback(async (mode?: StagePlaybackMode) => {
     if (status.isPlaying) {
       await pause();
       return;
+    }
+    if (mode) {
+      playbackModeRef.current = mode;
     }
     if (soundRef.current && soundReadyRef.current) {
       try {
@@ -785,7 +809,7 @@ export function PracticeSessionModal({
       } catch {
       }
     }
-    await playWholeClip(status.positionMillis);
+    await playWholeClip(status.positionMillis, mode);
   }, [pause, playWholeClip, status.isPlaying, status.positionMillis]);
 
   const rewindThreeSeconds = useCallback(async () => {
@@ -881,7 +905,7 @@ export function PracticeSessionModal({
       setBlindListenStarted(true);
       setBlindListenFinished(false);
     }
-    await playWholeClip(fromMillis);
+    await playWholeClip(fromMillis, mode);
   }, [playWholeClip]);
 
   const completePractice = useCallback(() => {
@@ -1006,7 +1030,8 @@ export function PracticeSessionModal({
   }, [currentQuestion, currentQuestionFlow?.stage, inline, stage, stage1QuestionAnchorY, visible]);
 
   useEffect(() => {
-    if (!visible || readOnly || !stageAudioFinished) return;
+    if (inline && !isActive) return;
+    if (!visible || readOnly || !stagePlaybackFinished) return;
     if (stage !== 1 && stage !== 2 && stage !== 3) return;
     if (currentQuestionFlow) return;
     practiceDebug('stage-audio-finished', {
@@ -1017,9 +1042,10 @@ export function PracticeSessionModal({
       activeQuestionStage: null,
     });
     void openNextQuestionIfNeeded(stage);
-  }, [clipKey, currentQuestionFlow, inline, openNextQuestionIfNeeded, readOnly, stage, stageAudioFinished, visible]);
+  }, [clipKey, currentQuestionFlow, inline, isActive, openNextQuestionIfNeeded, readOnly, stage, stagePlaybackFinished, visible]);
 
   useEffect(() => {
+    if (inline && !isActive) return;
     if (!visible || !clip || readOnly) return;
     const runKey = `${clipKey}:${stage}`;
     if (stageRunRef.current === runKey) return;
@@ -1054,7 +1080,7 @@ export function PracticeSessionModal({
       playbackModeRef.current = null;
       void pause();
     }
-  }, [clip, clipKey, goToStage, openNextQuestionIfNeeded, pause, readOnly, stage, startPlaybackForStage, visible]);
+  }, [clip, clipKey, goToStage, inline, isActive, openNextQuestionIfNeeded, pause, readOnly, stage, startPlaybackForStage, visible]);
 
   useEffect(() => {
     if (stage === 6) {
@@ -1181,15 +1207,6 @@ export function PracticeSessionModal({
     }
     void startPlaybackForStage(targetStage, 0);
   }, [currentQuestionFlow?.stage, readOnly, startPlaybackForStage]);
-
-  const handleJumpBlindListenNearEnd = useCallback(() => {
-    if (!clip || status.isLoading) return;
-    const durationMillis = status.durationMillis > 0
-      ? status.durationMillis
-      : Math.floor(getClipDurationSeconds(clip) * 1000);
-    const fromMillis = Math.max(0, durationMillis - 3000);
-    void startPlaybackForStage('blind', fromMillis);
-  }, [clip, startPlaybackForStage, status.durationMillis, status.isLoading]);
 
   const renderQuestionBlock = useCallback((quizStage: QuizStage, options?: { onLayout?: (y: number) => void }) => {
     if (currentQuestionFlow?.stage !== quizStage || !currentQuestion) return null;
@@ -1319,32 +1336,18 @@ export function PracticeSessionModal({
       if (stage === 1) {
         if (currentQuestionFlow?.stage === 1 && currentQuestion) {
           return (
-            <View style={styles.inlineFooterStack}>
-              <ActionButton
-                label={t('common.replay')}
-                variant="secondary"
-                onPress={() => handleReplayStage(1)}
-              />
-              <ActionButton
-                label={t('common.continue')}
-                onPress={handleAdvanceQuestion}
-              />
-            </View>
+            <ActionButton
+              label={t('common.continue')}
+              onPress={handleAdvanceQuestion}
+            />
           );
         }
         return (
-          <View style={styles.inlineFooterStack}>
-            <ActionButton
-              label={t('common.replay')}
-              variant="secondary"
-              onPress={() => handleReplayStage(1)}
-            />
-            <ActionButton
-              label={t('common.continue')}
-              onPress={() => goToStage(2)}
-              disabled={!stageAudioFinished}
-            />
-          </View>
+          <ActionButton
+            label={t('common.continue')}
+            onPress={() => goToStage(2)}
+            disabled={!stagePlaybackFinished}
+          />
         );
       }
       if (stage === 2) {
@@ -1353,9 +1356,9 @@ export function PracticeSessionModal({
             <PlaybackControlStrip
               uiStyles={styles}
               isPlaying={status.isPlaying}
-              onReplay={() => void playWholeClip(0)}
+              onReplay={() => void playWholeClip(0, 2)}
               onRewind={() => void rewindThreeSeconds()}
-              onToggle={() => void togglePlay()}
+              onToggle={() => void togglePlay(2)}
               replayLabel={t('common.replay')}
               pauseLabel={t('common.pause')}
               playLabel={t('common.play')}
@@ -1364,12 +1367,13 @@ export function PracticeSessionModal({
               <ActionButton
                 label={t('common.continue')}
                 onPress={handleAdvanceQuestion}
+                disabled={!stagePlaybackFinished}
               />
             ) : (
               <ActionButton
                 label={t('common.continue')}
                 onPress={() => goToStage(3)}
-                disabled={!stageAudioFinished}
+                disabled={!stagePlaybackFinished || status.isPlaying || status.isLoading}
               />
             )}
           </View>
@@ -1381,9 +1385,9 @@ export function PracticeSessionModal({
             <PlaybackControlStrip
               uiStyles={styles}
               isPlaying={status.isPlaying}
-              onReplay={() => void playWholeClip(0)}
+              onReplay={() => void playWholeClip(0, 3)}
               onRewind={() => void rewindThreeSeconds()}
-              onToggle={() => void togglePlay()}
+              onToggle={() => void togglePlay(3)}
               replayLabel={t('common.replay')}
               pauseLabel={t('common.pause')}
               playLabel={t('common.play')}
@@ -1397,7 +1401,7 @@ export function PracticeSessionModal({
               <ActionButton
                 label={t('common.continue')}
                 onPress={() => goToStage(4)}
-                disabled={!stageAudioFinished}
+                disabled={!stagePlaybackFinished}
               />
             )}
           </View>
@@ -1524,6 +1528,11 @@ export function PracticeSessionModal({
                   >
                     <Text style={styles.stageReplayButtonText}>↻ {t('common.replay')}</Text>
                   </Pressable>
+                  {stage1AutoLoading ? (
+                    <View style={styles.stageUtilitySpinner}>
+                      <ActivityIndicator size="small" color={colors.accentPractice} />
+                    </View>
+                  ) : null}
                 </View>
               ) : null}
               {currentQuestionFlow?.stage === 1 && currentQuestion ? (
@@ -1549,17 +1558,12 @@ export function PracticeSessionModal({
                     <CircularProgressPlayButton
                       progress={playbackProgress}
                       isPlaying={status.isPlaying}
-                      onPress={() => void togglePlay()}
+                      onPress={() => void togglePlay(1)}
                       size={84}
                       buttonSize={68}
                       color={colors.accentPractice}
                     />
                   </View>
-                  {stage1AutoLoading ? (
-                    <View style={styles.stageLoadingRow}>
-                      <ActivityIndicator size="small" color={colors.accentPractice} />
-                    </View>
-                  ) : null}
                 </>
               )}
             </GlassCard>
@@ -1676,12 +1680,6 @@ export function PracticeSessionModal({
                       label={t('common.play')}
                       onPress={handleStartBlindListen}
                       style={styles.blindLaunchButton}
-                    />
-                    <ActionButton
-                      label={t('practiceSession.blindJumpToEndTest')}
-                      onPress={handleJumpBlindListenNearEnd}
-                      variant="secondary"
-                      style={[styles.blindLaunchButton, styles.blindTestButton]}
                     />
                   </View>
                 ) : null}
@@ -2081,9 +2079,15 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
     },
     stageUtilityRow: {
       flexDirection: 'row',
+      alignItems: 'center',
       justifyContent: 'flex-start',
+      gap: 10,
       marginTop: -2,
       marginBottom: 2,
+    },
+    stageUtilitySpinner: {
+      height: 32,
+      justifyContent: 'center',
     },
     stageReplayButton: {
       borderRadius: 999,
@@ -2148,14 +2152,6 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       paddingTop: 10,
       paddingBottom: 4,
     },
-    stageLoadingRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 10,
-      paddingTop: 6,
-      paddingBottom: 2,
-    },
     inlineQuestionSection: {
       gap: 12,
       paddingTop: 4,
@@ -2179,9 +2175,6 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
     blindLaunchButton: {
       width: '100%',
       maxWidth: 188,
-    },
-    blindTestButton: {
-      marginTop: 10,
     },
     questionText: {
       color: colors.textPrimary,

@@ -100,6 +100,7 @@ export function PracticeTabScreen({
   const styles = useMemo(() => createStyles(colors), [colors]);
   const listRef = useRef<FlatList<PracticePage> | null>(null);
   const currentPageIndexRef = useRef(0);
+  const cursorHydratedRef = useRef(false);
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 75 });
   const [previewAnswers, setPreviewAnswers] = useState<Record<string, number>>({});
   const [listViewportHeight, setListViewportHeight] = useState(0);
@@ -139,7 +140,13 @@ export function PracticeTabScreen({
   }, [onVisibleClipChange]);
 
   useEffect(() => {
-    if (!pages.length) return;
+    if (!pages.length) {
+      cursorHydratedRef.current = false;
+      currentPageIndexRef.current = 0;
+      return;
+    }
+    if (cursorHydratedRef.current && currentPageIndexRef.current < pages.length) return;
+    cursorHydratedRef.current = true;
     currentPageIndexRef.current = safeCursor;
     onVisibleClipChange?.(safeCursor);
   }, [onVisibleClipChange, pages.length, safeCursor]);
@@ -250,14 +257,7 @@ export function PracticeTabScreen({
               { height: previewCardHeight },
             ]}
           >
-            <ScrollView
-              style={styles.previewScroll}
-              contentContainerStyle={styles.previewScrollContent}
-              nestedScrollEnabled
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="always"
-              canCancelContentTouches={false}
-            >
+            <View style={styles.previewContent}>
               <Text style={styles.eyebrow}>{t('home.learnTab')}</Text>
               <View style={styles.progressRow}>
                 <Text style={styles.progressText}>
@@ -289,66 +289,76 @@ export function PracticeTabScreen({
               ) : null}
 
               {previewQuestion && !item.completedRecord ? (
-                <GlassCard tone="practice" style={styles.questionCard}>
-                  <Text style={styles.challengeLabel}>{t('practiceSession.questionLabel')}</Text>
-                  <Text style={styles.questionText}>{previewQuestion.question}</Text>
-                  {previewQuestionAnswered ? (
-                    <View
-                      style={[
-                        styles.feedbackSwap,
-                        previewQuestionCorrect ? styles.feedbackSwapCorrect : styles.feedbackSwapWrong,
-                      ]}
+                <View style={styles.questionRegion}>
+                  <GlassCard tone="practice" style={styles.questionCard}>
+                    <ScrollView
+                      style={styles.questionScroll}
+                      contentContainerStyle={styles.questionScrollContent}
+                      nestedScrollEnabled
+                      showsVerticalScrollIndicator
+                      keyboardShouldPersistTaps="handled"
                     >
-                      <Text
-                        style={[
-                          styles.feedbackTitle,
-                          previewQuestionCorrect ? styles.feedbackTitleCorrect : styles.feedbackTitleWrong,
-                        ]}
-                      >
-                        {previewQuestionCorrect
-                          ? t('practiceSession.answerCorrectTitle')
-                          : t('practiceSession.answerIncorrectTitle')}
-                      </Text>
-                      {!previewQuestionCorrect && previewQuestionCorrectOption ? (
-                        <Text style={styles.feedbackAnswer}>
-                          {t('practiceSession.correctAnswerLabel', { answer: previewQuestionCorrectOption })}
-                        </Text>
-                      ) : null}
-                      {previewExplanation ? (
-                        <Text style={styles.explanationText}>{previewExplanation}</Text>
-                      ) : null}
-                    </View>
-                  ) : (
-                    <View style={styles.optionsWrap}>
-                      {(previewQuestion.options || []).map((option, index) => (
-                        <Pressable
-                          key={`${item.key}-preview-opt-${index}`}
-                          hitSlop={8}
-                          onPressIn={() => {
-                            setPreviewAnswers(prev => ({
-                              ...prev,
-                              [item.key]: index,
-                            }));
-                          }}
+                      <Text style={styles.challengeLabel}>{t('practiceSession.questionLabel')}</Text>
+                      <Text style={styles.questionText}>{previewQuestion.question}</Text>
+                      {previewQuestionAnswered ? (
+                        <View
                           style={[
-                            styles.optionButton,
-                            styles.optionButtonCompact,
+                            styles.feedbackSwap,
+                            previewQuestionCorrect ? styles.feedbackSwapCorrect : styles.feedbackSwapWrong,
                           ]}
                         >
-                          <Text style={styles.optionText}>
-                            {option}
+                          <Text
+                            style={[
+                              styles.feedbackTitle,
+                              previewQuestionCorrect ? styles.feedbackTitleCorrect : styles.feedbackTitleWrong,
+                            ]}
+                          >
+                            {previewQuestionCorrect
+                              ? t('practiceSession.answerCorrectTitle')
+                              : t('practiceSession.answerIncorrectTitle')}
                           </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  )}
-                </GlassCard>
+                          {!previewQuestionCorrect && previewQuestionCorrectOption ? (
+                            <Text style={styles.feedbackAnswer}>
+                              {t('practiceSession.correctAnswerLabel', { answer: previewQuestionCorrectOption })}
+                            </Text>
+                          ) : null}
+                          {previewExplanation ? (
+                            <Text style={styles.explanationText}>{previewExplanation}</Text>
+                          ) : null}
+                        </View>
+                      ) : (
+                        <View style={styles.optionsWrap}>
+                          {(previewQuestion.options || []).map((option, index) => (
+                            <Pressable
+                              key={`${item.key}-preview-opt-${index}`}
+                              hitSlop={8}
+                              onPress={() => {
+                                setPreviewAnswers(prev => ({
+                                  ...prev,
+                                  [item.key]: index,
+                                }));
+                              }}
+                              style={[
+                                styles.optionButton,
+                                styles.optionButtonCompact,
+                              ]}
+                            >
+                              <Text style={styles.optionText}>
+                                {option}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      )}
+                    </ScrollView>
+                  </GlassCard>
+                </View>
               ) : null}
 
               {item.completedRecord ? (
                 <Text style={styles.completedMeta}>{completedAtLabel}</Text>
               ) : null}
-            </ScrollView>
+            </View>
 
             <View style={styles.actions}>
               <ActionButton
@@ -400,11 +410,13 @@ export function PracticeTabScreen({
         keyExtractor={item => item.key}
         renderItem={renderItem}
         style={styles.list}
+        nestedScrollEnabled
         onLayout={event => {
           const nextHeight = event.nativeEvent.layout.height;
           setListViewportHeight(prev => (Math.abs(prev - nextHeight) > 0.5 ? nextHeight : prev));
         }}
         pagingEnabled
+        snapToInterval={pageHeight}
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="always"
@@ -470,17 +482,14 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       borderRadius: radii.xl,
     },
     heroCardPreview: {
+      flex: 1,
       minHeight: 0,
       overflow: 'hidden',
     },
-    previewScroll: {
+    previewContent: {
       flex: 1,
       minHeight: 0,
-    },
-    previewScrollContent: {
-      flexGrow: 1,
       gap: spacing.md,
-      paddingBottom: spacing.md,
     },
     eyebrow: {
       color: colors.textSecondary,
@@ -543,6 +552,21 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
     questionCard: {
       gap: spacing.xs,
       backgroundColor: colors.bgSurface1,
+      flex: 1,
+      minHeight: 0,
+      overflow: 'hidden',
+    },
+    questionRegion: {
+      flex: 1,
+      minHeight: 0,
+    },
+    questionScroll: {
+      flex: 1,
+      minHeight: 0,
+    },
+    questionScrollContent: {
+      gap: spacing.xs,
+      paddingBottom: spacing.xs,
     },
     questionText: {
       color: colors.textPrimary,
