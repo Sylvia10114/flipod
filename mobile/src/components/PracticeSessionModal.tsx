@@ -493,6 +493,7 @@ export function PracticeSessionModal({
     status.isPlaying,
     status.positionMillis,
   ]);
+  const blindStageFinished = blindListenStarted && blindListenFinished;
   const currentQuestionFlow = useMemo<QuestionFlow>(() => {
     if (activeQuestionFlow) return activeQuestionFlow;
     const quizStage = quizStageFromStage(stage);
@@ -500,14 +501,14 @@ export function PracticeSessionModal({
     if ((quizStage === 1 || quizStage === 2 || quizStage === 3) && !stagePlaybackFinished) {
       return null;
     }
-    if (quizStage === 4 && (!blindListenFinished || attributionStep !== null)) {
+    if (quizStage === 4 && (!blindStageFinished || attributionStep !== null)) {
       return null;
     }
     const questions = buckets[bucketKey(quizStage)];
     const answered = quizResults[bucketKey(quizStage)].length;
     if (questions.length <= answered) return null;
     return { stage: quizStage, index: answered };
-  }, [activeQuestionFlow, attributionStep, blindListenFinished, buckets, quizResults, stage, stagePlaybackFinished]);
+  }, [activeQuestionFlow, attributionStep, blindStageFinished, buckets, quizResults, stage, stagePlaybackFinished]);
   const currentQuestion = useMemo(() => {
     if (!currentQuestionFlow) return null;
     const key = bucketKey(currentQuestionFlow.stage);
@@ -1407,7 +1408,7 @@ export function PracticeSessionModal({
           </View>
         );
       }
-      if (stage === 4 && blindListenFinished) {
+      if (stage === 4 && blindStageFinished) {
         if (currentQuestionFlow?.stage === 4 && currentQuestion) {
           return (
             <ActionButton
@@ -1660,7 +1661,7 @@ export function PracticeSessionModal({
 
         {stage === 4 ? (
           <View style={styles.stageCard}>
-            {!blindListenFinished ? (
+            {!blindStageFinished ? (
               <GlassCard tone="practice" style={styles.cardBlock}>
                 <PracticeCardHeader label={t('practiceSession.blindTitle')} />
                 <Text style={styles.supportText}>{t('practiceSession.blindBody')}</Text>
