@@ -65,6 +65,9 @@ export function PracticeTranscriptPanel({
 
   return (
     <View style={[styles.panel, { maxHeight }, style]}>
+      <View style={styles.scrollCueWrap}>
+        <View style={styles.scrollCue} />
+      </View>
       <ScrollView
         ref={scrollRef}
         nestedScrollEnabled
@@ -98,8 +101,25 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
   return StyleSheet.create({
     panel: {
       borderRadius: radii.xl,
-      backgroundColor: colors.bgSurface2,
+      borderWidth: 1,
+      borderColor: colors.strokeStrong,
+      backgroundColor: colors.bgSurface3,
       overflow: 'hidden',
+    },
+    scrollCueWrap: {
+      alignItems: 'center',
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.xs,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.strokeStrong,
+      backgroundColor: colors.bgSurface1,
+    },
+    scrollCue: {
+      width: 34,
+      height: 4,
+      borderRadius: 999,
+      backgroundColor: colors.textTertiary,
+      opacity: 0.7,
     },
     content: {
       padding: spacing.md,
@@ -109,10 +129,12 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.sm,
       borderRadius: radii.lg,
-      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: 'transparent',
+      backgroundColor: colors.bgSurface1,
     },
     lineShellActive: {
-      backgroundColor: colors.bgSurface1,
+      backgroundColor: colors.bgApp,
       borderWidth: 1,
       borderColor: colors.strokeStrong,
     },

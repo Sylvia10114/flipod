@@ -1102,6 +1102,29 @@ export default function App() {
   ]);
 
   useEffect(() => {
+    if (!clipsLoaded) return;
+    if (settings.homeMode !== 'practice') return;
+    if (activeScreen !== 'feed') return;
+    if (activeClipPracticeSession) return;
+    const sessionClipKey = practiceTabState.session?.active_clip_key;
+    if (!sessionClipKey) return;
+    const restoredIndex = practiceFeedKeys.indexOf(sessionClipKey);
+    if (restoredIndex < 0) return;
+    setActiveClipPracticeSession({
+      clipIndex: restoredIndex,
+      clipKey: sessionClipKey,
+      readOnly: false,
+    });
+  }, [
+    activeClipPracticeSession,
+    activeScreen,
+    clipsLoaded,
+    practiceFeedKeys,
+    practiceTabState.session?.active_clip_key,
+    settings.homeMode,
+  ]);
+
+  useEffect(() => {
     if (!clipsLoaded || !currentRawClips.length) return;
     void requestContentTranslations(
       currentRawClips.slice(0, 2).map((clip, index) => ({ clip, index })),
@@ -2112,6 +2135,10 @@ export default function App() {
     setActiveClipPracticeSession(null);
   }, []);
 
+  const handleReturnListenFromClipPractice = useCallback(() => {
+    handleHomeModeChange('just_listen');
+  }, [handleHomeModeChange]);
+
   const handleClipPracticeStageChange = useCallback((clipIndex: number, stage: number) => {
     const clipKey = practiceFeedKeys[clipIndex];
     if (!clipKey) return;
@@ -2158,10 +2185,10 @@ export default function App() {
       completedClip.reasons.forEach(reason => {
         nextAggregate[reason] = (nextAggregate[reason] || 0) + 1;
       });
-      const nextCursor = Math.min(
-        prev.practice_cursor + 1,
-        Math.max(0, practiceClips.length - 1)
-      );
+      const completedClipIndex = prev.practice_feed_keys.indexOf(completedClip.clipKey);
+      const nextCursor = completedClipIndex >= 0
+        ? completedClipIndex
+        : prev.practice_cursor;
       return {
         ...prev,
         completed_clips: nextCompleted,
@@ -2171,10 +2198,17 @@ export default function App() {
         },
         attribution_aggregate: nextAggregate,
         practice_cursor: nextCursor,
-        session: null,
+        session: {
+          active_clip_key: completedClip.clipKey,
+          current_stage: 6,
+          current_clip_index: nextCursor,
+          started_at: prev.session?.active_clip_key === completedClip.clipKey
+            ? prev.session.started_at
+            : new Date(completedClip.completedAt).toISOString(),
+        },
       };
     });
-  }, [practiceClips.length, updatePracticeTabState]);
+  }, [updatePracticeTabState]);
 
   const handlePracticeNextClip = useCallback(() => {
     if (!activeClipPracticeSession) {
@@ -2478,7 +2512,7 @@ export default function App() {
                     <PracticeSessionModal
                       inline
                       visible
-                      isActive={isVisible}
+                      isActive={isVisible && settings.homeMode === 'practice'}
                       clip={clip}
                       clipIndex={clipIndex}
                       initialStage={
@@ -2504,7 +2538,7 @@ export default function App() {
                       onComplete={handleClipPracticeComplete}
                       onDismiss={handleDismissClipPractice}
                       onNextClip={handlePracticeNextClip}
-                      onReturnListen={() => handleHomeModeChange('just_listen')}
+                      onReturnListen={handleReturnListenFromClipPractice}
                     />
                   );
                 }}

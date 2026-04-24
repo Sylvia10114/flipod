@@ -79,15 +79,31 @@ export function createDefaultPracticeTabState(): PracticeTabState {
     },
     attribution_aggregate: {
       unknown: 0,
-      linking: 0,
-      weak: 0,
-      speed: 0,
-      accent: 0,
-      other: 0,
+      unclear: 0,
+      meaning: 0,
     },
     listen_cursor: 0,
     practice_cursor: 0,
   };
+}
+
+function normalizePracticeReason(value: unknown) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'unknown') return 'unknown';
+  if (normalized === 'unclear') return 'unclear';
+  if (normalized === 'meaning') return 'meaning';
+  if (
+    normalized === 'linking'
+    || normalized === 'weak'
+    || normalized === 'speed'
+    || normalized === 'accent'
+  ) {
+    return 'unclear';
+  }
+  if (normalized === 'other') {
+    return 'meaning';
+  }
+  return null;
 }
 
 export function normalizePracticeTabState(
@@ -96,6 +112,27 @@ export function normalizePracticeTabState(
   const base = createDefaultPracticeTabState();
   if (!state || typeof state !== 'object') return base;
   const currentTab = state.ui_state?.current_tab === 'just_listen' ? 'just_listen' : 'practice';
+  const normalizedCompletedClips = Array.isArray(state.completed_clips)
+    ? state.completed_clips.map(item => ({
+        ...item,
+        reasons: Array.isArray(item?.reasons)
+          ? item.reasons
+              .map(normalizePracticeReason)
+              .filter((reason): reason is NonNullable<ReturnType<typeof normalizePracticeReason>> => Boolean(reason))
+          : [],
+      }))
+    : [];
+  const rawAggregate = (state.attribution_aggregate && typeof state.attribution_aggregate === 'object')
+    ? state.attribution_aggregate
+    : {};
+  const normalizedAggregate = {
+    ...base.attribution_aggregate,
+  };
+  Object.entries(rawAggregate).forEach(([rawReason, rawCount]) => {
+    const reason = normalizePracticeReason(rawReason);
+    if (!reason) return;
+    normalizedAggregate[reason] = (normalizedAggregate[reason] || 0) + Math.max(0, Number(rawCount || 0));
+  });
   return {
     ui_state: {
       current_tab: currentTab,
@@ -115,15 +152,12 @@ export function normalizePracticeTabState(
           started_at: String(state.session.started_at || new Date().toISOString()),
         }
       : null,
-    completed_clips: Array.isArray(state.completed_clips) ? state.completed_clips : [],
+    completed_clips: normalizedCompletedClips,
     vocab_inbox: {
       entries: Array.isArray(state.vocab_inbox?.entries) ? state.vocab_inbox.entries : [],
       week_window_start: state.vocab_inbox?.week_window_start || base.vocab_inbox.week_window_start,
     },
-    attribution_aggregate: {
-      ...base.attribution_aggregate,
-      ...(state.attribution_aggregate || {}),
-    },
+    attribution_aggregate: normalizedAggregate,
     listen_cursor: Math.max(0, Number(state.listen_cursor || 0)),
     practice_cursor: Math.max(0, Number(state.practice_cursor || 0)),
   };

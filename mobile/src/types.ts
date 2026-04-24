@@ -168,11 +168,8 @@ export type AppSettings = {
 
 export type PracticeTabReason =
   | 'unknown'
-  | 'linking'
-  | 'weak'
-  | 'speed'
-  | 'accent'
-  | 'other';
+  | 'unclear'
+  | 'meaning';
 
 export type PracticeTabVocabPick = {
   word: string;
@@ -198,6 +195,7 @@ export type PracticeTabCompletedClip = {
     stage1?: PracticeTabQuizResult[];
     stage2?: PracticeTabQuizResult[];
     stage3?: PracticeTabQuizResult[];
+    stage4?: PracticeTabQuizResult[];
   };
   durationSec: number;
 };

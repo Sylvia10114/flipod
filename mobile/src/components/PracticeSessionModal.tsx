@@ -1,7 +1,7 @@
 import * as FileSystem from 'expo-file-system';
 import { Audio, type AVPlaybackStatus } from 'expo-av';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   buildClipKey,
@@ -38,9 +38,10 @@ import { WordLine } from './WordLine';
 import { WordPopup } from './WordPopup';
 import { PracticeCardHeader } from './generated-practice/PracticeCardHeader';
 import { PracticeTranscriptPanel } from './generated-practice/PracticeTranscriptPanel';
+import { fetchWordTranslation } from '../word-translation';
 
 type Stage = 0 | 1 | 2 | 3 | 4 | 5 | 6;
-type QuizStage = 0 | 1 | 2 | 3;
+type QuizStage = 0 | 1 | 2 | 3 | 4;
 type AttributionStep = 1 | 2 | null;
 
 type PopupState = {
@@ -61,6 +62,7 @@ type QuestionBuckets = {
   stage1: ClipQuestion[];
   stage2: ClipQuestion[];
   stage3: ClipQuestion[];
+  stage4: ClipQuestion[];
 };
 
 type QuizResults = {
@@ -68,6 +70,7 @@ type QuizResults = {
   stage1: PracticeTabQuizResult[];
   stage2: PracticeTabQuizResult[];
   stage3: PracticeTabQuizResult[];
+  stage4: PracticeTabQuizResult[];
 };
 
 type QuestionFlow = {
@@ -98,7 +101,7 @@ type Props = {
   onReturnListen: () => void;
 };
 
-const ATTRIBUTION_REASONS: PracticeTabReason[] = ['unknown', 'linking', 'weak', 'speed', 'accent', 'other'];
+const ATTRIBUTION_REASONS: PracticeTabReason[] = ['unknown', 'unclear', 'meaning'];
 
 function hashPracticeAudioKey(value: string) {
   let hash = 2166136261;
@@ -143,7 +146,17 @@ function bucketKey(stage: QuizStage) {
   if (stage === 0) return 'stage0';
   if (stage === 1) return 'stage1';
   if (stage === 2) return 'stage2';
-  return 'stage3';
+  if (stage === 3) return 'stage3';
+  return 'stage4';
+}
+
+function quizStageFromStage(stage: Stage): QuizStage | null {
+  if (stage === 0) return 0;
+  if (stage === 1) return 1;
+  if (stage === 2) return 2;
+  if (stage === 3) return 3;
+  if (stage === 4) return 4;
+  return null;
 }
 
 function questionBuckets(clip: Clip | null): QuestionBuckets {
@@ -152,6 +165,7 @@ function questionBuckets(clip: Clip | null): QuestionBuckets {
     stage1: [],
     stage2: [],
     stage3: [],
+    stage4: [],
   };
 
   (clip?.questions || []).forEach((question, index) => {
@@ -159,14 +173,16 @@ function questionBuckets(clip: Clip | null): QuestionBuckets {
       if (question.stage === 0) buckets.stage0.push(question);
       else if (question.stage === 1) buckets.stage1.push(question);
       else if (question.stage === 2) buckets.stage2.push(question);
-      else buckets.stage3.push(question);
+      else if (question.stage === 3) buckets.stage3.push(question);
+      else buckets.stage4.push(question);
       return;
     }
 
     if (index === 0) buckets.stage0.push(question);
     else if (index === 1) buckets.stage1.push(question);
     else if (index === 2) buckets.stage2.push(question);
-    else buckets.stage3.push(question);
+    else if (index === 3) buckets.stage3.push(question);
+    else buckets.stage4.push(question);
   });
 
   return buckets;
@@ -203,14 +219,70 @@ function attributionLabel(
   t: (key: string, params?: Record<string, string | number>) => string
 ) {
   if (reason === 'unknown') return t('practiceSession.reasonUnknown');
-  if (reason === 'linking') return t('practiceSession.reasonLinking');
-  if (reason === 'weak') return t('practiceSession.reasonWeak');
-  if (reason === 'speed') return t('practiceSession.reasonSpeed');
-  if (reason === 'accent') return t('practiceSession.reasonAccent');
-  return t('practiceSession.reasonOther');
+  if (reason === 'unclear') return t('practiceSession.reasonUnclear');
+  return t('practiceSession.reasonMeaning');
+}
+
+function deriveStage5ReviewItems(
+  clip: Clip,
+  selectedVocabPicks: PracticeTabVocabPick[],
+  knownWords: string[],
+  options?: {
+    allowFallback?: boolean;
+  }
+) {
+  const pickedItems = selectedVocabPicks.map(item => {
+    const line = clip.lines?.[item.sentenceIndex];
+    const matchingWord = line?.words?.find(word => word.word.toLowerCase() === item.word.toLowerCase());
+    return {
+      word: matchingWord?.word || item.word,
+      normalizedWord: item.word.toLowerCase(),
+      sentenceIndex: item.sentenceIndex,
+      line,
+      cefr: matchingWord?.cefr,
+    };
+  }).filter(item => item.line);
+
+  if (pickedItems.length > 0) {
+    return pickedItems;
+  }
+
+  if (!options?.allowFallback) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const fallback: Array<{
+    word: string;
+    normalizedWord: string;
+    sentenceIndex: number;
+    line: Clip['lines'][number];
+    cefr?: string;
+  }> = [];
+
+  clip.lines?.forEach((line, sentenceIndex) => {
+    lineCandidateWords(line, knownWords).forEach(word => {
+      const normalizedWord = word.word.toLowerCase();
+      if (seen.has(normalizedWord)) return;
+      seen.add(normalizedWord);
+      fallback.push({
+        word: word.word,
+        normalizedWord,
+        sentenceIndex,
+        line,
+        cefr: word.cefr,
+      });
+    });
+  });
+
+  return fallback.slice(0, 3);
 }
 
 function noop() {}
+
+function practiceDebug(event: string, payload?: Record<string, unknown>) {
+  console.log('[practice-inline]', event, payload || {});
+}
 
 function normalizeToken(value: string) {
   return String(value || '').replace(/^[^a-zA-Z]+|[^a-zA-Z'-]+$/g, '').toLowerCase();
@@ -333,6 +405,9 @@ export function PracticeSessionModal({
   const soundRef = useRef<Audio.Sound | null>(null);
   const onStageChangeRef = useRef(onStageChange);
   const onPlaybackEndedRef = useRef<(mode: StagePlaybackMode) => void>(noop);
+  const bodyScrollRef = useRef<ScrollView | null>(null);
+  const loadSoundRef = useRef<() => Promise<boolean>>(async () => false);
+  const unloadSoundRef = useRef<() => Promise<void>>(async () => {});
   const soundReadyRef = useRef(false);
   const preparedAudioUriRef = useRef<string | null>(null);
   const preparedAudioKeyRef = useRef('');
@@ -362,6 +437,7 @@ export function PracticeSessionModal({
     stage1: [],
     stage2: [],
     stage3: [],
+    stage4: [],
   });
   const [shownTranslations, setShownTranslations] = useState<Record<number, boolean>>({});
   const [attributionReasons, setAttributionReasons] = useState<PracticeTabReason[]>([]);
@@ -369,6 +445,8 @@ export function PracticeSessionModal({
   const [selectedVocabPicks, setSelectedVocabPicks] = useState<PracticeTabVocabPick[]>([]);
   const [expandedSentenceIndex, setExpandedSentenceIndex] = useState<number | null>(null);
   const [popup, setPopup] = useState<PopupState>(null);
+  const [stage1QuestionAnchorY, setStage1QuestionAnchorY] = useState<number | null>(null);
+  const [stage5Translations, setStage5Translations] = useState<Record<string, string>>({});
 
   const clipKey = useMemo(() => (clip ? buildClipKey(clip, clipIndex) : ''), [clip, clipIndex]);
   const buckets = useMemo(() => questionBuckets(clip), [clip]);
@@ -400,11 +478,40 @@ export function PracticeSessionModal({
     () => new Set(challengeWords.map(item => normalizeToken(item.word))),
     [challengeWords]
   );
+  const currentQuestionFlow = useMemo<QuestionFlow>(() => {
+    if (activeQuestionFlow) return activeQuestionFlow;
+    const quizStage = quizStageFromStage(stage);
+    if (quizStage === null || quizStage === 0) return null;
+    if ((quizStage === 1 || quizStage === 2 || quizStage === 3) && !stageAudioFinished) {
+      return null;
+    }
+    if (quizStage === 4 && (!blindListenFinished || attributionStep !== null)) {
+      return null;
+    }
+    const questions = buckets[bucketKey(quizStage)];
+    const answered = quizResults[bucketKey(quizStage)].length;
+    if (questions.length <= answered) return null;
+    return { stage: quizStage, index: answered };
+  }, [activeQuestionFlow, attributionStep, blindListenFinished, buckets, quizResults, stage, stageAudioFinished]);
   const currentQuestion = useMemo(() => {
-    if (!activeQuestionFlow) return null;
-    const key = bucketKey(activeQuestionFlow.stage);
-    return buckets[key][activeQuestionFlow.index] || null;
-  }, [activeQuestionFlow, buckets]);
+    if (!currentQuestionFlow) return null;
+    const key = bucketKey(currentQuestionFlow.stage);
+    return buckets[key][currentQuestionFlow.index] || null;
+  }, [buckets, currentQuestionFlow]);
+  const stage1AutoLoading = stage === 1
+    && !currentQuestionFlow
+    && !stageAudioFinished
+    && !status.isPlaying
+    && (status.isLoading || status.positionMillis <= 120);
+  const currentQuestionCorrectIndex = currentQuestion ? answerIndex(currentQuestion) : -1;
+  const currentQuestionAnswered = currentQuestionSelection !== null;
+  const currentQuestionCorrect = currentQuestionAnswered && currentQuestionSelection === currentQuestionCorrectIndex;
+  const currentQuestionCorrectOption = currentQuestion && currentQuestionCorrectIndex >= 0
+    ? currentQuestion.options?.[currentQuestionCorrectIndex] || ''
+    : '';
+  const currentQuestionExplanation = currentQuestion
+    ? explanationForQuestion(currentQuestion, t('practiceSession.explanationUnavailable'))
+    : '';
   const vocabCandidatesBySentence = useMemo(() => {
     return (clip?.lines || []).map((line, index) => ({
       sentenceIndex: index,
@@ -412,6 +519,43 @@ export function PracticeSessionModal({
       words: lineCandidateWords(line, knownWords),
     })).filter(item => item.words.length > 0);
   }, [clip?.lines, knownWords]);
+  const stage5ReviewItems = useMemo(() => (
+    clip
+      ? deriveStage5ReviewItems(
+          clip,
+          selectedVocabPicks,
+          knownWords,
+          { allowFallback: Boolean(readOnly && selectedVocabPicks.length === 0) }
+        )
+      : []
+  ), [clip, knownWords, readOnly, selectedVocabPicks]);
+
+  useEffect(() => {
+    if (nativeLanguage === 'english' || stage5ReviewItems.length === 0) {
+      setStage5Translations({});
+      return;
+    }
+
+    let cancelled = false;
+    const uniqueWords = [...new Set(stage5ReviewItems.map(item => item.word.trim()).filter(Boolean))];
+
+    void Promise.all(
+      uniqueWords.map(async word => [word, await fetchWordTranslation(word, nativeLanguage)] as const)
+    ).then(entries => {
+      if (cancelled) return;
+      const next: Record<string, string> = {};
+      entries.forEach(([word, translation]) => {
+        if (translation) {
+          next[word.toLowerCase()] = translation;
+        }
+      });
+      setStage5Translations(next);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [nativeLanguage, stage5ReviewItems]);
 
   const unloadSound = useCallback(async () => {
     soundReadyRef.current = false;
@@ -665,13 +809,32 @@ export function PracticeSessionModal({
   const openNextQuestionIfNeeded = useCallback((quizStage: QuizStage) => {
     const questions = stageQuestions(quizStage);
     const existing = quizResults[bucketKey(quizStage)];
+    practiceDebug('open-question-attempt', {
+      clipKey,
+      stage: quizStage,
+      totalQuestions: questions.length,
+      answeredQuestions: existing.length,
+      visible,
+      inline,
+    });
     if (questions.length > existing.length) {
       setActiveQuestionFlow({ stage: quizStage, index: existing.length });
       setCurrentQuestionSelection(null);
+      practiceDebug('open-question-success', {
+        clipKey,
+        stage: quizStage,
+        questionIndex: existing.length,
+      });
       return true;
     }
+    practiceDebug('open-question-empty', {
+      clipKey,
+      stage: quizStage,
+      totalQuestions: questions.length,
+      answeredQuestions: existing.length,
+    });
     return false;
-  }, [quizResults, stageQuestions]);
+  }, [clipKey, inline, quizResults, stageQuestions, visible]);
 
   const goToStage = useCallback((nextStage: Stage) => {
     playbackRequestRef.current += 1;
@@ -704,7 +867,11 @@ export function PracticeSessionModal({
       goToStage(3);
       return;
     }
-    goToStage(4);
+    if (quizStage === 3) {
+      goToStage(4);
+      return;
+    }
+    setAttributionStep(1);
   }, [goToStage]);
 
   const startPlaybackForStage = useCallback(async (mode: StagePlaybackMode, fromMillis = 0) => {
@@ -735,7 +902,7 @@ export function PracticeSessionModal({
   }, [attributionReasons, clip, clipKey, onComplete, quizResults, readOnly, selectedVocabPicks]);
 
   useEffect(() => {
-    if (!visible || !clip) return;
+    if (!visible || !clip || !clipKey) return;
     completionSavedRef.current = false;
     stageRunRef.current = '';
     playbackRequestRef.current += 1;
@@ -762,6 +929,7 @@ export function PracticeSessionModal({
       stage1: [],
       stage2: [],
       stage3: [],
+      stage4: [],
     });
     setShownTranslations({});
     setAttributionReasons(readOnly ? (completedRecord?.reasons || []) : []);
@@ -769,27 +937,52 @@ export function PracticeSessionModal({
     setSelectedVocabPicks(readOnly ? (completedRecord?.vocabPicked || []) : []);
     setExpandedSentenceIndex(null);
     setPopup(null);
+    setStage1QuestionAnchorY(null);
     if (!readOnly) {
-      void loadSound();
+      void loadSoundRef.current();
     }
     return () => {
       loadPromiseRef.current = null;
-      void unloadSound();
+      void unloadSoundRef.current();
     };
-  }, [clip, completedRecord, loadSound, readOnly, unloadSound, visible]);
+  }, [
+    clipKey,
+    completedRecord?.clipKey,
+    completedRecord?.completedAt,
+    readOnly,
+    visible,
+  ]);
 
   useEffect(() => {
     onStageChangeRef.current = onStageChange;
   }, [onStageChange]);
 
+  useEffect(() => {
+    loadSoundRef.current = loadSound;
+  }, [loadSound]);
+
+  useEffect(() => {
+    unloadSoundRef.current = unloadSound;
+  }, [unloadSound]);
+
   const handlePlaybackEnded = useCallback((mode: StagePlaybackMode) => {
+    practiceDebug('playback-ended', {
+      clipKey,
+      mode,
+      stage,
+      visible,
+      inline,
+    });
     if (mode === 'blind') {
       setBlindListenFinished(true);
-      setAttributionStep(1);
+      const opened = openNextQuestionIfNeeded(4);
+      if (!opened) {
+        setAttributionStep(1);
+      }
       return;
     }
     void openNextQuestionIfNeeded(mode);
-  }, [openNextQuestionIfNeeded]);
+  }, [clipKey, inline, openNextQuestionIfNeeded, stage, visible]);
 
   useEffect(() => {
     onPlaybackEndedRef.current = handlePlaybackEnded;
@@ -799,6 +992,32 @@ export function PracticeSessionModal({
     if (!visible || readOnly) return;
     onStageChangeRef.current(stage);
   }, [clipKey, inline, readOnly, stage, visible]);
+
+  useEffect(() => {
+    if (!inline || !visible || stage !== 1) return;
+    if (currentQuestionFlow?.stage !== 1 || !currentQuestion) return;
+    const timer = setTimeout(() => {
+      bodyScrollRef.current?.scrollTo({
+        y: Math.max(0, (stage1QuestionAnchorY || 0) - 20),
+        animated: true,
+      });
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [currentQuestion, currentQuestionFlow?.stage, inline, stage, stage1QuestionAnchorY, visible]);
+
+  useEffect(() => {
+    if (!visible || readOnly || !stageAudioFinished) return;
+    if (stage !== 1 && stage !== 2 && stage !== 3) return;
+    if (currentQuestionFlow) return;
+    practiceDebug('stage-audio-finished', {
+      clipKey,
+      stage,
+      visible,
+      inline,
+      activeQuestionStage: null,
+    });
+    void openNextQuestionIfNeeded(stage);
+  }, [clipKey, currentQuestionFlow, inline, openNextQuestionIfNeeded, readOnly, stage, stageAudioFinished, visible]);
 
   useEffect(() => {
     if (!visible || !clip || readOnly) return;
@@ -866,33 +1085,46 @@ export function PracticeSessionModal({
   }, [inline, isActive, pause, status.isPlaying, visible]);
 
   const handleAdvanceQuestion = useCallback(() => {
-    if (!activeQuestionFlow || !currentQuestion) return;
+    const questionFlow = currentQuestionFlow;
+    if (!questionFlow || !currentQuestion) return;
     const selection = currentQuestionSelection;
-    if (selection === null) return;
+    if (selection === null) {
+      if (
+        questionFlow.stage === 1
+        || questionFlow.stage === 2
+        || questionFlow.stage === 3
+        || questionFlow.stage === 4
+      ) {
+        setActiveQuestionFlow(null);
+        setCurrentQuestionSelection(null);
+        advanceFromQuizStage(questionFlow.stage);
+      }
+      return;
+    }
     const correctIndex = answerIndex(currentQuestion);
     const result: PracticeTabQuizResult = {
-      qIdx: activeQuestionFlow.index,
+      qIdx: questionFlow.index,
       picked: selection,
       correct: selection === correctIndex,
     };
-    const key = bucketKey(activeQuestionFlow.stage);
+    const key = bucketKey(questionFlow.stage);
     setQuizResults(prev => ({
       ...prev,
       [key]: [...prev[key], result],
     }));
-    const questions = stageQuestions(activeQuestionFlow.stage);
-    if (activeQuestionFlow.index + 1 < questions.length) {
+    const questions = stageQuestions(questionFlow.stage);
+    if (questionFlow.index + 1 < questions.length) {
       setActiveQuestionFlow({
-        stage: activeQuestionFlow.stage,
-        index: activeQuestionFlow.index + 1,
+        stage: questionFlow.stage,
+        index: questionFlow.index + 1,
       });
       setCurrentQuestionSelection(null);
       return;
     }
     setActiveQuestionFlow(null);
     setCurrentQuestionSelection(null);
-    advanceFromQuizStage(activeQuestionFlow.stage);
-  }, [activeQuestionFlow, advanceFromQuizStage, currentQuestion, currentQuestionSelection, stageQuestions]);
+    advanceFromQuizStage(questionFlow.stage);
+  }, [advanceFromQuizStage, currentQuestion, currentQuestionFlow, currentQuestionSelection, stageQuestions]);
 
   const quizExplanation = currentQuestion
     ? explanationForQuestion(currentQuestion, t('practiceSession.explanationUnavailable'))
@@ -925,11 +1157,7 @@ export function PracticeSessionModal({
   };
 
   const handleCompleteAttributionStep2 = () => {
-    if (selectedVocabPicks.length > 0) {
-      goToStage(5);
-      return;
-    }
-    goToStage(6);
+    goToStage(5);
   };
 
   const handleStartBlindListen = useCallback(() => {
@@ -937,13 +1165,147 @@ export function PracticeSessionModal({
     void startPlaybackForStage('blind', 0);
   }, [startPlaybackForStage, status.isLoading, status.isPlaying]);
 
+  const handleReplayStage = useCallback((targetStage: QuizStage) => {
+    if (readOnly) return;
+    setStageAudioFinished(false);
+    if (targetStage === 4) {
+      setBlindListenStarted(false);
+      setBlindListenFinished(false);
+      setAttributionStep(null);
+      setExpandedSentenceIndex(null);
+      setSelectedVocabPicks([]);
+    }
+    if (currentQuestionFlow?.stage === targetStage) {
+      setActiveQuestionFlow(null);
+      setCurrentQuestionSelection(null);
+    }
+    void startPlaybackForStage(targetStage, 0);
+  }, [currentQuestionFlow?.stage, readOnly, startPlaybackForStage]);
+
+  const handleJumpBlindListenNearEnd = useCallback(() => {
+    if (!clip || status.isLoading) return;
+    const durationMillis = status.durationMillis > 0
+      ? status.durationMillis
+      : Math.floor(getClipDurationSeconds(clip) * 1000);
+    const fromMillis = Math.max(0, durationMillis - 3000);
+    void startPlaybackForStage('blind', fromMillis);
+  }, [clip, startPlaybackForStage, status.durationMillis, status.isLoading]);
+
+  const renderQuestionBlock = useCallback((quizStage: QuizStage, options?: { onLayout?: (y: number) => void }) => {
+    if (currentQuestionFlow?.stage !== quizStage || !currentQuestion) return null;
+    return (
+      <View
+        style={styles.inlineQuestionSection}
+        onLayout={options?.onLayout ? event => options.onLayout?.(event.nativeEvent.layout.y) : undefined}
+      >
+        <PracticeCardHeader label={t('practiceSession.questionLabel')} />
+        <Text style={styles.questionText}>{currentQuestion.question}</Text>
+        <View style={styles.optionsWrap}>
+          {(currentQuestion.options || []).map((option, index) => {
+            const locked = currentQuestionAnswered;
+            const isSelected = currentQuestionSelection === index;
+            const isCorrectOption = currentQuestionAnswered && index === currentQuestionCorrectIndex;
+            const isIncorrectSelection = currentQuestionAnswered && isSelected && !currentQuestionCorrect;
+            return (
+              <Pressable
+                key={option}
+                onPress={() => {
+                  if (locked) return;
+                  setCurrentQuestionSelection(index);
+                  if (index === currentQuestionCorrectIndex) {
+                    triggerUiFeedback('success');
+                  } else {
+                    triggerMediumHaptic();
+                  }
+                }}
+                hitSlop={8}
+                style={[
+                  styles.optionButton,
+                  isSelected && styles.optionButtonSelected,
+                  isCorrectOption && styles.optionButtonCorrect,
+                  isIncorrectSelection && styles.optionButtonIncorrect,
+                  locked && !isSelected && !isCorrectOption && styles.optionButtonIdleLocked,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.optionText,
+                    isCorrectOption && styles.optionTextCorrect,
+                    isIncorrectSelection && styles.optionTextIncorrect,
+                  ]}
+                >
+                  {option}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {currentQuestionAnswered ? (
+          <View
+            style={[
+              styles.answerFeedbackCard,
+              currentQuestionCorrect ? styles.answerFeedbackCardCorrect : styles.answerFeedbackCardIncorrect,
+            ]}
+          >
+            <Text
+              style={[
+                styles.answerFeedbackTitle,
+                currentQuestionCorrect ? styles.answerFeedbackTitleCorrect : styles.answerFeedbackTitleIncorrect,
+              ]}
+            >
+              {currentQuestionCorrect
+                ? t('practiceSession.answerCorrectTitle')
+                : t('practiceSession.answerIncorrectTitle')}
+            </Text>
+            {!currentQuestionCorrect && currentQuestionCorrectOption ? (
+              <Text style={styles.answerFeedbackMeta}>
+                {t('practiceSession.correctAnswerLabel', { answer: currentQuestionCorrectOption })}
+              </Text>
+            ) : null}
+            <Text style={styles.explanationText}>{currentQuestionExplanation}</Text>
+          </View>
+        ) : null}
+      </View>
+    );
+  }, [
+    currentQuestion,
+    currentQuestionAnswered,
+    currentQuestionCorrect,
+    currentQuestionCorrectIndex,
+    currentQuestionCorrectOption,
+    currentQuestionExplanation,
+    currentQuestionFlow?.stage,
+    currentQuestionSelection,
+    styles.answerFeedbackCard,
+    styles.answerFeedbackCardCorrect,
+    styles.answerFeedbackCardIncorrect,
+    styles.answerFeedbackMeta,
+    styles.answerFeedbackTitle,
+    styles.answerFeedbackTitleCorrect,
+    styles.answerFeedbackTitleIncorrect,
+    styles.explanationText,
+    styles.inlineQuestionSection,
+    styles.optionButton,
+    styles.optionButtonCorrect,
+    styles.optionButtonIdleLocked,
+    styles.optionButtonIncorrect,
+    styles.optionButtonSelected,
+    styles.optionText,
+    styles.optionTextCorrect,
+    styles.optionTextIncorrect,
+    styles.optionsWrap,
+    styles.questionText,
+    t,
+  ]);
+
   const playbackProgress = status.durationMillis > 0 ? status.positionMillis / status.durationMillis : 0;
   const activePlaybackLineIndex = findActiveOrPreviousLineIndex(clip, alignedPlaybackSeconds);
   const progressStep = practiceProgressStep(stage);
+  const replayableQuizStage = quizStageFromStage(stage);
   const inlineFooterActions = inline ? (
     (() => {
       if (stage === 0) {
-        if (activeQuestionFlow?.stage === 0 && currentQuestion) {
+        if (currentQuestionFlow?.stage === 0 && currentQuestion) {
           return (
             <ActionButton
               label={t('common.continue')}
@@ -955,18 +1317,35 @@ export function PracticeSessionModal({
         return <ActionButton label={t('common.continue')} onPress={() => goToStage(1)} />;
       }
       if (stage === 1) {
-        if (activeQuestionFlow?.stage === 1 && currentQuestion) {
+        if (currentQuestionFlow?.stage === 1 && currentQuestion) {
           return (
-            <ActionButton
-              label={t('common.continue')}
-              onPress={handleAdvanceQuestion}
-              disabled={currentQuestionSelection === null}
-            />
+            <View style={styles.inlineFooterStack}>
+              <ActionButton
+                label={t('common.replay')}
+                variant="secondary"
+                onPress={() => handleReplayStage(1)}
+              />
+              <ActionButton
+                label={t('common.continue')}
+                onPress={handleAdvanceQuestion}
+              />
+            </View>
           );
         }
-        return stageAudioFinished ? (
-          <ActionButton label={t('common.continue')} onPress={() => goToStage(2)} />
-        ) : null;
+        return (
+          <View style={styles.inlineFooterStack}>
+            <ActionButton
+              label={t('common.replay')}
+              variant="secondary"
+              onPress={() => handleReplayStage(1)}
+            />
+            <ActionButton
+              label={t('common.continue')}
+              onPress={() => goToStage(2)}
+              disabled={!stageAudioFinished}
+            />
+          </View>
+        );
       }
       if (stage === 2) {
         return (
@@ -981,11 +1360,10 @@ export function PracticeSessionModal({
               pauseLabel={t('common.pause')}
               playLabel={t('common.play')}
             />
-            {activeQuestionFlow?.stage === 2 && currentQuestion ? (
+            {currentQuestionFlow?.stage === 2 && currentQuestion ? (
               <ActionButton
                 label={t('common.continue')}
                 onPress={handleAdvanceQuestion}
-                disabled={currentQuestionSelection === null}
               />
             ) : (
               <ActionButton
@@ -1010,11 +1388,10 @@ export function PracticeSessionModal({
               pauseLabel={t('common.pause')}
               playLabel={t('common.play')}
             />
-            {activeQuestionFlow?.stage === 3 && currentQuestion ? (
+            {currentQuestionFlow?.stage === 3 && currentQuestion ? (
               <ActionButton
                 label={t('common.continue')}
                 onPress={handleAdvanceQuestion}
-                disabled={currentQuestionSelection === null}
               />
             ) : (
               <ActionButton
@@ -1027,6 +1404,14 @@ export function PracticeSessionModal({
         );
       }
       if (stage === 4 && blindListenFinished) {
+        if (currentQuestionFlow?.stage === 4 && currentQuestion) {
+          return (
+            <ActionButton
+              label={t('common.continue')}
+              onPress={handleAdvanceQuestion}
+            />
+          );
+        }
         if (attributionStep === 1) {
           return (
             <View style={styles.inlineFooterStack}>
@@ -1117,25 +1502,9 @@ export function PracticeSessionModal({
               </View>
             </GlassCard>
 
-            {activeQuestionFlow?.stage === 0 && currentQuestion ? (
+            {currentQuestionFlow?.stage === 0 && currentQuestion ? (
               <GlassCard tone="practice" style={styles.cardBlock}>
-                <PracticeCardHeader label={t('practiceSession.questionLabel')} />
-                <Text style={styles.questionText}>{currentQuestion.question}</Text>
-                <View style={styles.optionsWrap}>
-                  {(currentQuestion.options || []).map((option, index) => (
-                    <Pressable
-                      key={option}
-                      onPress={() => setCurrentQuestionSelection(index)}
-                      style={[
-                        styles.optionButton,
-                        currentQuestionSelection === index && styles.optionButtonSelected,
-                      ]}
-                    >
-                      <Text style={styles.optionText}>{option}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-                {currentQuestionSelection !== null ? <Text style={styles.explanationText}>{quizExplanation}</Text> : null}
+                {renderQuestionBlock(0)}
               </GlassCard>
             ) : null}
           </View>
@@ -1146,54 +1515,55 @@ export function PracticeSessionModal({
             <GlassCard tone="practice" style={styles.cardBlock}>
               <PracticeCardHeader label={t('practiceSession.gistLabel')} />
               <Text style={styles.supportText}>{t('practiceSession.gistBody')}</Text>
-              <PracticeTranscriptPanel
-                lines={clip.lines || []}
-                currentTime={alignedPlaybackSeconds}
-                maxHeight={transcriptPanelHeight}
-                renderLine={({ index, isActive }) => (
-                  <Text
-                    style={[
-                      styles.previewPrimary,
-                      isActive && styles.previewPrimaryActive,
-                    ]}
+              {replayableQuizStage === 1 ? (
+                <View style={styles.stageUtilityRow}>
+                  <Pressable
+                    onPress={() => handleReplayStage(1)}
+                    style={styles.stageReplayButton}
+                    hitSlop={8}
                   >
-                    {previewLines[index]?.localized || clip.lines?.[index]?.en || ''}
-                  </Text>
-                )}
-              />
-              <View style={styles.heroButtonWrap}>
-                <CircularProgressPlayButton
-                  progress={playbackProgress}
-                  isPlaying={status.isPlaying}
-                  onPress={noop}
-                  size={84}
-                  buttonSize={68}
-                  color={colors.accentPractice}
-                />
-              </View>
+                    <Text style={styles.stageReplayButtonText}>↻ {t('common.replay')}</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+              {currentQuestionFlow?.stage === 1 && currentQuestion ? (
+                renderQuestionBlock(1, { onLayout: setStage1QuestionAnchorY })
+              ) : (
+                <>
+                  <PracticeTranscriptPanel
+                    lines={clip.lines || []}
+                    currentTime={alignedPlaybackSeconds}
+                    maxHeight={transcriptPanelHeight}
+                    renderLine={({ index, isActive }) => (
+                      <Text
+                        style={[
+                          styles.previewPrimary,
+                          isActive && styles.previewPrimaryActive,
+                        ]}
+                      >
+                        {previewLines[index]?.localized || clip.lines?.[index]?.en || ''}
+                      </Text>
+                    )}
+                  />
+                  <View style={styles.heroButtonWrap}>
+                    <CircularProgressPlayButton
+                      progress={playbackProgress}
+                      isPlaying={status.isPlaying}
+                      onPress={() => void togglePlay()}
+                      size={84}
+                      buttonSize={68}
+                      color={colors.accentPractice}
+                    />
+                  </View>
+                  {stage1AutoLoading ? (
+                    <View style={styles.stageLoadingRow}>
+                      <ActivityIndicator size="small" color={colors.accentPractice} />
+                    </View>
+                  ) : null}
+                </>
+              )}
             </GlassCard>
 
-            {activeQuestionFlow?.stage === 1 && currentQuestion ? (
-              <GlassCard tone="practice" style={styles.cardBlock}>
-                <PracticeCardHeader label={t('practiceSession.questionLabel')} />
-                <Text style={styles.questionText}>{currentQuestion.question}</Text>
-                <View style={styles.optionsWrap}>
-                  {(currentQuestion.options || []).map((option, index) => (
-                    <Pressable
-                      key={option}
-                      onPress={() => setCurrentQuestionSelection(index)}
-                      style={[
-                        styles.optionButton,
-                        currentQuestionSelection === index && styles.optionButtonSelected,
-                      ]}
-                    >
-                      <Text style={styles.optionText}>{option}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-                {currentQuestionSelection !== null ? <Text style={styles.explanationText}>{quizExplanation}</Text> : null}
-              </GlassCard>
-            ) : null}
           </View>
         ) : null}
 
@@ -1202,52 +1572,34 @@ export function PracticeSessionModal({
             <GlassCard tone="practice" style={styles.cardBlock}>
               <PracticeCardHeader label={t('practiceSession.decodeLabel')} />
               <Text style={styles.supportText}>{t('practiceSession.decodeBody')}</Text>
-              <PracticeTranscriptPanel
-                lines={clip.lines || []}
-                currentTime={alignedPlaybackSeconds}
-                maxHeight={transcriptPanelTallHeight}
-                renderLine={({ line, index, isActive }) => (
-                  <Pressable
-                    onPress={() => setShownTranslations(prev => ({ ...prev, [index]: !prev[index] }))}
-                    style={[
-                      styles.decodeLine,
-                      isActive && styles.decodeLineActive,
-                    ]}
-                  >
-                    <WordLine
-                      line={line}
-                      currentTime={isActive ? alignedPlaybackSeconds : 0}
-                      isActive={isActive}
-                      showZh={Boolean(shownTranslations[index])}
-                      compact
-                      onWordTap={(word, tappedLine) => handleWordTap(word, tappedLine.en, tappedLine.zh || '', index)}
-                    />
-                  </Pressable>
-                )}
-              />
-            </GlassCard>
-
-            {activeQuestionFlow?.stage === 2 && currentQuestion ? (
-              <GlassCard tone="practice" style={styles.cardBlock}>
-                <PracticeCardHeader label={t('practiceSession.questionLabel')} />
-                <Text style={styles.questionText}>{currentQuestion.question}</Text>
-                <View style={styles.optionsWrap}>
-                  {(currentQuestion.options || []).map((option, index) => (
+              {currentQuestionFlow?.stage === 2 && currentQuestion ? (
+                renderQuestionBlock(2)
+              ) : (
+                <PracticeTranscriptPanel
+                  lines={clip.lines || []}
+                  currentTime={alignedPlaybackSeconds}
+                  maxHeight={transcriptPanelTallHeight}
+                  renderLine={({ line, index, isActive }) => (
                     <Pressable
-                      key={option}
-                      onPress={() => setCurrentQuestionSelection(index)}
+                      onPress={() => setShownTranslations(prev => ({ ...prev, [index]: !prev[index] }))}
                       style={[
-                        styles.optionButton,
-                        currentQuestionSelection === index && styles.optionButtonSelected,
+                        styles.decodeLine,
+                        isActive && styles.decodeLineActive,
                       ]}
                     >
-                      <Text style={styles.optionText}>{option}</Text>
+                      <WordLine
+                        line={line}
+                        currentTime={isActive ? alignedPlaybackSeconds : 0}
+                        isActive={isActive}
+                        showZh={Boolean(shownTranslations[index])}
+                        compact
+                        onWordTap={(word, tappedLine) => handleWordTap(word, tappedLine.en, tappedLine.zh || '', index)}
+                      />
                     </Pressable>
-                  ))}
-                </View>
-                {currentQuestionSelection !== null ? <Text style={styles.explanationText}>{quizExplanation}</Text> : null}
-              </GlassCard>
-            ) : null}
+                  )}
+                />
+              )}
+            </GlassCard>
           </View>
         ) : null}
 
@@ -1263,60 +1615,42 @@ export function PracticeSessionModal({
 
             <GlassCard tone="practice" style={[styles.cardBlock, styles.fadeTranscriptCard]}>
               <PracticeCardHeader label={t('practiceSession.fadeTitle')} />
-              <PracticeTranscriptPanel
-                lines={clip.lines || []}
-                currentTime={alignedPlaybackSeconds}
-                maxHeight={Math.max(transcriptPanelHeight, transcriptPanelTallHeight)}
-                renderLine={({ line, isActive }) => {
-                  const fadeTokens = buildFadeText(line, fadeTargetWords);
-                  return (
-                    <View style={styles.fadeLineBlock}>
-                      <Text
-                        style={[
-                          styles.fadeTranscriptLine,
-                          !isActive && styles.fadeTranscriptLineIdle,
-                        ]}
-                      >
-                        {fadeTokens.map(token => (
-                          <Text
-                            key={token.key}
-                            style={[
-                              styles.fadeToken,
-                              token.emphasis && styles.fadeTokenEmphasis,
-                              !token.visible && styles.fadeTokenMasked,
-                            ]}
-                          >
-                            {token.visible ? token.text : '····'}
-                          </Text>
-                        ))}
-                      </Text>
-                    </View>
-                  );
-                }}
-              />
+              {currentQuestionFlow?.stage === 3 && currentQuestion ? (
+                renderQuestionBlock(3)
+              ) : (
+                <PracticeTranscriptPanel
+                  lines={clip.lines || []}
+                  currentTime={alignedPlaybackSeconds}
+                  maxHeight={Math.max(transcriptPanelHeight, transcriptPanelTallHeight)}
+                  renderLine={({ line, isActive }) => {
+                    const fadeTokens = buildFadeText(line, fadeTargetWords);
+                    return (
+                      <View style={styles.fadeLineBlock}>
+                        <Text
+                          style={[
+                            styles.fadeTranscriptLine,
+                            !isActive && styles.fadeTranscriptLineIdle,
+                          ]}
+                        >
+                          {fadeTokens.map(token => (
+                            <Text
+                              key={token.key}
+                              style={[
+                                styles.fadeToken,
+                                token.emphasis && styles.fadeTokenEmphasis,
+                                !token.visible && styles.fadeTokenMasked,
+                              ]}
+                            >
+                              {token.visible ? token.text : '····'}
+                            </Text>
+                          ))}
+                        </Text>
+                      </View>
+                    );
+                  }}
+                />
+              )}
             </GlassCard>
-
-            {activeQuestionFlow?.stage === 3 && currentQuestion ? (
-              <GlassCard tone="practice" style={styles.cardBlock}>
-                <PracticeCardHeader label={t('practiceSession.questionLabel')} />
-                <Text style={styles.questionText}>{currentQuestion.question}</Text>
-                <View style={styles.optionsWrap}>
-                  {(currentQuestion.options || []).map((option, index) => (
-                    <Pressable
-                      key={option}
-                      onPress={() => setCurrentQuestionSelection(index)}
-                      style={[
-                        styles.optionButton,
-                        currentQuestionSelection === index && styles.optionButtonSelected,
-                      ]}
-                    >
-                      <Text style={styles.optionText}>{option}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-                {currentQuestionSelection !== null ? <Text style={styles.explanationText}>{quizExplanation}</Text> : null}
-              </GlassCard>
-            ) : null}
           </View>
         ) : null}
 
@@ -1343,8 +1677,19 @@ export function PracticeSessionModal({
                       onPress={handleStartBlindListen}
                       style={styles.blindLaunchButton}
                     />
+                    <ActionButton
+                      label={t('practiceSession.blindJumpToEndTest')}
+                      onPress={handleJumpBlindListenNearEnd}
+                      variant="secondary"
+                      style={[styles.blindLaunchButton, styles.blindTestButton]}
+                    />
                   </View>
                 ) : null}
+              </GlassCard>
+            ) : currentQuestionFlow?.stage === 4 && currentQuestion ? (
+              <GlassCard tone="practice" style={styles.cardBlock}>
+                <PracticeCardHeader label={t('practiceSession.blindTitle')} />
+                {renderQuestionBlock(4)}
               </GlassCard>
             ) : attributionStep === 1 ? (
               <GlassCard tone="practice" style={styles.cardBlock}>
@@ -1420,45 +1765,67 @@ export function PracticeSessionModal({
             <GlassCard tone="practice" style={styles.cardBlock}>
               <PracticeCardHeader label={t('practiceSession.vocabReviewTitle')} />
               <Text style={styles.supportText}>{t('practiceSession.vocabReviewBody')}</Text>
-              <View style={styles.vocabReviewList}>
-                {selectedVocabPicks.map(item => {
-                  const line = clip.lines[item.sentenceIndex];
-                  const normalizedWord = item.word.toLowerCase();
-                  const saved = vocabWords.includes(normalizedWord);
-                  const known = knownWords.includes(normalizedWord);
-                  return (
-                    <GlassCard key={`${item.word}-${item.sentenceIndex}`} style={styles.vocabReviewCard}>
-                      <Text style={styles.vocabWord}>{item.word}</Text>
-                      <Text style={styles.vocabContext}>{line?.en || ''}</Text>
-                      {line?.zh ? <Text style={styles.vocabContextZh}>{line.zh}</Text> : null}
-                      <View style={styles.controlsRow}>
-                        <ActionButton
-                          label={saved ? t('practiceSession.savedLabel') : t('practiceSession.saveLabel')}
-                          variant="secondary"
-                          onPress={() => {
-                            if (!line) return;
-                            onSaveVocab({
-                              word: normalizedWord,
-                              cefr: line.words?.find(word => word.word.toLowerCase() === normalizedWord)?.cefr,
-                              context: line.en,
-                              contextZh: line.zh,
-                              lineIndex: item.sentenceIndex,
-                              clipKey,
-                              clipTitle: clip.title,
-                              tag: clip.tag,
-                              sourceType: 'practice',
-                            });
-                          }}
-                        />
-                        <ActionButton
-                          label={known ? t('practiceSession.knownLabel') : t('practiceSession.markKnownLabel')}
-                          variant="secondary"
-                          onPress={() => onMarkKnown(normalizedWord)}
-                        />
-                      </View>
-                    </GlassCard>
-                  );
-                })}
+              <View style={[styles.transcriptPanel, styles.vocabWorkspace, { maxHeight: transcriptPanelTallHeight }]}>
+                <View style={styles.scrollCueWrap}>
+                  <View style={styles.scrollCue} />
+                </View>
+                <ScrollView
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={styles.vocabWorkspaceScrollContent}
+                >
+                  <View style={styles.vocabWorkspaceInner}>
+                    <View style={styles.vocabWorkspaceBanner}>
+                      <Text style={styles.vocabWorkspaceBannerText}>{t('practiceSession.pickedWordsTitle')}</Text>
+                    </View>
+                    <View style={styles.vocabReviewList}>
+                      {stage5ReviewItems.map(item => {
+                        const line = item.line;
+                        const normalizedWord = item.normalizedWord;
+                        const saved = vocabWords.includes(normalizedWord);
+                        const known = knownWords.includes(normalizedWord);
+                        return (
+                          <GlassCard key={`${item.word}-${item.sentenceIndex}`} style={styles.vocabReviewCard}>
+                            <Text style={styles.vocabWord}>{item.word}</Text>
+                            {stage5Translations[normalizedWord] ? (
+                              <Text style={styles.vocabWordTranslation}>{stage5Translations[normalizedWord]}</Text>
+                            ) : null}
+                            <View style={styles.vocabContextBlock}>
+                              <Text style={styles.vocabContext}>{line?.en || ''}</Text>
+                              {line?.zh ? <Text style={styles.vocabContextZh}>{line.zh}</Text> : null}
+                            </View>
+                            <View style={[styles.controlsRow, styles.vocabCardActions]}>
+                              <ActionButton
+                                label={saved ? t('practiceSession.savedLabel') : t('practiceSession.saveLabel')}
+                                variant="secondary"
+                                onPress={() => {
+                                  if (!line) return;
+                                  onSaveVocab({
+                                    word: normalizedWord,
+                                    cefr: item.cefr || line.words?.find(word => word.word.toLowerCase() === normalizedWord)?.cefr,
+                                    context: line.en,
+                                    contextZh: line.zh,
+                                    lineIndex: item.sentenceIndex,
+                                    clipKey,
+                                    clipTitle: clip.title,
+                                    tag: clip.tag,
+                                    sourceType: 'practice',
+                                  });
+                                }}
+                              />
+                              <ActionButton
+                                label={known ? t('practiceSession.knownLabel') : t('practiceSession.markKnownLabel')}
+                                variant="secondary"
+                                onPress={() => onMarkKnown(normalizedWord)}
+                              />
+                            </View>
+                          </GlassCard>
+                        );
+                      })}
+                    </View>
+                  </View>
+                </ScrollView>
               </View>
             </GlassCard>
           </View>
@@ -1534,6 +1901,7 @@ export function PracticeSessionModal({
 
   const bodyScroller = inline ? (
     <ScrollView
+      ref={bodyScrollRef}
       keyboardShouldPersistTaps="handled"
       nestedScrollEnabled
       style={styles.bodyInlineScroller}
@@ -1706,21 +2074,53 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       letterSpacing: 0.8,
       textTransform: 'uppercase',
     },
-    supportText: {
+      supportText: {
       color: colors.textSecondary,
       fontSize: 14,
       lineHeight: 21,
     },
+    stageUtilityRow: {
+      flexDirection: 'row',
+      justifyContent: 'flex-start',
+      marginTop: -2,
+      marginBottom: 2,
+    },
+    stageReplayButton: {
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.strokeStrong,
+      backgroundColor: colors.bgSurface2,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+    },
+    stageReplayButtonText: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: '600',
+    },
     transcriptPanel: {
       borderRadius: 18,
       borderWidth: 1,
-      borderColor: colors.stroke,
-      backgroundColor: colors.bgSurface1,
+      borderColor: colors.strokeStrong,
+      backgroundColor: colors.bgSurface2,
       overflow: 'hidden',
     },
     transcriptScrollContent: {
       gap: 12,
       padding: 16,
+    },
+    scrollCueWrap: {
+      alignItems: 'center',
+      paddingTop: 10,
+      paddingBottom: 4,
+    },
+    scrollCue: {
+      width: 42,
+      height: 5,
+      borderRadius: 999,
+      backgroundColor: colors.strokeStrong,
+      opacity: 0.9,
     },
     previewRow: {
       gap: 6,
@@ -1748,6 +2148,30 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       paddingTop: 10,
       paddingBottom: 4,
     },
+    stageLoadingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      paddingTop: 6,
+      paddingBottom: 2,
+    },
+    inlineQuestionSection: {
+      gap: 12,
+      paddingTop: 4,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: colors.strokeStrong,
+      backgroundColor: colors.bgSurface2,
+    },
+    inlineQuestionDivider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.stroke,
+      marginTop: 2,
+      marginBottom: 2,
+    },
     blindLaunchWrap: {
       alignItems: 'center',
       paddingTop: 4,
@@ -1755,6 +2179,9 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
     blindLaunchButton: {
       width: '100%',
       maxWidth: 188,
+    },
+    blindTestButton: {
+      marginTop: 10,
     },
     questionText: {
       color: colors.textPrimary,
@@ -1768,8 +2195,8 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
     optionButton: {
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: colors.stroke,
-      backgroundColor: colors.bgSurface1,
+      borderColor: colors.strokeStrong,
+      backgroundColor: colors.bgSurface3,
       paddingHorizontal: 14,
       paddingVertical: 14,
     },
@@ -1777,10 +2204,59 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       borderColor: colors.accentPractice,
       backgroundColor: `${colors.accentPractice}18`,
     },
+    optionButtonCorrect: {
+      borderColor: colors.accentSuccess,
+      backgroundColor: `${colors.accentSuccess}16`,
+    },
+    optionButtonIncorrect: {
+      borderColor: colors.accentError,
+      backgroundColor: `${colors.accentError}14`,
+    },
+    optionButtonIdleLocked: {
+      opacity: 0.72,
+    },
     optionText: {
       color: colors.textPrimary,
       fontSize: 15,
       lineHeight: 22,
+      fontWeight: '600',
+    },
+    optionTextCorrect: {
+      color: colors.accentSuccess,
+    },
+    optionTextIncorrect: {
+      color: colors.accentError,
+    },
+    answerFeedbackCard: {
+      borderRadius: 16,
+      borderWidth: 1,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      gap: 6,
+    },
+    answerFeedbackCardCorrect: {
+      borderColor: `${colors.accentSuccess}55`,
+      backgroundColor: `${colors.accentSuccess}12`,
+    },
+    answerFeedbackCardIncorrect: {
+      borderColor: `${colors.accentError}55`,
+      backgroundColor: `${colors.accentError}10`,
+    },
+    answerFeedbackTitle: {
+      fontSize: 15,
+      lineHeight: 22,
+      fontWeight: '800',
+    },
+    answerFeedbackTitleCorrect: {
+      color: colors.accentSuccess,
+    },
+    answerFeedbackTitleIncorrect: {
+      color: colors.accentError,
+    },
+    answerFeedbackMeta: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      lineHeight: 19,
       fontWeight: '600',
     },
     explanationText: {
@@ -1935,27 +2411,90 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
     wordChipTextActive: {
       color: colors.accentPractice,
     },
+    vocabWorkspace: {
+      backgroundColor: `${colors.accentPractice}10`,
+      borderColor: `${colors.accentPractice}45`,
+      borderWidth: 1.5,
+    },
+    vocabWorkspaceScrollContent: {
+      paddingTop: 8,
+      gap: 12,
+      paddingHorizontal: 16,
+      paddingBottom: 16,
+    },
+    vocabWorkspaceInner: {
+      gap: 12,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: `${colors.strokeStrong}CC`,
+      backgroundColor: colors.bgSurface2,
+      padding: 12,
+    },
+    vocabWorkspaceBanner: {
+      alignSelf: 'flex-start',
+      borderRadius: 999,
+      backgroundColor: `${colors.accentPractice}18`,
+      borderWidth: 1,
+      borderColor: `${colors.accentPractice}38`,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+    },
+    vocabWorkspaceBannerText: {
+      color: colors.accentPractice,
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: '700',
+      letterSpacing: 0.3,
+    },
     vocabReviewList: {
       gap: 12,
     },
     vocabReviewCard: {
       gap: 10,
-      backgroundColor: colors.bgSurface1,
+      backgroundColor: colors.bgApp,
+      borderWidth: 1.5,
+      borderColor: `${colors.strokeStrong}EE`,
+      shadowColor: colors.textPrimary,
+      shadowOpacity: 0.08,
+      shadowOffset: { width: 0, height: 8 },
+      shadowRadius: 16,
+      elevation: 2,
     },
     vocabWord: {
       color: colors.textPrimary,
       fontSize: 20,
       fontWeight: '700',
     },
+    vocabWordTranslation: {
+      color: colors.accentPractice,
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '600',
+      marginTop: -4,
+    },
     vocabContext: {
       color: colors.textPrimary,
       fontSize: 15,
       lineHeight: 22,
     },
+    vocabContextBlock: {
+      gap: 6,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.stroke,
+      backgroundColor: colors.bgSurface2,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+    },
     vocabContextZh: {
       color: colors.textSecondary,
       fontSize: 14,
       lineHeight: 21,
+    },
+    vocabCardActions: {
+      paddingTop: 4,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.stroke,
     },
     summaryLine: {
       gap: 6,

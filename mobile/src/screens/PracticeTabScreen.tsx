@@ -129,7 +129,7 @@ export function PracticeTabScreen({
     0,
     listViewportHeight || contentViewportHeight || metrics.windowHeight
   );
-  const pageHeight = Math.max(440, Math.round(resolvedViewportHeight));
+  const pageHeight = Math.max(440, Math.floor(resolvedViewportHeight));
   const previewCardHeight = Math.max(360, pageHeight - spacing.sm - spacing.xs);
 
   const syncVisibleClip = useCallback((clipIndex: number) => {
@@ -165,9 +165,10 @@ export function PracticeTabScreen({
     );
     const snappedOffset = nextPageIndex * pageHeight;
     if (Math.abs(event.nativeEvent.contentOffset.y - snappedOffset) > 0.5) {
-      listRef.current?.scrollToOffset({
-        offset: snappedOffset,
+      listRef.current?.scrollToIndex({
+        index: nextPageIndex,
         animated: false,
+        viewPosition: 0,
       });
     }
     syncVisibleClip(pages[nextPageIndex].clipIndex);
@@ -216,6 +217,9 @@ export function PracticeTabScreen({
     const previewQuestionAnswered = Number.isInteger(selectedPreviewAnswer);
     const correctPreviewAnswer = previewQuestion ? answerIndex(previewQuestion) : -1;
     const previewQuestionCorrect = previewQuestionAnswered && selectedPreviewAnswer === correctPreviewAnswer;
+    const previewQuestionCorrectOption = previewQuestion && correctPreviewAnswer >= 0
+      ? previewQuestion.options?.[correctPreviewAnswer] || ''
+      : '';
     const previewExplanation = previewQuestion
       ? String(previewQuestion.explanation_zh || '').trim()
       : '';
@@ -251,7 +255,8 @@ export function PracticeTabScreen({
               contentContainerStyle={styles.previewScrollContent}
               nestedScrollEnabled
               showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
+              keyboardShouldPersistTaps="always"
+              canCancelContentTouches={false}
             >
               <Text style={styles.eyebrow}>{t('home.learnTab')}</Text>
               <View style={styles.progressRow}>
@@ -301,42 +306,40 @@ export function PracticeTabScreen({
                         ]}
                       >
                         {previewQuestionCorrect
-                          ? t('practiceSession.previewFeedbackCorrect')
-                          : t('practiceSession.previewFeedbackChecked')}
+                          ? t('practiceSession.answerCorrectTitle')
+                          : t('practiceSession.answerIncorrectTitle')}
                       </Text>
-                      <Text style={styles.feedbackAnswer}>
-                        {previewQuestion.options?.[correctPreviewAnswer] || ''}
-                      </Text>
+                      {!previewQuestionCorrect && previewQuestionCorrectOption ? (
+                        <Text style={styles.feedbackAnswer}>
+                          {t('practiceSession.correctAnswerLabel', { answer: previewQuestionCorrectOption })}
+                        </Text>
+                      ) : null}
                       {previewExplanation ? (
                         <Text style={styles.explanationText}>{previewExplanation}</Text>
                       ) : null}
                     </View>
                   ) : (
                     <View style={styles.optionsWrap}>
-                      {(previewQuestion.options || []).map((option, index) => {
-                        const isSelected = selectedPreviewAnswer === index;
-                        return (
-                          <Pressable
-                            key={`${item.key}-preview-opt-${index}`}
-                            disabled={previewQuestionAnswered}
-                            hitSlop={6}
-                            onPressIn={() => {
-                              if (previewQuestionAnswered) return;
-                              setPreviewAnswers(prev => ({
-                                ...prev,
-                                [item.key]: index,
-                              }));
-                            }}
-                            style={[
-                              styles.optionButton,
-                              styles.optionButtonCompact,
-                              isSelected && styles.optionButtonSelected,
-                            ]}
-                          >
-                            <Text style={styles.optionText}>{option}</Text>
-                          </Pressable>
-                        );
-                      })}
+                      {(previewQuestion.options || []).map((option, index) => (
+                        <Pressable
+                          key={`${item.key}-preview-opt-${index}`}
+                          hitSlop={8}
+                          onPressIn={() => {
+                            setPreviewAnswers(prev => ({
+                              ...prev,
+                              [item.key]: index,
+                            }));
+                          }}
+                          style={[
+                            styles.optionButton,
+                            styles.optionButtonCompact,
+                          ]}
+                        >
+                          <Text style={styles.optionText}>
+                            {option}
+                          </Text>
+                        </Pressable>
+                      ))}
                     </View>
                   )}
                 </GlassCard>
@@ -401,11 +404,11 @@ export function PracticeTabScreen({
           const nextHeight = event.nativeEvent.layout.height;
           setListViewportHeight(prev => (Math.abs(prev - nextHeight) > 0.5 ? nextHeight : prev));
         }}
-        snapToInterval={pageHeight}
-        snapToAlignment="start"
-        disableIntervalMomentum
+        pagingEnabled
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="always"
+        directionalLockEnabled
         initialScrollIndex={safeCursor}
         getItemLayout={(_, index) => ({
           length: pageHeight,
@@ -567,11 +570,28 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       borderColor: colors.accentPractice,
       backgroundColor: `${colors.accentPractice}18`,
     },
+    optionButtonCorrect: {
+      borderColor: 'rgba(34,197,94,0.28)',
+      backgroundColor: 'rgba(34,197,94,0.12)',
+    },
+    optionButtonIncorrect: {
+      borderColor: 'rgba(239,68,68,0.3)',
+      backgroundColor: 'rgba(239,68,68,0.12)',
+    },
+    optionButtonIdleLocked: {
+      opacity: 0.74,
+    },
     optionText: {
       color: colors.textPrimary,
       fontSize: typography.caption,
       lineHeight: 20,
       fontWeight: '600',
+    },
+    optionTextCorrect: {
+      color: '#15803d',
+    },
+    optionTextIncorrect: {
+      color: '#b91c1c',
     },
     feedbackSwap: {
       borderRadius: 14,
