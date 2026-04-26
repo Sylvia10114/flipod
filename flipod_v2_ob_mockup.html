@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flipod v2 · OB → 精听 → 第一条完成后 全流程 UI Mockup</title>
+<style>
+  :root {
+    --bg: #0e0e10;
+    --bg-2: #1a1a1d;
+    --bg-3: #26262b;
+    --text: #f4f4f5;
+    --text-2: #a1a1aa;
+    --text-3: #71717a;
+    --accent: #f5d142;
+    --accent-soft: rgba(245, 209, 66, 0.12);
+    --border: #2a2a2f;
+    --page-bg: #f4f4f5;
+    --page-text: #1a1a1d;
+    --page-text-2: #71717a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--page-bg);
+    color: var(--page-text);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", sans-serif;
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+  .page-wrap { padding: 32px 24px 60px; }
+  .page-wrap > h1 { font-size: 22px; font-weight: 600; margin-bottom: 8px; }
+  .page-wrap > .desc {
+    color: var(--page-text-2);
+    font-size: 14px;
+    margin-bottom: 28px;
+    max-width: 720px;
+    line-height: 1.6;
+  }
+
+  .frames-row {
+    display: flex;
+    gap: 28px;
+    overflow-x: auto;
+    padding-bottom: 24px;
+  }
+  .frame-col {
+    flex: 0 0 auto;
+    width: 340px;
+  }
+  .frame-col h3 {
+    font-size: 14px;
+    color: var(--page-text);
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+  .frame-col h3 .step-num {
+    display: inline-block;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--page-text);
+    color: var(--page-bg);
+    text-align: center;
+    line-height: 22px;
+    font-size: 12px;
+    margin-right: 6px;
+  }
+  .frame-col .sub {
+    color: var(--page-text-2);
+    font-size: 12px;
+    margin-bottom: 14px;
+  }
+  .frame-note {
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--page-text-2);
+    line-height: 1.6;
+    padding: 12px;
+    background: rgba(245, 209, 66, 0.08);
+    border-left: 2px solid var(--accent);
+    border-radius: 4px;
+  }
+  .frame-note strong { color: var(--page-text); }
+
+  .phone-frame {
+    width: 340px;
+    height: 700px;
+    background: #000;
+    border: 8px solid #1f1f22;
+    border-radius: 38px;
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+  }
+  .phone-frame::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 26px;
+    background: #000;
+    border-radius: 0 0 16px 16px;
+    z-index: 100;
+  }
+  .phone-screen {
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    position: relative;
+    border-radius: 30px;
+  }
+
+  .density-meter {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+  }
+  .density-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(0,0,0,0.15); }
+  .density-dot.on { background: #22c55e; }
+  .density-dot.warn { background: #f59e0b; }
+  .density-label { font-size: 11px; color: var(--page-text-2); margin-left: 4px; }
+
+  .flow-arrow {
+    flex: 0 0 auto;
+    width: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--page-text-2);
+    font-size: 24px;
+  }
+
+  /* ============ Inside phone ============ */
+  .ob-progress {
+    position: absolute;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    z-index: 5;
+  }
+  .ob-progress-dot {
+    width: 22px;
+    height: 3px;
+    background: var(--bg-3);
+    border-radius: 2px;
+  }
+  .ob-progress-dot.active { background: var(--accent); }
+  .ob-progress-dot.done { background: var(--text-3); }
+
+  .agent {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 22px;
+    margin-top: 100px;
+    padding: 0 20px;
+  }
+  .agent-wave { width: 70px; height: 70px; }
+  .agent-wave svg { width: 100%; height: 100%; }
+  .wave-bar { fill: var(--accent); }
+  .agent-bubble {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 14px 18px;
+    font-size: 15px;
+    line-height: 1.55;
+    max-width: 280px;
+    text-align: center;
+    color: var(--text);
+  }
+  .agent-bubble strong { color: var(--accent); }
+  .chips {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 16px;
+    width: 100%;
+    max-width: 240px;
+  }
+  .chip {
+    border: 1px solid var(--border);
+    padding: 12px 18px;
+    border-radius: 14px;
+    font-size: 14px;
+    text-align: center;
+    background: var(--bg-3);
+    color: var(--text);
+  }
+  .chip.primary { background: var(--accent); color: #1a1a1d; border-color: var(--accent); font-weight: 600; }
+  .chip.secondary { background: transparent; color: var(--text-2); border-color: var(--border); }
+
+  /* Priming inside phone */
+  .priming-screen { height: 100%; position: relative; }
+  .priming-top {
+    position: absolute;
+    top: 50px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 16px;
+  }
+  .priming-podcast {
+    color: var(--accent);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+  .menu-icon { color: var(--text-2); }
+  .priming-swipe-hint {
+    position: absolute;
+    top: 78px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--text-3);
+    font-size: 11px;
+  }
+  .priming-content {
+    position: absolute;
+    top: 130px;
+    left: 24px;
+    right: 24px;
+    bottom: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 12px;
+  }
+  .priming-title { font-size: 22px; line-height: 1.3; color: var(--text); font-weight: 600; }
+  .priming-summary { font-size: 14px; line-height: 1.55; color: var(--text-2); font-style: italic; }
+  .priming-hairline { height: 1px; background: var(--border); margin: 8px 0 4px; }
+  .priming-keywords { display: flex; gap: 6px; flex-wrap: wrap; }
+  .priming-kw {
+    font-size: 11px;
+    color: var(--text-3);
+    background: var(--bg-2);
+    padding: 3px 8px;
+    border-radius: 5px;
+  }
+  .priming-ring-wrap {
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .priming-ring {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 3px solid var(--bg-3);
+    background: linear-gradient(180deg, transparent 50%, var(--accent) 50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text);
+    font-size: 20px;
+    font-weight: 600;
+  }
+  .priming-hint { color: var(--text-3); font-size: 11px; }
+
+  /* Special priming agent overlay */
+  .priming-agent-overlay {
+    position: absolute;
+    top: 90px;
+    left: 16px;
+    right: 16px;
+    z-index: 10;
+    background: var(--bg-2);
+    border: 1px solid var(--accent);
+    border-radius: 14px;
+    padding: 12px 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .pa-text { font-size: 13px; line-height: 1.5; color: var(--text); margin-bottom: 10px; }
+  .pa-text strong { color: var(--accent); }
+  .pa-chips { display: flex; gap: 8px; }
+  .pa-chip {
+    flex: 1;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    text-align: center;
+  }
+  .pa-chip.primary { background: var(--accent); color: #1a1a1d; border-color: var(--accent); font-weight: 600; }
+
+  /* Phase 1 inside phone */
+  .phase-screen { height: 100%; display: flex; flex-direction: column; padding-top: 40px; }
+  .phase-top { padding: 16px 20px 12px; }
+  .phase-progress-bar { height: 3px; background: var(--bg-3); border-radius: 2px; margin-bottom: 12px; }
+  .phase-progress-fill { height: 100%; background: var(--accent); width: 5%; }
+  .phase-label { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .phase-title { font-size: 13px; color: var(--text-2); }
+  .phase-keywords { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 10px; }
+  .keyword-chip {
+    font-size: 10px;
+    color: var(--text-3);
+    background: var(--bg-2);
+    padding: 3px 7px;
+    border-radius: 4px;
+  }
+  .phase-subtitle-area {
+    flex: 1;
+    padding: 12px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+  }
+  .sub-line { font-size: 15px; line-height: 1.6; color: var(--text-3); }
+  .sub-line.active { color: var(--text); }
+  .sub-line.passed { color: var(--text-2); }
+  .ctrl-locked-note {
+    font-size: 11px;
+    color: var(--text-3);
+    text-align: center;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* 侧边菜单 inside phone */
+  .menu-drawer-mock {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 75%;
+    background: var(--bg-2);
+    padding: 50px 0 24px;
+    display: flex;
+    flex-direction: column;
+  }
+  .menu-overlay-mock {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+  }
+  .menu-header-mock {
+    padding: 0 18px 14px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 6px;
+  }
+  .menu-greeting-mock { font-size: 16px; color: var(--text); font-weight: 600; }
+  .menu-meta-mock { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+  .menu-item-mock {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px;
+    color: var(--text);
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mi-icon-mock {
+    width: 18px;
+    height: 18px;
+    color: var(--text-2);
+  }
+  .mi-icon-mock svg { width: 100%; height: 100%; }
+  .mi-label-mock { flex: 1; }
+  .mi-badge-mock {
+    font-size: 10px;
+    color: var(--text-3);
+    background: var(--bg-3);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .legend {
+    margin-top: 32px;
+    padding: 16px 20px;
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 8px;
+    max-width: 760px;
+  }
+  .legend h4 { font-size: 13px; margin-bottom: 8px; }
+  .legend ul {
+    list-style: none;
+    font-size: 13px;
+    color: var(--page-text-2);
+    line-height: 1.8;
+  }
+  .legend li::before { content: '· '; color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <h1>Flipod v2 · OB → 精听 → 第一条完成后全流程 UI Mockup</h1>
+  <div class="desc">
+    OB 流程已重设计：取消"推荐 vs 自挑"二选一，改为<strong>教学性介绍 → priming → clip → priming → ...</strong> 的无限流主线。<br>
+    核心循环单元 = priming + clip。第一条完成后智能体在下一条 priming 时介入介绍侧边菜单。<br>
+    横向滑动查看所有屏幕。
+  </div>
+
+  <div class="frames-row">
+
+    <!-- ============ 1: OB 介绍（关键节点 chip 屏） ============ -->
+    <div class="frame-col">
+      <h3>
+        <span class="step-num">1</span>OB 介绍 · 关键节点屏
+        <span class="density-meter">
+          <span class="density-dot on"></span>
+          <span class="density-dot on"></span>
+          <span class="density-dot"></span>
+          <span class="density-label">轻</span>
+        </span>
+      </h3>
+      <div class="sub">5 段教学性介绍 · 自动播 · 关键节点出 chip · 这是第 3 屏</div>
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <div class="ob-progress">
+            <div class="ob-progress-dot done"></div>
+            <div class="ob-progress-dot done"></div>
+            <div class="ob-progress-dot active"></div>
+            <div class="ob-progress-dot"></div>
+            <div class="ob-progress-dot"></div>
+          </div>
+          <div class="agent">
+            <div class="agent-wave">
+              <svg viewBox="0 0 80 80">
+                <rect class="wave-bar" x="10" y="30" width="8" height="20" rx="3"/>
+                <rect class="wave-bar" x="24" y="22" width="8" height="36" rx="3"/>
+                <rect class="wave-bar" x="38" y="14" width="8" height="52" rx="3"/>
+                <rect class="wave-bar" x="52" y="22" width="8" height="36" rx="3"/>
+                <rect class="wave-bar" x="66" y="30" width="8" height="20" rx="3"/>
+              </svg>
+            </div>
+            <div class="agent-bubble">
+              然后是 <strong>中文 → 英文 → 挖空 → 盲听 → 总结</strong><br>
+              中间会问几道题
+            </div>
+            <div class="chips">
+              <button class="chip primary">明白</button>
+              <button class="chip secondary">再说一遍</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-note">
+        <strong>5 段 OB 内容</strong>：① 开场 → ② priming 介绍 → ③ <em>5 阶段流程（关键节点 chip）</em> → ④ 点词收藏 → ⑤ 「我先给你来一条试试」<br>
+        <strong>密度</strong>：除①③外其他段落自动播无 chip · ③ 是教学最重一段需要用户确认<br>
+        <strong>顶部进度条</strong>：5 个 dot 让用户知道还剩几段
+      </div>
+    </div>
+
+    <div class="flow-arrow">→</div>
+
+    <!-- ============ 2: 第一条 priming（普通） ============ -->
+    <div class="frame-col">
+      <h3>
+        <span class="step-num">2</span>Priming · 普通态
+        <span class="density-meter">
+          <span class="density-dot on"></span>
+          <span class="density-dot on"></span>
+          <span class="density-dot"></span>
+          <span class="density-label">轻</span>
+        </span>
+      </h3>
+      <div class="sub">每条 clip 之前都会过的预热界面 · 倒数 3 秒后自动进 phase 1</div>
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <div class="priming-screen">
+            <div class="priming-top">
+              <span class="priming-podcast">Hard Fork</span>
+              <span class="menu-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 13h16M4 19h10"/></svg>
+              </span>
+            </div>
+            <div class="priming-swipe-hint">↑ 上滑换一条</div>
+            <div class="priming-content">
+              <div class="priming-title">Why OpenAI's models suddenly got dumber</div>
+              <div class="priming-summary">为什么 OpenAI 的模型突然变笨了？</div>
+              <div class="priming-hairline"></div>
+              <div class="priming-keywords">
+                <span class="priming-kw">OpenAI</span>
+                <span class="priming-kw">GPT-4</span>
+                <span class="priming-kw">benchmarks</span>
+                <span class="priming-kw">regression</span>
+              </div>
+            </div>
+            <div class="priming-ring-wrap">
+              <div class="priming-ring">3</div>
+              <div class="priming-hint">长按暂停 · 点击立即进入</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-note">
+        <strong>核心循环单元的前半部分</strong>。元素：节目名 + 菜单按钮 + 上滑 hint + 标题 + summary + 关键词 + 倒数 ring + 操作 hint = 8 元素<br>
+        <strong>认知模式</strong>：用户读 1-2 秒标题/summary 决定要不要听这条 · 不想听 → 上滑换 · 想听 → 等倒数自动进 / 点 ring 立即进
+      </div>
+    </div>
+
+    <div class="flow-arrow">→</div>
+
+    <!-- ============ 3: Phase 1 第一帧 ============ -->
+    <div class="frame-col">
+      <h3>
+        <span class="step-num">3</span>Phase 1 · 第一帧
+        <span class="density-meter">
+          <span class="density-dot on"></span>
+          <span class="density-dot on"></span>
+          <span class="density-dot warn"></span>
+          <span class="density-label">中</span>
+        </span>
+      </h3>
+      <div class="sub">中文盲听 + 30 秒承诺门槛（按钮 30s 后才出现）· 0 秒态</div>
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <div class="phase-screen">
+            <div class="phase-top">
+              <div class="phase-progress-bar"><div class="phase-progress-fill"></div></div>
+              <div class="phase-label">PHASE 1 · 把意思（中文 · 盲听）</div>
+              <div class="phase-title">Why OpenAI's models suddenly got dumber</div>
+              <div class="phase-keywords">
+                <span class="keyword-chip">OpenAI</span>
+                <span class="keyword-chip">GPT-4</span>
+                <span class="keyword-chip">benchmarks</span>
+                <span class="keyword-chip">regression</span>
+              </div>
+            </div>
+            <div class="phase-subtitle-area">
+              <div class="sub-line active">OpenAI 上周推了个更新，让 GPT-4 明显变笨了。</div>
+              <div class="sub-line">用户立刻发现它在编程任务上犯了更多错误。</div>
+              <div class="sub-line">公司起初否认存在任何质量回退。</div>
+              <div class="sub-line">但独立基准测试的数据讲了完全不同的故事。</div>
+              <div class="sub-line">原来他们在悄悄推出一个更小、更便宜的模型。</div>
+              <div class="sub-line">而用户为本质上是降级的产品付着 GPT-4 的价格。</div>
+            </div>
+            <div class="ctrl-locked-note">先听 30 秒，之后可以继续或退出</div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-note">
+        <strong>核心循环单元的后半部分</strong>。元素 13 个（× + 进度条 + label + 标题 + 4 关键词 + 6 字幕 + locked-note）<br>
+        <strong>密度警告</strong>：字幕之外的"功能 chrome"较多。<br>
+        <strong>可考虑</strong>：进入第一句字幕后让 phase label / title / keywords <em>淡出</em>，只剩字幕和 locked-note，让"沉浸听"氛围更纯
+      </div>
+    </div>
+
+    <div class="flow-arrow">→</div>
+
+    <!-- ============ 4: Priming + 智能体气泡（特殊） ============ -->
+    <div class="frame-col">
+      <h3>
+        <span class="step-num">4</span>第一条完成后 · 特殊 priming
+        <span class="density-meter">
+          <span class="density-dot on"></span>
+          <span class="density-dot warn"></span>
+          <span class="density-dot warn"></span>
+          <span class="density-label">中-高</span>
+        </span>
+      </h3>
+      <div class="sub">智能体在下一条 priming 时介入 · 介绍侧边菜单</div>
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <div class="priming-screen">
+            <div class="priming-top">
+              <span class="priming-podcast">The Daily</span>
+              <span class="menu-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 13h16M4 19h10"/></svg>
+              </span>
+            </div>
+            <div class="priming-agent-overlay">
+              <div class="pa-text">右上角的菜单 —— 里面有<strong>生词本、收藏、爱心</strong></div>
+              <div class="pa-chips">
+                <button class="pa-chip primary">看看</button>
+                <button class="pa-chip">等会再说</button>
+              </div>
+            </div>
+            <div class="priming-content" style="top:230px">
+              <div class="priming-title">What happened in Sudan</div>
+              <div class="priming-summary">苏丹冲突两年了，外界为什么不再讨论？</div>
+              <div class="priming-hairline"></div>
+              <div class="priming-keywords">
+                <span class="priming-kw">Sudan</span>
+                <span class="priming-kw">conflict</span>
+                <span class="priming-kw">media</span>
+              </div>
+            </div>
+            <div class="priming-ring-wrap">
+              <div class="priming-ring">3</div>
+              <div class="priming-hint">长按暂停 · 点击立即进入</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-note">
+        <strong>"智能体二次介入"的形态</strong>：不是切到对话界面，而是<em>悬浮在 priming 上方</em>。<br>
+        <strong>密度警告</strong>：智能体气泡 + 标题/summary/keywords + 倒数 ring 三块同屏，信息密度上来了。<br>
+        <strong>可考虑</strong>：智能体气泡出现时 priming 内容半透明 / 倒数 ring 暂停，等用户处理完再继续。否则用户被气泡分心，倒数 3 秒已经过完了进 clip 了
+      </div>
+    </div>
+
+    <div class="flow-arrow">→</div>
+
+    <!-- ============ 5: 侧边菜单 drawer ============ -->
+    <div class="frame-col">
+      <h3>
+        <span class="step-num">5</span>侧边菜单 drawer
+        <span class="density-meter">
+          <span class="density-dot on"></span>
+          <span class="density-dot on"></span>
+          <span class="density-dot"></span>
+          <span class="density-label">轻</span>
+        </span>
+      </h3>
+      <div class="sub">所有非主流程功能的容器 · 从汉堡按钮呼出</div>
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <!-- background priming faded -->
+          <div class="priming-screen" style="opacity:0.5">
+            <div class="priming-content">
+              <div class="priming-title">What happened in Sudan</div>
+            </div>
+          </div>
+          <div class="menu-overlay-mock"></div>
+          <div class="menu-drawer-mock">
+            <div class="menu-header-mock">
+              <div class="menu-greeting-mock">Hi, Learner</div>
+              <div class="menu-meta-mock">已完成 1 个片段 · 生词 3</div>
+            </div>
+            <div class="menu-item-mock">
+              <span class="mi-icon-mock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
+              <span class="mi-label-mock">生词本</span>
+              <span class="mi-badge-mock">3</span>
+            </div>
+            <div class="menu-item-mock">
+              <span class="mi-icon-mock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></span>
+              <span class="mi-label-mock">收藏</span>
+              <span class="mi-badge-mock">0</span>
+            </div>
+            <div class="menu-item-mock">
+              <span class="mi-icon-mock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span>
+              <span class="mi-label-mock">爱心</span>
+              <span class="mi-badge-mock">0</span>
+            </div>
+            <div class="menu-item-mock">
+              <span class="mi-icon-mock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+              <span class="mi-label-mock">看看有什么</span>
+            </div>
+            <div class="menu-item-mock">
+              <span class="mi-icon-mock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>
+              <span class="mi-label-mock">学习兴趣</span>
+            </div>
+            <div class="menu-item-mock">
+              <span class="mi-icon-mock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg></span>
+              <span class="mi-label-mock">设置</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-note">
+        <strong>承接被砍掉的"自挑"二选一</strong>：「看看有什么」是用户主动浏览候选 clip 列表的入口。<br>
+        <strong>「爱心」的功能性意义</strong>：爱心一条之后，这条 clip 解锁单独纯听模式 · 不是默认入口 · 给"纯听 tab"克制的存在形式<br>
+        <strong>「生词本」的双重身份</strong>：用户的学习资产 + 推荐算法的输入信号
+      </div>
+    </div>
+
+  </div>
+
+  <div class="legend">
+    <h4>信息密度评分（绿/黄/红 = 极简/中/密）</h4>
+    <ul>
+      <li>① OB 介绍关键节点屏：6 元素（音波 + 进度条 + 文字 + 2 chip）· 轻 · ✓ chip 让用户掌控节奏</li>
+      <li>② Priming 普通态：8 元素 · 轻 · ✓ 中央倒数 ring 是视觉锚点，其他元素围绕它</li>
+      <li>③ Phase 1 第一帧：13 元素 · 中 · ⚠ 字幕外的功能 chrome 较多</li>
+      <li>④ 特殊 priming：12 元素 · 中-高 · ⚠ 智能体气泡 + 倒数 ring 同屏，注意力分散</li>
+      <li>⑤ 侧边菜单：6 项 + header · 轻 · ✓ 标准 drawer pattern，用户熟悉</li>
+    </ul>
+
+    <h4 style="margin-top:14px">核心流程（用户视角）</h4>
+    <ul>
+      <li>首次：OB 5 段介绍 → priming → phase 1-5 → priming（智能体介入） → phase 1-5 → priming → ...</li>
+      <li>日常：priming → phase 1-5 → priming → phase 1-5 → ... 无限流</li>
+      <li>侧边菜单随时可呼出 · 收藏 / 爱心 / 看看有什么 / 生词本 / 学习兴趣 都在这里</li>
+    </ul>
+
+    <h4 style="margin-top:14px">值得讨论的设计决策</h4>
+    <ul>
+      <li>④ 智能体气泡出现时，倒数 ring 是否应暂停？（避免用户处理气泡时被推进 clip）</li>
+      <li>③ Phase 1 第一帧的 phase label / title / keywords 是否在第一句字幕开始播后<em>淡出</em>，让沉浸氛围更纯？</li>
+      <li>① OB 段落 ③（5 阶段流程）讲完出 chip，其他段落自动播 —— 是否所有段落都给 chip 让用户更有控制感？还是保持只在关键节点出 chip？</li>
+      <li>⑤ 菜单项「学习兴趣」是否需要小红点提示首次去配置？</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>
