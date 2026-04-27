@@ -2475,7 +2475,14 @@ export default function App() {
     const resolvedHomeViewportHeight = homeContentHeight > 0
       ? homeContentHeight
       : Math.max(0, windowHeight - homeTopChromeHeight);
-    const effectiveHomeMode: HomeMode = activeClipPracticeSession ? 'practice' : settings.homeMode;
+    const feedOwnedPracticeSession = activeClipPracticeSession?.clip
+      ? { ...activeClipPracticeSession, clip: activeClipPracticeSession.clip }
+      : null;
+    const effectiveHomeMode: HomeMode = feedOwnedPracticeSession
+      ? 'just_listen'
+      : activeClipPracticeSession
+        ? 'practice'
+        : settings.homeMode;
     content = (
       <View style={styles.homeModeHost}>
         <HomeTopChrome
@@ -2619,6 +2626,7 @@ export default function App() {
               onRecordWordLookup={handleRecordWordLookup}
               onReviewAction={handleReviewAction}
               onLoadMoreClips={handleLoadMoreFeed}
+              activePracticeSession={feedOwnedPracticeSession}
               onStartPractice={handleStartFeedClipPractice}
               onPlaybackRateChange={handlePlaybackRateChange}
               onSubtitleSizeChange={handleSubtitleSizeChange}
@@ -2636,6 +2644,45 @@ export default function App() {
                 }
                 void requestContentTranslations(nextTargets, profile.nativeLanguage);
               }}
+              renderPracticeSession={({ externalPlayback }) => {
+                if (!feedOwnedPracticeSession) return null;
+                const completedRecord = practiceTabState.completed_clips.find(
+                  item => item.clipKey === feedOwnedPracticeSession.clipKey
+                ) || null;
+                return (
+                  <PracticeSessionModal
+                    visible
+                    isActive
+                    clip={feedOwnedPracticeSession.clip}
+                    clipIndex={feedOwnedPracticeSession.clipIndex}
+                    externalPlayback={externalPlayback}
+                    initialStage={
+                      !feedOwnedPracticeSession.readOnly
+                      && practiceTabState.session?.active_clip_key === feedOwnedPracticeSession.clipKey
+                        ? Math.max(1, practiceTabState.session.current_stage)
+                        : 1
+                    }
+                    level={profile.level}
+                    nativeLanguage={profile.nativeLanguage}
+                    vocabWords={vocabWords}
+                    knownWords={knownWords}
+                    onSaveVocab={handleSaveVocab}
+                    onMarkKnown={handleMarkKnown}
+                    onRecordWordLookup={handleRecordWordLookup}
+                    completedRecord={feedOwnedPracticeSession.readOnly ? completedRecord : null}
+                    readOnly={Boolean(feedOwnedPracticeSession.readOnly)}
+                    onStageChange={stage => {
+                      if (!feedOwnedPracticeSession.readOnly) {
+                        handleClipPracticeStageChange(feedOwnedPracticeSession.clipIndex, stage);
+                      }
+                    }}
+                    onComplete={handleClipPracticeComplete}
+                    onDismiss={handleReturnListenFromClipPractice}
+                    onNextClip={handlePracticeNextClip}
+                    onReturnListen={handleReturnListenFromClipPractice}
+                  />
+                );
+              }}
             />
           </View>
         </View>
@@ -2645,49 +2692,12 @@ export default function App() {
     content = null;
   }
 
-  const activeClipPracticeCompletedRecord = activeClipPracticeSession
-    ? practiceTabState.completed_clips.find(item => item.clipKey === activeClipPracticeSession.clipKey) || null
-    : null;
-  const activeClipPracticeInitialStage = activeClipPracticeSession
-    && !activeClipPracticeSession.readOnly
-    && practiceTabState.session?.active_clip_key === activeClipPracticeSession.clipKey
-      ? Math.max(1, practiceTabState.session.current_stage)
-      : 1;
-
   return (
     <SafeAreaProvider>
       <AppThemeProvider theme={currentTheme}>
         <UiI18nProvider nativeLanguage={profile.nativeLanguage}>
           <View style={[styles.root, currentTheme === 'light' && styles.rootLight]}>
             {content}
-
-            {activeClipPracticeSession?.clip ? (
-              <PracticeSessionModal
-                visible
-                isActive
-                clip={activeClipPracticeSession.clip}
-                clipIndex={activeClipPracticeSession.clipIndex}
-                initialStage={activeClipPracticeInitialStage}
-                level={profile.level}
-                nativeLanguage={profile.nativeLanguage}
-                vocabWords={vocabWords}
-                knownWords={knownWords}
-                onSaveVocab={handleSaveVocab}
-                onMarkKnown={handleMarkKnown}
-                onRecordWordLookup={handleRecordWordLookup}
-                completedRecord={activeClipPracticeSession.readOnly ? activeClipPracticeCompletedRecord : null}
-                readOnly={Boolean(activeClipPracticeSession.readOnly)}
-                onStageChange={stage => {
-                  if (!activeClipPracticeSession.readOnly) {
-                    handleClipPracticeStageChange(activeClipPracticeSession.clipIndex, stage);
-                  }
-                }}
-                onComplete={handleClipPracticeComplete}
-                onDismiss={handleReturnListenFromClipPractice}
-                onNextClip={handlePracticeNextClip}
-                onReturnListen={handleReturnListenFromClipPractice}
-              />
-            ) : null}
 
             {canAccessApp && !booting ? (
               <>

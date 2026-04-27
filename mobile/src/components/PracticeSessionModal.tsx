@@ -56,6 +56,17 @@ type PendingPlayback = {
 
 type StagePlaybackMode = QuizStage | 'blind';
 
+export type PracticeExternalPlayback = {
+  isPlaying: boolean;
+  isLoading: boolean;
+  positionMillis: number;
+  durationMillis: number;
+  errorMessage: string | null;
+  play: (fromMillis?: number) => Promise<void>;
+  pause: () => Promise<void>;
+  seekBy: (deltaMillis: number) => Promise<void>;
+};
+
 type QuestionBuckets = {
   stage0: ClipQuestion[];
   stage1: ClipQuestion[];
@@ -82,6 +93,7 @@ type Props = {
   isActive?: boolean;
   clip: Clip | null;
   clipIndex: number;
+  externalPlayback?: PracticeExternalPlayback;
   initialStage?: number;
   inline?: boolean;
   level: Level | null;
@@ -101,6 +113,55 @@ type Props = {
 };
 
 const ATTRIBUTION_REASONS: PracticeTabReason[] = ['unknown', 'unclear', 'meaning'];
+const PRACTICE_AUDIO_CDN_BASE_URL = 'https://cdn.jsdelivr.net/gh/Sylvia10114/flipod@main';
+const PRACTICE_AUDIO_LOAD_TIMEOUT_MS = 12000;
+const PRACTICE_AUDIO_PLAY_TIMEOUT_MS = 6000;
+const PRACTICE_AUDIO_LOAD_TIMEOUT = 'practice-audio-load-timeout';
+const PRACTICE_AUDIO_PLAY_TIMEOUT = 'practice-audio-play-timeout';
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+function normalizeContentPath(raw: string) {
+  return raw.trim().replace(/^\//, '');
+}
+
+function getClipSourceObject(clip: Clip) {
+  return typeof clip.source === 'object' && clip.source ? clip.source : null;
+}
+
+function buildPracticeAudioCandidates(clip: Clip) {
+  const candidates: string[] = [];
+  const push = (value: string | null | undefined) => {
+    const trimmed = String(value || '').trim();
+    if (!trimmed || candidates.includes(trimmed)) return;
+    candidates.push(trimmed);
+  };
+  const pushCdnFallback = (value: string | null | undefined) => {
+    const trimmed = String(value || '').trim();
+    if (!trimmed || /^https?:\/\//i.test(trimmed)) return;
+    push(`${PRACTICE_AUDIO_CDN_BASE_URL}/${normalizeContentPath(trimmed)}`);
+  };
+
+  const source = getClipSourceObject(clip);
+  [source?.audio_url, clip.cdnAudio, clip.audio].forEach(pushCdnFallback);
+
+  const primary = resolveClipAudioUrl(clip);
+  push(primary);
+  const apiPath = primary.match(/\/flipod-api\/(.+)$/i)?.[1];
+  if (apiPath) {
+    push(`${PRACTICE_AUDIO_CDN_BASE_URL}/${normalizeContentPath(apiPath)}`);
+  }
+
+  return candidates;
+}
 
 function answerIndex(question: ClipQuestion) {
   const normalized = String(question.answer || '').trim().toUpperCase();
@@ -364,6 +425,7 @@ export function PracticeSessionModal({
   isActive = true,
   clip,
   clipIndex,
+  externalPlayback,
   initialStage = 0,
   inline = false,
   level,
@@ -391,13 +453,13 @@ export function PracticeSessionModal({
   const onStageChangeRef = useRef(onStageChange);
   const onPlaybackEndedRef = useRef<(mode: StagePlaybackMode) => void>(noop);
   const bodyScrollRef = useRef<ScrollView | null>(null);
-  const loadSoundRef = useRef<() => Promise<boolean>>(async () => false);
   const unloadSoundRef = useRef<() => Promise<void>>(async () => {});
   const soundReadyRef = useRef(false);
   const loadPromiseRef = useRef<Promise<boolean> | null>(null);
   const playbackRequestRef = useRef(0);
   const playbackModeRef = useRef<StagePlaybackMode | null>(null);
   const pendingPlaybackRef = useRef<PendingPlayback | null>(null);
+  const externalPlaybackFinishedRef = useRef(false);
   const completionSavedRef = useRef(false);
   const stageRunRef = useRef('');
 
@@ -409,6 +471,7 @@ export function PracticeSessionModal({
     durationMillis: 0,
     errorMessage: null as string | null,
   });
+  const playbackStatus = externalPlayback || status;
   const [stageAudioFinished, setStageAudioFinished] = useState(false);
   const [blindListenStarted, setBlindListenStarted] = useState(false);
   const [blindListenFinished, setBlindListenFinished] = useState(false);
@@ -455,7 +518,7 @@ export function PracticeSessionModal({
   );
   const transcriptPanelCompactHeight = Math.max(180, transcriptPanelHeight - 18);
 
-  const alignedPlaybackSeconds = status.positionMillis / 1000;
+  const alignedPlaybackSeconds = playbackStatus.positionMillis / 1000;
   const currentLineIndex = findActiveOrPreviousLineIndex(clip, alignedPlaybackSeconds);
   const currentLine = clip?.lines?.[currentLineIndex] || null;
   const fadeTargetWords = useMemo(
@@ -466,16 +529,16 @@ export function PracticeSessionModal({
     if (stage !== 1 && stage !== 2 && stage !== 3) {
       return stageAudioFinished;
     }
-    const nearEnd = status.durationMillis > 0
-      && status.positionMillis >= Math.max(0, status.durationMillis - 180);
-    return stageAudioFinished || (nearEnd && !status.isPlaying && !status.isLoading);
+    const nearEnd = playbackStatus.durationMillis > 0
+      && playbackStatus.positionMillis >= Math.max(0, playbackStatus.durationMillis - 180);
+    return stageAudioFinished || (nearEnd && !playbackStatus.isPlaying && !playbackStatus.isLoading);
   }, [
+    playbackStatus.durationMillis,
+    playbackStatus.isLoading,
+    playbackStatus.isPlaying,
+    playbackStatus.positionMillis,
     stage,
     stageAudioFinished,
-    status.durationMillis,
-    status.isLoading,
-    status.isPlaying,
-    status.positionMillis,
   ]);
   const blindStageFinished = blindListenStarted && blindListenFinished;
   const currentQuestionFlow = useMemo<QuestionFlow>(() => {
@@ -501,8 +564,9 @@ export function PracticeSessionModal({
   const stage1AutoLoading = stage === 1
     && !currentQuestionFlow
     && !stagePlaybackFinished
-    && !status.isPlaying
-    && (status.isLoading || status.positionMillis <= 120);
+    && !playbackStatus.isPlaying
+    && playbackStatus.isLoading
+    && !playbackStatus.errorMessage;
   const currentQuestionCorrectIndex = currentQuestion ? answerIndex(currentQuestion) : -1;
   const currentQuestionAnswered = currentQuestionSelection !== null;
   const currentQuestionCorrect = currentQuestionAnswered && currentQuestionSelection === currentQuestionCorrectIndex;
@@ -583,13 +647,6 @@ export function PracticeSessionModal({
     soundRef.current = null;
   }, []);
 
-  const ensurePreparedAudioUri = useCallback(async () => {
-    if (!clip) return null;
-    const sourceUrl = resolveClipAudioUrl(clip);
-    if (!sourceUrl) return null;
-    return sourceUrl;
-  }, [clip]);
-
   const handleStatus = useCallback((nextStatus: AVPlaybackStatus) => {
     if (!clip) return;
     if (!nextStatus.isLoaded) {
@@ -649,9 +706,8 @@ export function PracticeSessionModal({
       return loadPromiseRef.current;
     }
 
-    setStatus(prev => ({ ...prev, isLoading: true, errorMessage: null }));
-    const preparedAudioUri = await ensurePreparedAudioUri();
-    if (!preparedAudioUri) {
+    const audioCandidates = buildPracticeAudioCandidates(clip);
+    if (audioCandidates.length === 0) {
       setStatus(prev => ({
         ...prev,
         isLoading: false,
@@ -659,57 +715,82 @@ export function PracticeSessionModal({
       }));
       return false;
     }
+    setStatus(prev => ({ ...prev, isLoading: true, errorMessage: null }));
 
     const currentLoad = (async () => {
       await unloadSound();
-      const sound = new Audio.Sound();
-      soundRef.current = sound;
-      sound.setOnPlaybackStatusUpdate(handleStatus);
 
-      try {
-        await sound.loadAsync(
-          { uri: preparedAudioUri },
-          {
-            shouldPlay: false,
-            progressUpdateIntervalMillis: 240,
-            positionMillis: Math.floor(getClipAudioStartSeconds(clip) * 1000),
-          }
-        );
-        await sound.setProgressUpdateIntervalAsync(240);
-        soundReadyRef.current = true;
-        const initialStatus = await sound.getStatusAsync();
-        handleStatus(initialStatus);
-        return true;
-      } catch {
+      for (const audioUrl of audioCandidates) {
+        const sound = new Audio.Sound();
+        soundRef.current = sound;
+        sound.setOnPlaybackStatusUpdate(handleStatus);
+
         try {
-          await sound.unloadAsync();
-        } catch {
+          await withTimeout(
+            sound.loadAsync(
+              { uri: audioUrl },
+              {
+                shouldPlay: false,
+                progressUpdateIntervalMillis: 240,
+                positionMillis: Math.floor(getClipAudioStartSeconds(clip) * 1000),
+              }
+            ),
+            PRACTICE_AUDIO_LOAD_TIMEOUT_MS,
+            PRACTICE_AUDIO_LOAD_TIMEOUT
+          );
+          await sound.setProgressUpdateIntervalAsync(240);
+          soundReadyRef.current = true;
+          const initialStatus = await sound.getStatusAsync();
+          handleStatus(initialStatus);
+          return true;
+        } catch (error) {
+          sound.setOnPlaybackStatusUpdate(null);
+          if (soundRef.current === sound) {
+            soundRef.current = null;
+          }
+          pendingPlaybackRef.current = null;
+          const timedOut = error instanceof Error && error.message === PRACTICE_AUDIO_LOAD_TIMEOUT;
+          if (timedOut) {
+            void sound.unloadAsync().catch(noop);
+          } else {
+            try {
+              await sound.unloadAsync();
+            } catch {
+            }
+          }
         }
-        sound.setOnPlaybackStatusUpdate(null);
-        if (soundRef.current === sound) {
-          soundRef.current = null;
-        }
-        setStatus(prev => ({
-          ...prev,
-          isPlaying: false,
-          isLoading: false,
-          errorMessage: t('practiceSession.loadError'),
-        }));
-        return false;
-      } finally {
-        loadPromiseRef.current = null;
       }
+
+      setStatus(prev => ({
+        ...prev,
+        isPlaying: false,
+        isLoading: false,
+        errorMessage: t('practiceSession.loadError'),
+      }));
+      return false;
     })();
 
-    loadPromiseRef.current = currentLoad;
-    return currentLoad;
-  }, [clip, ensurePreparedAudioUri, handleStatus, readOnly, t, unloadSound, visible]);
+    const trackedLoad = currentLoad.finally(() => {
+      if (loadPromiseRef.current === trackedLoad) {
+        loadPromiseRef.current = null;
+      }
+    });
+
+    loadPromiseRef.current = trackedLoad;
+    return trackedLoad;
+  }, [clip, handleStatus, readOnly, t, unloadSound, visible]);
 
   const playWholeClip = useCallback(async (fromMillis = 0, mode?: StagePlaybackMode) => {
     if (!clip || readOnly) return;
     if (mode) {
       playbackModeRef.current = mode;
       setStageAudioFinished(false);
+      externalPlaybackFinishedRef.current = false;
+    }
+    if (externalPlayback) {
+      pendingPlaybackRef.current = { targetStartMillis: Math.max(0, fromMillis) };
+      await externalPlayback.play(fromMillis);
+      return;
     }
     const requestId = playbackRequestRef.current + 1;
     playbackRequestRef.current = requestId;
@@ -722,9 +803,16 @@ export function PracticeSessionModal({
       await soundRef.current.setPositionAsync(targetStartMillis);
       const seekStatus = await soundRef.current.getStatusAsync();
       handleStatus(seekStatus);
-      await soundRef.current.playAsync();
+      await withTimeout(
+        soundRef.current.playAsync(),
+        PRACTICE_AUDIO_PLAY_TIMEOUT_MS,
+        PRACTICE_AUDIO_PLAY_TIMEOUT
+      );
+      const playStatus = await soundRef.current.getStatusAsync();
+      handleStatus(playStatus);
     } catch {
       if (requestId !== playbackRequestRef.current) return;
+      pendingPlaybackRef.current = null;
       setStatus(prev => ({
         ...prev,
         isPlaying: false,
@@ -732,25 +820,34 @@ export function PracticeSessionModal({
         errorMessage: t('practiceSession.loadError'),
       }));
     }
-  }, [clip, handleStatus, loadSound, readOnly, t]);
+  }, [clip, externalPlayback, handleStatus, loadSound, readOnly, t]);
 
   const pause = useCallback(async () => {
     playbackRequestRef.current += 1;
     pendingPlaybackRef.current = null;
+    if (externalPlayback) {
+      await externalPlayback.pause();
+      return;
+    }
     if (!soundRef.current) return;
     try {
       await soundRef.current.pauseAsync();
     } catch {
     }
-  }, []);
+  }, [externalPlayback]);
 
   const togglePlay = useCallback(async (mode?: StagePlaybackMode) => {
-    if (status.isPlaying) {
+    if (playbackStatus.isPlaying) {
       await pause();
       return;
     }
     if (mode) {
       playbackModeRef.current = mode;
+      externalPlaybackFinishedRef.current = false;
+    }
+    if (externalPlayback) {
+      await externalPlayback.play(playbackStatus.positionMillis);
+      return;
     }
     if (soundRef.current && soundReadyRef.current) {
       try {
@@ -759,13 +856,17 @@ export function PracticeSessionModal({
       } catch {
       }
     }
-    await playWholeClip(status.positionMillis, mode);
-  }, [pause, playWholeClip, status.isPlaying, status.positionMillis]);
+    await playWholeClip(playbackStatus.positionMillis, mode);
+  }, [externalPlayback, pause, playWholeClip, playbackStatus.isPlaying, playbackStatus.positionMillis]);
 
   const rewindThreeSeconds = useCallback(async () => {
+    if (externalPlayback) {
+      await externalPlayback.seekBy(-3000);
+      return;
+    }
     if (!clip || !soundRef.current) return;
     const clipWindowStartMillis = Math.floor(getClipAudioStartSeconds(clip) * 1000);
-    const currentAbsoluteMillis = clipWindowStartMillis + status.positionMillis;
+    const currentAbsoluteMillis = clipWindowStartMillis + playbackStatus.positionMillis;
     const nextAbsoluteMillis = Math.max(clipWindowStartMillis, currentAbsoluteMillis - 3000);
     try {
       await soundRef.current.setPositionAsync(nextAbsoluteMillis);
@@ -773,7 +874,7 @@ export function PracticeSessionModal({
       handleStatus(seekStatus);
     } catch {
     }
-  }, [clip, handleStatus, status.positionMillis]);
+  }, [clip, externalPlayback, handleStatus, playbackStatus.positionMillis]);
 
   const stageQuestions = useCallback((quizStage: QuizStage) => {
     const key = bucketKey(quizStage);
@@ -814,6 +915,7 @@ export function PracticeSessionModal({
     playbackRequestRef.current += 1;
     playbackModeRef.current = null;
     pendingPlaybackRef.current = null;
+    externalPlaybackFinishedRef.current = false;
     stageRunRef.current = '';
     setStage(nextStage);
     setStageAudioFinished(false);
@@ -888,6 +990,7 @@ export function PracticeSessionModal({
     playbackRequestRef.current += 1;
     loadPromiseRef.current = null;
     pendingPlaybackRef.current = null;
+    externalPlaybackFinishedRef.current = false;
     setStage(readOnly ? 6 : (Math.max(0, Math.min(initialStage, 6)) as Stage));
     setStatus({
       isPlaying: false,
@@ -917,9 +1020,6 @@ export function PracticeSessionModal({
     setExpandedSentenceIndex(null);
     setPopup(null);
     setStage1QuestionAnchorY(null);
-    if (!readOnly) {
-      void loadSoundRef.current();
-    }
     return () => {
       loadPromiseRef.current = null;
       void unloadSoundRef.current();
@@ -935,10 +1035,6 @@ export function PracticeSessionModal({
   useEffect(() => {
     onStageChangeRef.current = onStageChange;
   }, [onStageChange]);
-
-  useEffect(() => {
-    loadSoundRef.current = loadSound;
-  }, [loadSound]);
 
   useEffect(() => {
     unloadSoundRef.current = unloadSound;
@@ -966,6 +1062,46 @@ export function PracticeSessionModal({
   useEffect(() => {
     onPlaybackEndedRef.current = handlePlaybackEnded;
   }, [handlePlaybackEnded]);
+
+  useEffect(() => {
+    if (!externalPlayback || !clip || !visible || readOnly) return;
+    if (inline && !isActive) return;
+    const mode = playbackModeRef.current;
+    if (!mode) return;
+    const pendingStart = pendingPlaybackRef.current;
+    if (pendingStart) {
+      const settledAtStart = playbackStatus.positionMillis <= pendingStart.targetStartMillis + 1200;
+      if (playbackStatus.isLoading || playbackStatus.isPlaying || settledAtStart) {
+        pendingPlaybackRef.current = null;
+      } else {
+        return;
+      }
+    }
+    const nearEnd = playbackStatus.durationMillis > 0
+      && playbackStatus.positionMillis >= Math.max(0, playbackStatus.durationMillis - 180);
+    if (!nearEnd || playbackStatus.isPlaying || playbackStatus.isLoading) {
+      if (!nearEnd) {
+        externalPlaybackFinishedRef.current = false;
+      }
+      return;
+    }
+    if (externalPlaybackFinishedRef.current) return;
+    externalPlaybackFinishedRef.current = true;
+    playbackModeRef.current = null;
+    setStageAudioFinished(true);
+    onPlaybackEndedRef.current(mode);
+  }, [
+    clip,
+    externalPlayback,
+    inline,
+    isActive,
+    playbackStatus.durationMillis,
+    playbackStatus.isLoading,
+    playbackStatus.isPlaying,
+    playbackStatus.positionMillis,
+    readOnly,
+    visible,
+  ]);
 
   useEffect(() => {
     if (!visible || readOnly) return;
@@ -1056,13 +1192,13 @@ export function PracticeSessionModal({
   }, [clip, onRecordWordLookup]);
 
   useEffect(() => {
-    if (!inline || !visible || !isActive) {
-      if (status.isPlaying) {
+    if (!visible || (inline && !isActive)) {
+      if (playbackStatus.isPlaying) {
         void pause();
       }
       return;
     }
-  }, [inline, isActive, pause, status.isPlaying, visible]);
+  }, [inline, isActive, pause, playbackStatus.isPlaying, visible]);
 
   const handleAdvanceQuestion = useCallback(() => {
     const questionFlow = currentQuestionFlow;
@@ -1177,9 +1313,9 @@ export function PracticeSessionModal({
   };
 
   const handleStartBlindListen = useCallback(() => {
-    if (status.isPlaying || status.isLoading) return;
+    if (playbackStatus.isPlaying || playbackStatus.isLoading) return;
     void startPlaybackForStage('blind', 0);
-  }, [startPlaybackForStage, status.isLoading, status.isPlaying]);
+  }, [playbackStatus.isLoading, playbackStatus.isPlaying, startPlaybackForStage]);
 
   const handleReplayStage = useCallback((targetStage: QuizStage) => {
     if (readOnly) return;
@@ -1305,7 +1441,9 @@ export function PracticeSessionModal({
     t,
   ]);
 
-  const playbackProgress = status.durationMillis > 0 ? status.positionMillis / status.durationMillis : 0;
+  const playbackProgress = playbackStatus.durationMillis > 0
+    ? playbackStatus.positionMillis / playbackStatus.durationMillis
+    : 0;
   const activePlaybackLineIndex = findActiveOrPreviousLineIndex(clip, alignedPlaybackSeconds);
   const progressStep = practiceProgressStep(stage);
   const replayableQuizStage = quizStageFromStage(stage);
@@ -1345,7 +1483,7 @@ export function PracticeSessionModal({
           <View style={styles.inlineFooterStack}>
             <PlaybackControlStrip
               uiStyles={styles}
-              isPlaying={status.isPlaying}
+              isPlaying={playbackStatus.isPlaying}
               onReplay={() => void playWholeClip(0, 2)}
               onRewind={() => void rewindThreeSeconds()}
               onToggle={() => void togglePlay(2)}
@@ -1363,7 +1501,7 @@ export function PracticeSessionModal({
               <ActionButton
                 label={t('common.continue')}
                 onPress={() => goToStage(3)}
-                disabled={!stagePlaybackFinished || status.isPlaying || status.isLoading}
+                disabled={!stagePlaybackFinished || playbackStatus.isPlaying || playbackStatus.isLoading}
               />
             )}
           </View>
@@ -1374,7 +1512,7 @@ export function PracticeSessionModal({
           <View style={styles.inlineFooterStack}>
             <PlaybackControlStrip
               uiStyles={styles}
-              isPlaying={status.isPlaying}
+              isPlaying={playbackStatus.isPlaying}
               onReplay={() => void playWholeClip(0, 3)}
               onRewind={() => void rewindThreeSeconds()}
               onToggle={() => void togglePlay(3)}
@@ -1533,6 +1671,9 @@ export function PracticeSessionModal({
                       ) : null}
                     </View>
                   ) : null}
+                  {playbackStatus.errorMessage ? (
+                    <Text style={styles.playbackErrorText}>{playbackStatus.errorMessage}</Text>
+                  ) : null}
                   <PracticeTranscriptPanel
                     lines={clip.lines || []}
                     currentTime={alignedPlaybackSeconds}
@@ -1551,7 +1692,7 @@ export function PracticeSessionModal({
                   <View style={styles.heroButtonWrap}>
                     <CircularProgressPlayButton
                       progress={playbackProgress}
-                      isPlaying={status.isPlaying}
+                      isPlaying={playbackStatus.isPlaying}
                       onPress={() => void togglePlay(1)}
                       size={84}
                       buttonSize={68}
@@ -1665,7 +1806,7 @@ export function PracticeSessionModal({
                 <View style={styles.heroButtonWrap}>
                   <CircularProgressPlayButton
                     progress={playbackProgress}
-                    isPlaying={status.isPlaying}
+                    isPlaying={playbackStatus.isPlaying}
                     onPress={handleStartBlindListen}
                     size={84}
                     buttonSize={68}
@@ -2094,6 +2235,11 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: 13,
       lineHeight: 18,
       fontWeight: '600',
+    },
+    playbackErrorText: {
+      color: colors.accentError,
+      fontSize: 13,
+      lineHeight: 18,
     },
     transcriptPanel: {
       borderRadius: 18,

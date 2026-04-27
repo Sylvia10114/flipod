@@ -38,6 +38,7 @@ import { ProgressBar } from '../components/ProgressBar';
 import { ChallengeWordPills } from '../components/ChallengeWordPills';
 import { WordLine } from '../components/WordLine';
 import { WordPopup } from '../components/WordPopup';
+import type { PracticeExternalPlayback } from '../components/PracticeSessionModal';
 import { radii, spacing, typography } from '../design';
 import { triggerMediumHaptic, triggerUiFeedback } from '../feedback';
 import { useFeedPlayer } from '../hooks/useFeedPlayer';
@@ -106,6 +107,12 @@ type Props = {
   vocabEntries: VocabEntry[];
   vocabWords: string[];
   knownWords: string[];
+  activePracticeSession?: {
+    clip: Clip;
+    clipIndex: number;
+    clipKey: string;
+    readOnly?: boolean;
+  } | null;
   clipsPlayed: number;
   showListenCoach: boolean;
   showNavCoach: boolean;
@@ -127,6 +134,7 @@ type Props = {
   onClipCompleted: (clip: Clip, index: number, progressRatio: number) => void;
   onClipSkipped: (clip: Clip, index: number, progressRatio: number, dwellMs: number) => void;
   onVisibleClipChange?: (clip: Clip, index: number) => void;
+  renderPracticeSession?: (params: { externalPlayback: PracticeExternalPlayback }) => React.ReactNode;
 };
 
 type PopupState = {
@@ -213,6 +221,7 @@ export function FeedScreen({
   vocabEntries,
   vocabWords,
   knownWords,
+  activePracticeSession = null,
   clipsPlayed,
   showListenCoach,
   showNavCoach,
@@ -234,6 +243,7 @@ export function FeedScreen({
   onClipCompleted,
   onClipSkipped,
   onVisibleClipChange,
+  renderPracticeSession,
 }: Props) {
   const { colors } = useAppTheme();
   const { t, nativeLanguage } = useUiI18n();
@@ -299,6 +309,7 @@ export function FeedScreen({
     requestAutoplay,
     seekNextSentence,
     seekPrevSentence,
+    seekBy,
     seekToRatio,
     setRate,
     stop,
@@ -980,6 +991,63 @@ export function FeedScreen({
     visibleClipIndex,
   ]);
 
+  const practiceExternalPlayback = useMemo<PracticeExternalPlayback | null>(() => {
+    if (!activePracticeSession) return null;
+    const practiceClipIndex = activePracticeSession.clipIndex;
+    const isPracticeClipActive = activeIndex === practiceClipIndex;
+
+    return {
+      isPlaying: isPracticeClipActive && playbackPhase === 'playing',
+      isLoading: isPracticeClipActive && playbackPhase === 'loading',
+      positionMillis: isPracticeClipActive ? positionMillis : 0,
+      durationMillis: isPracticeClipActive ? durationMillis : 0,
+      errorMessage: isPracticeClipActive ? errorMessage : null,
+      play: async (fromMillis = 0) => {
+        autoplayTargetRef.current = practiceClipIndex;
+        setVisibleClipIndex(practiceClipIndex);
+        setPendingAutoplayIndex(null);
+        clearPreviewSession();
+        clearAutoplayTimer();
+
+        const sameActiveClip = activeIndex === practiceClipIndex;
+        if (sameActiveClip && fromMillis <= 80 && positionMillis > 80) {
+          await seekBy(-positionMillis);
+        } else if (
+          sameActiveClip
+          && durationMillis > 0
+          && Math.abs(fromMillis - positionMillis) > 120
+        ) {
+          await seekToRatio(Math.max(0, Math.min(1, fromMillis / durationMillis)));
+        }
+
+        const requestId = createRequestId();
+        setCurrentVisibleRequestId(requestId);
+        await playIndex(practiceClipIndex, requestId);
+      },
+      pause,
+      seekBy,
+    };
+  }, [
+    activeIndex,
+    activePracticeSession,
+    clearAutoplayTimer,
+    clearPreviewSession,
+    createRequestId,
+    durationMillis,
+    errorMessage,
+    pause,
+    playbackPhase,
+    playIndex,
+    positionMillis,
+    seekBy,
+    seekToRatio,
+    setCurrentVisibleRequestId,
+  ]);
+
+  const practiceSessionOverlay = practiceExternalPlayback && renderPracticeSession
+    ? renderPracticeSession({ externalPlayback: practiceExternalPlayback })
+    : null;
+
   return (
     <ScreenSurface edges={['left', 'right', 'bottom']}>
       <View
@@ -1188,8 +1256,10 @@ export function FeedScreen({
                         onPress={() => {
                           triggerUiFeedback('primary');
                           clearPreviewSession();
-                          void pause();
-                          onStartPractice(clip, index);
+                          void (async () => {
+                            await pause();
+                            onStartPractice(clip, index);
+                          })();
                         }}
                         style={({ pressed }) => [
                           styles.practiceEntryButton,
@@ -1361,6 +1431,8 @@ export function FeedScreen({
             </View>
           </View>
         ) : null}
+
+        {practiceSessionOverlay}
 
         <Modal
           visible={Boolean(helpMenuClip)}
