@@ -12,7 +12,6 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.flipod.mobile",
-      "buildNumber": "14",
       "icon": "./assets/icon.png",
       "infoPlist": {
         "NSAppTransportSecurity": {

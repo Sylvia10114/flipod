@@ -197,9 +197,8 @@ export const api = {
       body: JSON.stringify(payload),
     });
   },
-  buildPracticeTtsUrl(text: string, locale?: NativeLanguage) {
-    const localeParam = locale ? `&locale=${encodeURIComponent(locale)}` : '';
-    return `${API_BASE_URL}/api/tts?text=${encodeURIComponent(text)}${localeParam}`;
+  buildPracticeTtsUrl(text: string) {
+    return `${API_BASE_URL}/api/tts?text=${encodeURIComponent(text)}`;
   },
   rankFeed(payload: RankRequest, token?: string) {
     return request<RankResponse>('/api/rank', {

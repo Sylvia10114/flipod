@@ -111,7 +111,7 @@ export function normalizePracticeTabState(
 ): PracticeTabState {
   const base = createDefaultPracticeTabState();
   if (!state || typeof state !== 'object') return base;
-  const currentTab = 'practice';
+  const currentTab = state.ui_state?.current_tab === 'just_listen' ? 'just_listen' : 'practice';
   const normalizedCompletedClips = Array.isArray(state.completed_clips)
     ? state.completed_clips.map(item => ({
         ...item,
@@ -231,7 +231,11 @@ export async function loadSettings(): Promise<AppSettings> {
 
   try {
     const parsed = JSON.parse(raw) as Partial<AppSettings> & { homeMode?: string };
-    const normalizedHomeMode = 'practice';
+    const normalizedHomeMode = parsed.homeMode === 'just_listen'
+      ? 'just_listen'
+      : parsed.homeMode === 'practice'
+        ? 'practice'
+        : 'practice';
     return {
       ...DEFAULT_SETTINGS,
       ...parsed,
@@ -243,10 +247,7 @@ export async function loadSettings(): Promise<AppSettings> {
 }
 
 export async function saveSettings(settings: AppSettings) {
-  await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({
-    ...settings,
-    homeMode: 'practice',
-  }));
+  await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
 export async function loadPracticeData(): Promise<PracticeMap> {
@@ -340,13 +341,7 @@ export async function loadPracticeTabState(): Promise<PracticeTabState | null> {
 }
 
 export async function savePracticeTabState(state: PracticeTabState) {
-  await AsyncStorage.setItem(PRACTICE_TAB_STATE_KEY, JSON.stringify({
-    ...state,
-    ui_state: {
-      ...state.ui_state,
-      current_tab: 'practice',
-    },
-  }));
+  await AsyncStorage.setItem(PRACTICE_TAB_STATE_KEY, JSON.stringify(state));
 }
 
 export async function loadContentTranslations(): Promise<Record<string, LocalizedClipContent>> {

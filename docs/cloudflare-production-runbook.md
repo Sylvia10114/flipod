@@ -142,7 +142,6 @@ npx wrangler@latest d1 execute flipod-db --remote --file=./db/schema.sql
 - `AZURE_OPENAI_ENDPOINT`
 - `AZURE_OPENAI_API_KEY`
 - `ELEVENLABS_API_KEY`
-- `MINIMAX_API_KEY`
 - `SMS_ACCESS_KEY_ID`
 - `SMS_ACCESS_KEY_SECRET`
 - `SMS_SIGN_NAME`
@@ -216,7 +215,6 @@ production 的 non-secret vars 只建议维护在一个地方：
 ```bash
 npx wrangler@latest pages secret put AZURE_OPENAI_API_KEY --project-name flipod
 npx wrangler@latest pages secret put ELEVENLABS_API_KEY --project-name flipod
-npx wrangler@latest pages secret put MINIMAX_API_KEY --project-name flipod
 npx wrangler@latest pages secret put SMS_ACCESS_KEY_ID --project-name flipod
 npx wrangler@latest pages secret put SMS_ACCESS_KEY_SECRET --project-name flipod
 npx wrangler@latest pages secret put SMS_SIGN_NAME --project-name flipod

@@ -199,7 +199,7 @@
       "greeting": "Hi, Learner",
       "listenedCount": "{count} clips listened",
       "noInterests": "No interests selected yet",
-      "continueListening": "Browse clips",
+      "continueListening": "Keep Listening",
       "savedClips": "Saved Clips",
       "practice": "AI Listening Practice",
       "vocab": "Vocab",
@@ -384,8 +384,7 @@
       "previewFeedbackChecked": "Answer checked",
       "answerCorrectTitle": "Correct",
       "answerIncorrectTitle": "Not quite",
-      "correctAnswerLabel": "Correct answer: {answer}",
-      "backToFlow": "Back to clips"
+      "correctAnswerLabel": "Correct answer: {answer}"
     },
     "startScreen": {
       "preparingContent": "Preparing content for you...",
@@ -426,27 +425,6 @@
       "vocabBody": "Saved words live here so you can revisit them later. It is not the main task.",
       "practiceTitle": "Practice is for depth",
       "practiceBody": "Use Practice when you want to fully understand a clip, not every clip."
-    },
-    "launchDemo": {
-      "eyebrow": "Quick walkthrough",
-      "title": "How this practice flow works",
-      "segmentIntro": "Hi · let me quickly walk you through the flow.",
-      "segmentPriming": "Before entering a clip, you will see a priming screen · it warms you up first.",
-      "segmentFlow": "Then it goes Chinese → English → blanks → blind listening → summary. There will be a few questions along the way.",
-      "segmentWords": "When you hit a word you do not know, tap it → add it to Vocab. It will shape later recommendations.",
-      "segmentMenu": "The menu is where you can browse clips, review saved clips, check vocab, and change preferences.",
-      "segmentStart": "Let me give you one to try first.",
-      "gotIt": "Got it",
-      "repeat": "Say that again",
-      "preparing": "Preparing...",
-      "skip": "Skip walkthrough"
-    },
-    "practicePriming": {
-      "eyebrow": "Up next",
-      "keywords": "Warm-up words",
-      "swipeHint": "Swipe up to switch clips",
-      "holdHint": "Hold to pause · tap to start now",
-      "paused": "Paused"
     }
   },
   "simplified_chinese": {
@@ -649,7 +627,7 @@
       "greeting": "你好，Learner",
       "listenedCount": "已听 {count} 个片段",
       "noInterests": "还没设置兴趣",
-      "continueListening": "看看有什么",
+      "continueListening": "继续听",
       "savedClips": "我的收藏",
       "practice": "AI听力练习",
       "vocab": "词汇本",
@@ -834,8 +812,7 @@
       "previewFeedbackChecked": "已确认答案",
       "answerCorrectTitle": "答对了",
       "answerIncorrectTitle": "还差一点",
-      "correctAnswerLabel": "正确答案：{answer}",
-      "backToFlow": "回到候选"
+      "correctAnswerLabel": "正确答案：{answer}"
     },
     "startScreen": {
       "preparingContent": "正在为你准备内容...",
@@ -876,27 +853,6 @@
       "vocabBody": "保存的词会留在这里，方便你之后回看，不是主线任务。",
       "practiceTitle": "练习区是拿来深入理解的",
       "practiceBody": "当你想彻底听懂某一条 clip 时再进练习，不是每条都要练。"
-    },
-    "launchDemo": {
-      "eyebrow": "快速说明",
-      "title": "流程说明",
-      "segmentIntro": "Hi · 我先给你介绍一下流程",
-      "segmentPriming": "进入 clip 之前会看到一个 priming 界面 · 让你预热一下",
-      "segmentFlow": "然后是 中文 → 英文 → 挖空 → 盲听 → 总结\n中间会问几道题",
-      "segmentWords": "碰到不会的词，直接点 → 加进生词本\n它会影响后续推荐",
-      "segmentMenu": "菜单里可以看候选 clip、回看收藏、查词汇本，也可以改学习偏好。",
-      "segmentStart": "我先给你来一条试试",
-      "gotIt": "明白",
-      "repeat": "再说一遍",
-      "preparing": "准备中...",
-      "skip": "跳过说明"
-    },
-    "practicePriming": {
-      "eyebrow": "下一条",
-      "keywords": "预热词",
-      "swipeHint": "上滑换一条",
-      "holdHint": "长按暂停 · 点一下立即开始",
-      "paused": "已暂停"
     }
   },
   "traditional_chinese": {
@@ -1099,7 +1055,7 @@
       "greeting": "你好，Learner",
       "listenedCount": "已聽 {count} 個片段",
       "noInterests": "還沒設定興趣",
-      "continueListening": "看看有什麼",
+      "continueListening": "繼續聽",
       "savedClips": "我的收藏",
       "practice": "AI聽力練習",
       "vocab": "詞彙本",
@@ -1284,8 +1240,7 @@
       "previewFeedbackChecked": "已確認答案",
       "answerCorrectTitle": "答對了",
       "answerIncorrectTitle": "還差一點",
-      "correctAnswerLabel": "正確答案：{answer}",
-      "backToFlow": "回到候選"
+      "correctAnswerLabel": "正確答案：{answer}"
     },
     "startScreen": {
       "preparingContent": "正在為你準備內容...",
@@ -1326,27 +1281,6 @@
       "vocabBody": "保存的詞會留在這裡，方便你之後回看，不是主線任務。",
       "practiceTitle": "練習區是拿來深入理解的",
       "practiceBody": "當你想徹底聽懂某一條 clip 時再進練習，不是每條都要練。"
-    },
-    "launchDemo": {
-      "eyebrow": "快速說明",
-      "title": "流程說明",
-      "segmentIntro": "Hi · 我先跟你介紹一下流程",
-      "segmentPriming": "進入 clip 之前會看到一個 priming 畫面 · 先讓你預熱一下",
-      "segmentFlow": "然後是 中文 → 英文 → 挖空 → 盲聽 → 總結\n中間會問幾道題",
-      "segmentWords": "碰到不會的詞，直接點 → 加進生詞本\n它會影響後續推薦",
-      "segmentMenu": "選單裡可以看候選 clip、回看收藏、查詞彙本，也可以改學習偏好。",
-      "segmentStart": "我先給你來一條試試",
-      "gotIt": "明白",
-      "repeat": "再說一遍",
-      "preparing": "準備中...",
-      "skip": "跳過說明"
-    },
-    "practicePriming": {
-      "eyebrow": "下一條",
-      "keywords": "預熱詞",
-      "swipeHint": "上滑換一條",
-      "holdHint": "長按暫停 · 點一下立即開始",
-      "paused": "已暫停"
     }
   },
   "japanese": {
@@ -1549,7 +1483,7 @@
       "greeting": "こんにちは、Learner",
       "listenedCount": "{count} 本聞いた",
       "noInterests": "興味はまだ未設定です",
-      "continueListening": "クリップを見る",
+      "continueListening": "続けて聞く",
       "savedClips": "保存したクリップ",
       "practice": "AIリスニング練習",
       "vocab": "単語帳",
@@ -1734,8 +1668,7 @@
       "previewFeedbackChecked": "答えを確認しました",
       "answerCorrectTitle": "正解です",
       "answerIncorrectTitle": "もう一歩です",
-      "correctAnswerLabel": "正解: {answer}",
-      "backToFlow": "候補に戻る"
+      "correctAnswerLabel": "正解: {answer}"
     },
     "startScreen": {
       "preparingContent": "あなた向けの内容を準備しています...",
@@ -1776,27 +1709,6 @@
       "vocabBody": "保存した単語はここに残ります。主役ではなく、あとで見返すための場所です。",
       "practiceTitle": "Practice は深く理解したい時に使う",
       "practiceBody": "すべての clip ではなく、1本をしっかり理解したい時に使ってください。"
-    },
-    "launchDemo": {
-      "eyebrow": "クイックガイド",
-      "title": "練習の流れ",
-      "segmentIntro": "Hi · まず流れを簡単に紹介します。",
-      "segmentPriming": "clip に入る前に priming 画面が出ます · 先に少しウォームアップします。",
-      "segmentFlow": "その後は 中国語 → 英語 → 穴埋め → ブラインドリスニング → まとめ の順です。途中でいくつか質問があります。",
-      "segmentWords": "分からない単語があれば、そのままタップ → 単語帳に追加できます。あとからのおすすめにも反映されます。",
-      "segmentMenu": "メニューでは候補 clip、保存済み、単語帳、学習設定を確認できます。",
-      "segmentStart": "まず1本試してみましょう。",
-      "gotIt": "わかった",
-      "repeat": "もう一度",
-      "preparing": "準備中...",
-      "skip": "ガイドをスキップ"
-    },
-    "practicePriming": {
-      "eyebrow": "次の clip",
-      "keywords": "ウォームアップ単語",
-      "swipeHint": "上にスワイプして切り替え",
-      "holdHint": "長押しで一時停止 · タップですぐ開始",
-      "paused": "一時停止"
     }
   },
   "korean": {
@@ -1999,7 +1911,7 @@
       "greeting": "안녕하세요, Learner",
       "listenedCount": "{count}개 클립 청취",
       "noInterests": "아직 관심 주제가 없습니다",
-      "continueListening": "클립 둘러보기",
+      "continueListening": "계속 듣기",
       "savedClips": "저장한 클립",
       "practice": "AI 듣기 연습",
       "vocab": "단어장",
@@ -2184,8 +2096,7 @@
       "previewFeedbackChecked": "정답을 확인했어요",
       "answerCorrectTitle": "정답이에요",
       "answerIncorrectTitle": "조금 아쉬워요",
-      "correctAnswerLabel": "정답: {answer}",
-      "backToFlow": "후보로 돌아가기"
+      "correctAnswerLabel": "정답: {answer}"
     },
     "startScreen": {
       "preparingContent": "당신을 위한 내용을 준비하고 있어요...",
@@ -2226,27 +2137,6 @@
       "vocabBody": "저장한 단어는 여기 남아 있습니다. 메인 과제가 아니라 복습용 선반입니다.",
       "practiceTitle": "Practice는 깊게 이해할 때 씁니다",
       "practiceBody": "모든 clip에 쓰는 것이 아니라, 하나를 제대로 이해하고 싶을 때 사용하세요."
-    },
-    "launchDemo": {
-      "eyebrow": "빠른 안내",
-      "title": "연습 흐름 안내",
-      "segmentIntro": "Hi · 먼저 흐름을 간단히 소개할게요.",
-      "segmentPriming": "clip에 들어가기 전에 priming 화면이 나옵니다 · 먼저 워밍업하는 단계예요.",
-      "segmentFlow": "그다음 중국어 → 영어 → 빈칸 → 블라인드 듣기 → 요약 순서로 갑니다. 중간에 몇 가지 질문이 있어요.",
-      "segmentWords": "모르는 단어를 만나면 바로 탭 → 단어장에 추가하세요. 이후 추천에도 반영됩니다.",
-      "segmentMenu": "메뉴에서는 후보 clip, 저장한 clip, 단어장, 학습 설정을 볼 수 있습니다.",
-      "segmentStart": "먼저 하나 해볼게요.",
-      "gotIt": "알겠어요",
-      "repeat": "다시 듣기",
-      "preparing": "준비 중...",
-      "skip": "안내 건너뛰기"
-    },
-    "practicePriming": {
-      "eyebrow": "다음 clip",
-      "keywords": "준비 단어",
-      "swipeHint": "위로 밀어 다른 clip 보기",
-      "holdHint": "길게 눌러 일시정지 · 탭하면 바로 시작",
-      "paused": "일시정지"
     }
   },
   "spanish": {
@@ -2449,7 +2339,7 @@
       "greeting": "Hola, Learner",
       "listenedCount": "{count} clips escuchados",
       "noInterests": "Aún no hay intereses elegidos",
-      "continueListening": "Ver clips",
+      "continueListening": "Seguir escuchando",
       "savedClips": "Clips guardados",
       "practice": "Práctica de IA",
       "vocab": "Vocabulario",
@@ -2634,8 +2524,7 @@
       "previewFeedbackChecked": "Respuesta revisada",
       "answerCorrectTitle": "Correcto",
       "answerIncorrectTitle": "Casi",
-      "correctAnswerLabel": "Respuesta correcta: {answer}",
-      "backToFlow": "Volver a clips"
+      "correctAnswerLabel": "Respuesta correcta: {answer}"
     },
     "startScreen": {
       "preparingContent": "Preparando contenido para ti...",
@@ -2676,27 +2565,6 @@
       "vocabBody": "Las palabras guardadas quedan aquí para volver a ellas después. No es la tarea principal.",
       "practiceTitle": "Practice es para profundizar",
       "practiceBody": "Usa Practice cuando quieras entender por completo un clip, no todos los clips."
-    },
-    "launchDemo": {
-      "eyebrow": "Guía rápida",
-      "title": "Cómo funciona la práctica",
-      "segmentIntro": "Hi · primero te explico rápido el flujo.",
-      "segmentPriming": "Antes de entrar a un clip, verás una pantalla de priming · sirve para calentar.",
-      "segmentFlow": "Luego sigue: chino → inglés → huecos → escucha a ciegas → resumen. Habrá algunas preguntas por el camino.",
-      "segmentWords": "Si encuentras una palabra que no sabes, tócala → añádela a Vocab. Influirá en futuras recomendaciones.",
-      "segmentMenu": "En el menú puedes ver clips candidatos, guardados, vocabulario y preferencias.",
-      "segmentStart": "Te pongo uno para probar.",
-      "gotIt": "Entendido",
-      "repeat": "Repetir",
-      "preparing": "Preparando...",
-      "skip": "Saltar guía"
-    },
-    "practicePriming": {
-      "eyebrow": "Siguiente clip",
-      "keywords": "Palabras de preparación",
-      "swipeHint": "Desliza hacia arriba para cambiar",
-      "holdHint": "Mantén para pausar · toca para empezar",
-      "paused": "Pausado"
     }
   },
   "french": {
@@ -2899,7 +2767,7 @@
       "greeting": "Bonjour, Learner",
       "listenedCount": "{count} extraits écoutés",
       "noInterests": "Aucun intérêt choisi pour le moment",
-      "continueListening": "Browse clips",
+      "continueListening": "Continuer à écouter",
       "savedClips": "Clips enregistrés",
       "practice": "Pratique IA",
       "vocab": "Vocabulaire",
@@ -3084,8 +2952,7 @@
       "previewFeedbackChecked": "Réponse vérifiée",
       "answerCorrectTitle": "Correct",
       "answerIncorrectTitle": "Presque",
-      "correctAnswerLabel": "Bonne réponse : {answer}",
-      "backToFlow": "Back to clips"
+      "correctAnswerLabel": "Bonne réponse : {answer}"
     },
     "startScreen": {
       "preparingContent": "Préparation du contenu pour vous...",
@@ -3126,27 +2993,6 @@
       "vocabBody": "Les mots enregistrés restent ici pour plus tard. Ce n'est pas la tâche principale.",
       "practiceTitle": "Practice sert à aller plus loin",
       "practiceBody": "Utilisez Practice quand vous voulez vraiment comprendre un clip, pas chaque clip."
-    },
-    "launchDemo": {
-      "eyebrow": "Quick walkthrough",
-      "title": "How this practice flow works",
-      "segmentIntro": "Hi · let me quickly walk you through the flow.",
-      "segmentPriming": "Before entering a clip, you will see a priming screen · it warms you up first.",
-      "segmentFlow": "Then it goes Chinese → English → blanks → blind listening → summary. There will be a few questions along the way.",
-      "segmentWords": "When you hit a word you do not know, tap it → add it to Vocab. It will shape later recommendations.",
-      "segmentMenu": "The menu is where you can browse clips, review saved clips, check vocab, and change preferences.",
-      "segmentStart": "Let me give you one to try first.",
-      "gotIt": "Got it",
-      "repeat": "Say that again",
-      "preparing": "Preparing...",
-      "skip": "Skip walkthrough"
-    },
-    "practicePriming": {
-      "eyebrow": "Up next",
-      "keywords": "Warm-up words",
-      "swipeHint": "Swipe up to switch clips",
-      "holdHint": "Hold to pause · tap to start now",
-      "paused": "Paused"
     }
   },
   "brazilian_portuguese": {
@@ -3349,7 +3195,7 @@
       "greeting": "Olá, Learner",
       "listenedCount": "{count} clipes ouvidos",
       "noInterests": "Ainda não há interesses escolhidos",
-      "continueListening": "Browse clips",
+      "continueListening": "Continuar ouvindo",
       "savedClips": "Clipes salvos",
       "practice": "Prática com IA",
       "vocab": "Vocabulário",
@@ -3534,8 +3380,7 @@
       "previewFeedbackChecked": "Resposta conferida",
       "answerCorrectTitle": "Correto",
       "answerIncorrectTitle": "Quase lá",
-      "correctAnswerLabel": "Resposta correta: {answer}",
-      "backToFlow": "Back to clips"
+      "correctAnswerLabel": "Resposta correta: {answer}"
     },
     "startScreen": {
       "preparingContent": "Preparando conteúdo para você...",
@@ -3576,27 +3421,6 @@
       "vocabBody": "As palavras salvas ficam aqui para você rever depois. Não é a tarefa principal.",
       "practiceTitle": "Practice é para aprofundar",
       "practiceBody": "Use Practice quando quiser entender um clip por completo, não todos os clips."
-    },
-    "launchDemo": {
-      "eyebrow": "Quick walkthrough",
-      "title": "How this practice flow works",
-      "segmentIntro": "Hi · let me quickly walk you through the flow.",
-      "segmentPriming": "Before entering a clip, you will see a priming screen · it warms you up first.",
-      "segmentFlow": "Then it goes Chinese → English → blanks → blind listening → summary. There will be a few questions along the way.",
-      "segmentWords": "When you hit a word you do not know, tap it → add it to Vocab. It will shape later recommendations.",
-      "segmentMenu": "The menu is where you can browse clips, review saved clips, check vocab, and change preferences.",
-      "segmentStart": "Let me give you one to try first.",
-      "gotIt": "Got it",
-      "repeat": "Say that again",
-      "preparing": "Preparing...",
-      "skip": "Skip walkthrough"
-    },
-    "practicePriming": {
-      "eyebrow": "Up next",
-      "keywords": "Warm-up words",
-      "swipeHint": "Swipe up to switch clips",
-      "holdHint": "Hold to pause · tap to start now",
-      "paused": "Paused"
     }
   },
   "italian": {
@@ -3799,7 +3623,7 @@
       "greeting": "Ciao, Learner",
       "listenedCount": "{count} clip ascoltati",
       "noInterests": "Nessun interesse scelto per ora",
-      "continueListening": "Browse clips",
+      "continueListening": "Continua ad ascoltare",
       "savedClips": "Clip salvati",
       "practice": "Pratica IA",
       "vocab": "Vocabolario",
@@ -3984,8 +3808,7 @@
       "previewFeedbackChecked": "Risposta verificata",
       "answerCorrectTitle": "Corretto",
       "answerIncorrectTitle": "Quasi",
-      "correctAnswerLabel": "Risposta corretta: {answer}",
-      "backToFlow": "Back to clips"
+      "correctAnswerLabel": "Risposta corretta: {answer}"
     },
     "startScreen": {
       "preparingContent": "Sto preparando contenuti per te...",
@@ -4026,27 +3849,6 @@
       "vocabBody": "Le parole salvate restano qui per dopo. Non è il compito principale.",
       "practiceTitle": "Practice serve per andare in profondità",
       "practiceBody": "Usa Practice quando vuoi capire davvero un clip, non ogni clip."
-    },
-    "launchDemo": {
-      "eyebrow": "Quick walkthrough",
-      "title": "How this practice flow works",
-      "segmentIntro": "Hi · let me quickly walk you through the flow.",
-      "segmentPriming": "Before entering a clip, you will see a priming screen · it warms you up first.",
-      "segmentFlow": "Then it goes Chinese → English → blanks → blind listening → summary. There will be a few questions along the way.",
-      "segmentWords": "When you hit a word you do not know, tap it → add it to Vocab. It will shape later recommendations.",
-      "segmentMenu": "The menu is where you can browse clips, review saved clips, check vocab, and change preferences.",
-      "segmentStart": "Let me give you one to try first.",
-      "gotIt": "Got it",
-      "repeat": "Say that again",
-      "preparing": "Preparing...",
-      "skip": "Skip walkthrough"
-    },
-    "practicePriming": {
-      "eyebrow": "Up next",
-      "keywords": "Warm-up words",
-      "swipeHint": "Swipe up to switch clips",
-      "holdHint": "Hold to pause · tap to start now",
-      "paused": "Paused"
     }
   },
   "german": {
@@ -4249,7 +4051,7 @@
       "greeting": "Hallo, Learner",
       "listenedCount": "{count} Clips gehört",
       "noInterests": "Noch keine Interessen ausgewählt",
-      "continueListening": "Browse clips",
+      "continueListening": "Weiterhören",
       "savedClips": "Gespeicherte Clips",
       "practice": "KI-Hörübung",
       "vocab": "Vokabeln",
@@ -4434,8 +4236,7 @@
       "previewFeedbackChecked": "Antwort geprüft",
       "answerCorrectTitle": "Richtig",
       "answerIncorrectTitle": "Fast",
-      "correctAnswerLabel": "Richtige Antwort: {answer}",
-      "backToFlow": "Back to clips"
+      "correctAnswerLabel": "Richtige Antwort: {answer}"
     },
     "startScreen": {
       "preparingContent": "Inhalte werden für dich vorbereitet...",
@@ -4476,27 +4277,6 @@
       "vocabBody": "Gespeicherte Wörter bleiben hier für später. Es ist nicht die Hauptaufgabe.",
       "practiceTitle": "Practice ist für Tiefe da",
       "practiceBody": "Nutze Practice, wenn du einen Clip wirklich vollständig verstehen willst, nicht jeden Clip."
-    },
-    "launchDemo": {
-      "eyebrow": "Quick walkthrough",
-      "title": "How this practice flow works",
-      "segmentIntro": "Hi · let me quickly walk you through the flow.",
-      "segmentPriming": "Before entering a clip, you will see a priming screen · it warms you up first.",
-      "segmentFlow": "Then it goes Chinese → English → blanks → blind listening → summary. There will be a few questions along the way.",
-      "segmentWords": "When you hit a word you do not know, tap it → add it to Vocab. It will shape later recommendations.",
-      "segmentMenu": "The menu is where you can browse clips, review saved clips, check vocab, and change preferences.",
-      "segmentStart": "Let me give you one to try first.",
-      "gotIt": "Got it",
-      "repeat": "Say that again",
-      "preparing": "Preparing...",
-      "skip": "Skip walkthrough"
-    },
-    "practicePriming": {
-      "eyebrow": "Up next",
-      "keywords": "Warm-up words",
-      "swipeHint": "Swipe up to switch clips",
-      "holdHint": "Hold to pause · tap to start now",
-      "paused": "Paused"
     }
   }
 }
