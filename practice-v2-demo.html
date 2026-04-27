@@ -287,13 +287,18 @@ body{min-height:100vh;overflow-x:hidden}
  * 数据外置在 ./practice-v2-demo-data.json，避免 HTML 文件膨胀。
  * 题目按 spec 在每条 clip 内做类型差异化（叙事/观点/信息）。
  */
-const CLIP_TYPES = ["叙事", "观点", "信息"];
+let CLIP_TYPES = ["叙事", "观点", "信息"];
 
-const KEYWORDS_PER_CLIP = [
+let KEYWORDS_PER_CLIP = [
   ["Philippines", "McKinley", "1899", "independence", "iron hand"],
   ["Hollywood", "Terminator", "Ex Machina", "Star Trek", "AI"],
   ["Strait of Hormuz", "supply chain", "petrochemicals", "oil", "Odd Lots"]
 ];
+
+/* Split-entry mode (v3): when launched via `?clip=clipNN.mp3`, run as single-clip
+ * chain (length 1) and replace the global-end page with a "返回 feed" exit.
+ * Set after boot() reads the query string. */
+let SINGLE_CLIP_MODE = false;
 
 /* Questions loaded from practice-v2-demo-questions-v2.json at boot (GPT-generated)
  * 旧版硬编码（手写 18 题）已移除；GPT 版 21 题（3 clip × 7 题）在 JSON 中
@@ -574,6 +579,8 @@ function skipCurrentClip(){
 }
 function renderSkipButton(container){
   // 仅在 Stage 0-4 渲染；Stage 5 / end pages 不需要
+  // Split-entry single-clip 模式下没有"下一条"，隐藏入口
+  if(SINGLE_CLIP_MODE) return;
   const s = state.current_stage;
   if(s < 0 || s > 4) return;
   const card = container.querySelector(".stage-card");
@@ -620,6 +627,7 @@ function renderStage0(c){
   const searchQ = encodeURIComponent(`${podName} ${epName}`.trim());
   const appleUrl = `https://podcasts.apple.com/search?term=${searchQ}`;
   const spotifyUrl = `https://open.spotify.com/search/${searchQ}`;
+  // 第一屏：信息卡（标题 / 来源 / 关键词 / 提示），无题目
   const card = el("div","stage-card");
   card.innerHTML = `
     <div class="stage-title">阶段 0 · 预听 — Clip ${state.current_clip_index+1}/${CLIPS.length}（${CLIP_TYPES[state.current_clip_index]}类）</div>
@@ -633,10 +641,19 @@ function renderStage0(c){
     <div class="keyword-chips">
       ${KEYWORDS_PER_CLIP[state.current_clip_index].map(k=>`<span class="keyword-chip">${esc(k)}</span>`).join("")}
     </div>
-    <p style="color:var(--text-dim);font-size:13px;margin-bottom:18px">先看标题和关键词，用 10-15 秒猜一下这段在讲什么。</p>
+    <p style="color:var(--text-dim);font-size:13px;margin:18px 0 22px">先看标题和关键词，用 10-15 秒猜一下这段在讲什么。</p>
+    <div class="attr-cta" style="margin-top:8px">
+      <button class="cta-primary" id="s0-go">开始预测 →</button>
+    </div>
   `;
   c.appendChild(card);
-  showQuestionsInline(c, getQuestions(0), ()=> nextStage());
+  card.querySelector("#s0-go").addEventListener("click", ()=>{
+    // 进入第二屏 — 仅渲染问题（清屏）
+    showQuestionsAsScreen(c, getQuestions(0), ()=> nextStage(), {
+      kicker: `阶段 0 · 预听`,
+      hint: "选一个你觉得最可能的方向，对错都算数据"
+    });
+  });
 }
 
 /* ---- Stage 1 ---- */
@@ -661,7 +678,7 @@ function renderStage1(c){
   setupAudio({
     allowPause:false,
     onTimeUpdate:(t)=>{ fill.style.width = Math.min(100,(t/clipDuration())*100)+"%"; highlightLine(sub, t); },
-    onEnded:()=>{ showQuestionsInline(c, getQuestions(1), ()=> nextStage()); }
+    onEnded:()=>{ showQuestionsAsScreen(c, getQuestions(1), ()=> nextStage(), { kicker: "阶段 1 · 主旨题", hint: "听完之后，挑一个最贴近的解读" }); }
   });
   playFresh();
 }
@@ -720,8 +737,7 @@ function renderStage2(c){
     onEnded:()=>{
       pp.textContent="▶"; pp.disabled = true; back3.disabled = true;
       detachAudioListeners();
-      card.querySelector(".audio-locked-note").textContent = "这段结束 · 答完下面 2 道题进入下一阶段";
-      showQuestionsInline(c, getQuestions(2), ()=> nextStage());
+      showQuestionsAsScreen(c, getQuestions(2), ()=> nextStage(), { kicker: "阶段 2 · 解码题", hint: "答完 2 道题进入下一阶段" });
     }
   });
   playFresh();
@@ -770,8 +786,7 @@ function renderStage3(c){
     onEnded:()=>{
       pp.textContent="▶"; pp.disabled = true; back3.disabled = true;
       detachAudioListeners();
-      card.querySelector(".audio-locked-note").textContent = "这段结束 · 答完下面 2-3 道题进入下一阶段";
-      showQuestionsInline(c, getQuestions(3), ()=> nextStage());
+      showQuestionsAsScreen(c, getQuestions(3), ()=> nextStage(), { kicker: "阶段 3 · 渐隐题", hint: "实词靠你脑补 · 答完 2-3 道题进入下一阶段" });
     }
   });
   playFresh();
@@ -888,7 +903,7 @@ function renderS4Attribution(card){
     phase.innerHTML = `
       <div class="attr-step2">
         <div class="attr-q">点一下有生词的句子，告诉系统是哪些词</div>
-        <div class="attr-sub">点句子展开 → B2+ 词变成 chip → 点词选中　·　可以多选</div>
+        <div class="attr-sub">点句子展开 → 任何词都能选，B1+ 词带难度标　·　可以多选</div>
         <div id="vocab-pick-list"></div>
         <div class="attr-cta">
           <button class="cta-primary" id="vp-done" disabled>完成</button>
@@ -925,16 +940,18 @@ function renderS4Attribution(card){
           playSentence(sidx, row);
         });
         row.appendChild(head);
-        // Word picker (when expanded)
+        // Word picker (when expanded) — 所有词可选，B1+ 显示难度标
         if(activeIdx === sidx){
           const picker = el("div","vp-words");
-          const b2plus = ln.words.filter(w => w.cefr === "B2" || w.cefr === "C1" || w.cefr === "C2");
-          if(b2plus.length === 0){
-            picker.innerHTML = `<span class="vp-empty">这句没有 B2+ 的词，换一句试试</span>`;
+          const allWords = (ln.words || []).filter(w => w.word && /[a-zA-Z]/.test(w.word));
+          if(allWords.length === 0){
+            picker.innerHTML = `<span class="vp-empty">这句没有可选的词</span>`;
           } else {
-            picker.innerHTML = b2plus.map(w=>{
+            picker.innerHTML = allWords.map(w=>{
               const sel = wordPicks.some(p => p.sentence_id === sidx && p.word === w.word) ? "selected" : "";
-              return `<button class="vp-word ${sel}" data-word="${esc(w.word)}" data-cefr="${w.cefr}">${esc(w.word)}<span class="vp-cefr">${w.cefr}</span></button>`;
+              const cefrTag = (w.cefr === "B1" || w.cefr === "B2" || w.cefr === "C1" || w.cefr === "C2")
+                ? `<span class="vp-cefr">${w.cefr}</span>` : "";
+              return `<button class="vp-word ${sel}" data-word="${esc(w.word)}" data-cefr="${w.cefr || ''}">${esc(w.word)}${cefrTag}</button>`;
             }).join("");
             picker.querySelectorAll(".vp-word").forEach(btn=>{
               btn.addEventListener("click", ()=>{
@@ -991,11 +1008,26 @@ function playSentence(idx, rowEl){
   setTimeout(()=>{ if(rowEl) rowEl.classList.remove("playing"); }, (ln.end - ln.start)*1000 + 200);
 }
 
-/* ---- Stage 5 (vocab review) ----
+/* ---- Stage 5 (词汇消费 → 生词本) ----
  * 词来源优先级：
  *   1. 用户在 Stage 4 第二步亲自点选的 vocab_picked（user-picked，最高优先）
  *   2. 兜底：从 CURRENT_SENTS 中筛 CEFR ≥ C1 的词，去重选 3-5 个
+ *
+ * 消费动作：每个词两个选择
+ *   - 「记住了」 → 标 status=learned，写入生词本
+ *   - 「再练一遍」 → 标 status=review，写入生词本（待下次复习）
+ *   全部消费完 → goToStage(6) (single-clip end)
  */
+const VOCAB_BOOK_KEY = "flipodVocabBook";
+function pushToVocabBook(entry){
+  try{
+    const book = JSON.parse(localStorage.getItem(VOCAB_BOOK_KEY) || "[]");
+    // 同词覆盖（保留最新的 status）
+    const i = book.findIndex(x => x.word.toLowerCase() === entry.word.toLowerCase());
+    if(i >= 0) book[i] = entry; else book.push(entry);
+    localStorage.setItem(VOCAB_BOOK_KEY, JSON.stringify(book));
+  }catch(e){}
+}
 function renderStage5(c){
   const card = el("div","stage-card");
   const r = curResult();
@@ -1003,7 +1035,6 @@ function renderStage5(c){
 
   let picked = [];
   if(r.vocab_picked.length > 0){
-    // Use user-picked words; rebuild full word objects from sentences
     r.vocab_picked.forEach(({word, sentence_id})=>{
       const sent = CURRENT_SENTS[sentence_id];
       if(!sent) return;
@@ -1012,7 +1043,6 @@ function renderStage5(c){
     });
   }
   if(picked.length === 0){
-    // Fallback: CEFR auto-pick
     const pool = [];
     CURRENT_SENTS.forEach((ln, sidx)=>{
       ln.words.forEach(w=>{
@@ -1029,39 +1059,60 @@ function renderStage5(c){
       if(picked.length >= 5) break;
     }
   }
+  // 每词的消费状态：null=未消费, "learned"=记住了, "review"=再练
+  const consumed = new Array(picked.length).fill(null);
   let cur = 0;
+
   card.innerHTML = `
-    <div class="stage-title">阶段 5 · 词汇复习</div>
+    <div class="stage-title">阶段 5 · 词汇消费 → 生词本</div>
     <div class="stage-headline">${esc(sourceLabel)}</div>
     <div id="vocab-slot"></div>
     <div class="vocab-pager">
       <div class="vocab-counter" id="v-counter"></div>
-      <div class="vocab-pager-btns">
-        <button id="v-prev">上一个</button>
-        <button id="v-next">下一个</button>
-      </div>
     </div>
-    <div class="attr-cta">
-      <button class="cta-secondary" id="v-skip">跳过 → 本 clip 结束</button>
-    </div>
+    <div class="attr-cta" id="v-actions"></div>
   `;
   c.appendChild(card);
+
+  function commitAndExit(){
+    // 把所有 picked 词写入生词本（带 status + 上下文）
+    const now = new Date().toISOString();
+    const clipAudio = curClip().audio;
+    picked.forEach((w, i)=>{
+      const ln = CURRENT_SENTS[w.sentence_idx];
+      pushToVocabBook({
+        word: w.word,
+        cefr: w.cefr || "",
+        sentence_en: ln?.en || "",
+        sentence_zh: ln?.zh || "",
+        clip_audio: clipAudio,
+        status: consumed[i] || "review",   // 没决定的默认 review
+        committed_at: now
+      });
+    });
+    goToStage(6);
+  }
 
   function renderOne(){
     const w = picked[cur];
     const ln = CURRENT_SENTS[w.sentence_idx];
     const slot = card.querySelector("#vocab-slot");
+    const actions = card.querySelector("#v-actions");
+    const cefrTag = w.cefr ? `<span class="vocab-cefr">${w.cefr}</span>` : "";
     slot.innerHTML = `
       <div class="vocab-card">
-        <div class="vocab-word">${esc(w.word)}<span class="vocab-cefr">${w.cefr}</span></div>
+        <div class="vocab-word">${esc(w.word)}${cefrTag}</div>
         <div class="vocab-zh empty">释义暂缺（demo 不接 GPT 兜底，按 PRD §4.5）</div>
         <div class="vocab-example">${esc(ln.en)}<br><span style="color:var(--text-faint);font-size:12px">${esc(ln.zh)}</span></div>
         <button class="vocab-listen" id="v-listen">🔊 听这个词</button>
       </div>
     `;
-    card.querySelector("#v-counter").textContent = `${cur+1} / ${picked.length}`;
-    card.querySelector("#v-prev").disabled = cur === 0;
-    card.querySelector("#v-next").textContent = (cur === picked.length-1) ? "完成 → 本 clip 结束" : "下一个";
+    card.querySelector("#v-counter").textContent =
+      `${cur+1} / ${picked.length}　·　已消费 ${consumed.filter(Boolean).length} / ${picked.length}`;
+    actions.innerHTML = `
+      <button class="cta-primary" id="v-learned">✓ 记住了</button>
+      <button class="cta-secondary" id="v-review">↻ 再练一遍</button>
+    `;
     card.querySelector("#v-listen").addEventListener("click", ()=>{
       const a = ensureAudio();
       detachAudioListeners();
@@ -1072,21 +1123,36 @@ function renderStage5(c){
       a.currentTime = start;
       a.play().catch(()=>{});
     });
+    actions.querySelector("#v-learned").addEventListener("click", ()=>{
+      consumed[cur] = "learned";
+      advance();
+    });
+    actions.querySelector("#v-review").addEventListener("click", ()=>{
+      consumed[cur] = "review";
+      advance();
+    });
+  }
+
+  function advance(){
+    // 跳到下一个未消费的词；若都消费完 → commit & exit
+    const nextUnconsumed = consumed.findIndex((s, i) => !s && i !== cur);
+    const remaining = consumed.filter(s => !s).length;
+    if(remaining === 0){
+      commitAndExit();
+      return;
+    }
+    if(cur < picked.length - 1) cur += 1; else cur = nextUnconsumed >= 0 ? nextUnconsumed : 0;
+    renderOne();
   }
 
   if(picked.length === 0){
     card.querySelector("#vocab-slot").innerHTML = `<p style="color:var(--text-dim);text-align:center;padding:24px">本 clip 没有 C1+ 词，跳过此阶段。</p>`;
     card.querySelector(".vocab-pager").style.display = "none";
-    card.querySelector("#v-skip").textContent = "继续 → 本 clip 结束";
+    card.querySelector("#v-actions").innerHTML = `<button class="cta-secondary" id="v-skip">继续 → 本 clip 结束</button>`;
+    card.querySelector("#v-skip").addEventListener("click", ()=> goToStage(6));
   } else {
     renderOne();
   }
-  card.querySelector("#v-prev").addEventListener("click", ()=>{ if(cur>0){ cur--; renderOne(); } });
-  card.querySelector("#v-next").addEventListener("click", ()=>{
-    if(cur === picked.length-1){ goToStage(6); }
-    else { cur++; renderOne(); }
-  });
-  card.querySelector("#v-skip").addEventListener("click", ()=>{ goToStage(6); });
 }
 
 /* Helper: 统一遍历 quiz_results（新 schema） */
@@ -1147,11 +1213,19 @@ function renderSingleClipEnd(c){
       <div style="color:var(--text);font-size:14px;margin-bottom:14px">${r.vocab_picked.map(v=>esc(v.word)).join("　·　")}</div>
     ` : ""}
     <div class="end-cta">
-      <button class="cta-primary" id="next-btn">${isLastClip() ? "查看总结 →" : "继续下一条 →"}</button>
+      <button class="cta-primary" id="next-btn">${SINGLE_CLIP_MODE ? "完成 · 返回" : (isLastClip() ? "查看总结 →" : "继续下一条 →")}</button>
     </div>
   `;
   c.appendChild(card);
-  card.querySelector("#next-btn").addEventListener("click", ()=> nextClip());
+  card.querySelector("#next-btn").addEventListener("click", ()=>{
+    if(SINGLE_CLIP_MODE){
+      try{ pushCompleted(); }catch(e){}
+      try{ if(audio){ audio.pause(); } }catch(e){}
+      history.back();
+      return;
+    }
+    nextClip();
+  });
 }
 
 /* ---- Global end page ---- */
@@ -1344,6 +1418,19 @@ function renderGlobalEnd(c){
 function getQuestions(stageIdx){
   return QUESTIONS_PER_CLIP[state.current_clip_index].filter(q => q.stage === stageIdx);
 }
+/* 把题目放到独立第二屏：清空当前 stage 容器，套一个 kicker + 提示，然后调 inline 版渲染 */
+function showQuestionsAsScreen(container, qs, onAllDone, opts){
+  opts = opts || {};
+  container.innerHTML = "";
+  const card = el("div","stage-card");
+  card.innerHTML = `
+    ${opts.kicker ? `<div class="stage-title">${esc(opts.kicker)}</div>` : ""}
+    ${opts.hint ? `<p style="color:var(--text-dim);font-size:13px;margin-bottom:8px">${esc(opts.hint)}</p>` : ""}
+  `;
+  container.appendChild(card);
+  showQuestionsInline(card, qs, onAllDone);
+}
+
 function showQuestionsInline(container, qs, onAllDone){
   const wrap = el("div","");
   wrap.style.marginTop = "20px";
@@ -1519,6 +1606,29 @@ function highlightLine(sub, t){
   }
 }
 
+/* Split-entry close button (only mounted in SINGLE_CLIP_MODE) */
+function mountSingleClipCloseBtn(){
+  if(document.getElementById("split-close-btn")) return;
+  const btn = document.createElement("button");
+  btn.id = "split-close-btn";
+  btn.type = "button";
+  btn.setAttribute("aria-label", "关闭，返回");
+  btn.innerHTML = "×";
+  Object.assign(btn.style, {
+    position:"fixed", top:"10px", right:"12px", width:"34px", height:"34px",
+    background:"rgba(20,20,30,0.72)", color:"var(--text)",
+    border:"1px solid var(--border)", borderRadius:"17px",
+    fontSize:"22px", lineHeight:"1", cursor:"pointer", zIndex:"999",
+    display:"flex", alignItems:"center", justifyContent:"center",
+    backdropFilter:"blur(6px)", webkitBackdropFilter:"blur(6px)"
+  });
+  btn.addEventListener("click", ()=>{
+    try{ if(audio){ audio.pause(); } }catch(e){}
+    history.back();
+  });
+  document.body.appendChild(btn);
+}
+
 /* ---------- 13. Init ---------- */
 async function boot(){
   try{
@@ -1549,6 +1659,21 @@ async function boot(){
     if(QUESTIONS_PER_CLIP.some(x => !Array.isArray(x) || x.length === 0)){
       throw new Error("questions JSON missing data for one or more clips");
     }
+
+    // Split-entry: 若 URL 带 ?clip=clipNN.mp3 则裁到单条 chain
+    const qClip = new URLSearchParams(location.search).get("clip");
+    if(qClip){
+      const target = qClip.replace(/^.*\//, "");  // 容忍 "clip76.mp3" 或 "clips/clip76.mp3"
+      const idx = CLIPS.findIndex(c => c.audio.replace(/^.*\//, "") === target);
+      if(idx < 0) throw new Error("clip not found: " + qClip);
+      SINGLE_CLIP_MODE = true;
+      CLIPS = [CLIPS[idx]];
+      KEYWORDS_PER_CLIP = [KEYWORDS_PER_CLIP[idx]];
+      CLIP_TYPES = [CLIP_TYPES[idx]];
+      QUESTIONS_PER_CLIP = [QUESTIONS_PER_CLIP[idx]];
+      mountSingleClipCloseBtn();
+    }
+
     // PRD §12.1 — every page load resets
     clearSession();
     state = freshState();

@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Flipod v3 · Split Entry Demo</title>
+<style>
+  /* 与 jp_test/mobile/src/theme.ts 的 darkColors 对齐 */
+  :root {
+    --bg-app: #0C0C0E;
+    --bg-surface-1: rgba(255,255,255,0.05);
+    --bg-surface-2: rgba(255,255,255,0.06);
+    --bg-surface-3: rgba(255,255,255,0.10);
+    --text-primary: rgba(255,255,255,0.87);
+    --text-secondary: rgba(255,255,255,0.55);
+    --text-tertiary: rgba(255,255,255,0.30);
+    --text-faint: rgba(255,255,255,0.15);
+    --stroke: rgba(255,255,255,0.05);
+    --stroke-strong: rgba(255,255,255,0.14);
+    --text-on-accent: #09090B;
+    --accent-feed: #8B9CF7;
+    --accent-practice: #A855F7;
+    --accent-gold: #C4A96E;
+    --heart: #ff4466;
+    --bookmark: #ffc34d;
+    --word-dim: rgba(255,255,255,0.20);
+    --word-spoken: rgba(255,255,255,0.93);
+    --word-active: #8B9CF7;
+    --cefr-a:  rgba(255,255,255,0.87);
+    --cefr-b1: #7AAFC4;
+    --cefr-b2: #C4A96E;
+    --cefr-c1: #C47A6E;
+    --cefr-c2: #C97BDB;
+    --progress-bg: rgba(255,255,255,0.15);
+    --progress-fill: #8B9CF7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%;
+    background: var(--bg-app);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", sans-serif;
+    overflow: hidden;
+  }
+  #app {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    max-width: 480px;
+    margin: 0 auto;
+    overflow: hidden;
+  }
+  button { font-family: inherit; cursor: pointer; background: transparent; border: none; color: inherit; }
+
+  .page {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 18px 20px 28px;
+    gap: 8px;
+    transition: transform 0.32s cubic-bezier(.2,.8,.2,1), opacity 0.32s ease;
+  }
+  .page.enter-up   { transform: translateY(100%); opacity: 0.6; }
+  .page.enter-down { transform: translateY(-100%); opacity: 0.6; }
+  .page.exit-up    { transform: translateY(-100%); opacity: 0; }
+  .page.exit-down  { transform: translateY(100%); opacity: 0; }
+
+  /* ============ 顶部 header (clipTitle + clipSource) ============ */
+  .header-block { display: flex; flex-direction: column; gap: 18px; }
+  .status-row {
+    display: flex; align-items: center; justify-content: space-between;
+    min-height: 32px;
+  }
+  .status-row-spacer { flex: 1; }
+  .status-cluster-right {
+    display: flex; align-items: center; gap: 4px;
+  }
+  .icon-btn {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-secondary);
+    background: transparent; border: none;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .icon-btn:hover { color: var(--text-primary); }
+  .icon-btn svg { width: 20px; height: 20px; }
+  .icon-btn.heart-on { color: var(--heart); }
+  .icon-btn.bookmark-on { color: var(--bookmark); }
+  .header-copy {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 6px;
+    padding: 0 16px;
+  }
+  .clip-source {
+    color: var(--text-tertiary);
+    font-size: 11px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .clip-title {
+    color: var(--text-primary);
+    font-size: 17px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.4;
+    letter-spacing: -0.1px;
+  }
+
+  /* ============ 内容舞台 (居中 sentence，无侧栏，给字幕大量呼吸感) ============ */
+  .content-stage {
+    flex: 1 1 auto;
+    min-height: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 20px 0 12px;
+  }
+
+  /* 拆开听 chip：放在 utility row 右端，target 图标 + 文字 */
+  .deep-pill {
+    display: flex; align-items: center; gap: 6px;
+    height: 40px;
+    padding: 0 14px;
+    border-radius: 999px;
+    background: var(--bg-surface-1);
+    border: 1px solid var(--stroke-strong);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .deep-pill:hover {
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+  }
+  .deep-pill:active {
+    background: var(--bg-surface-3);
+    color: var(--text-primary);
+    border-color: var(--accent-feed);
+  }
+  .deep-pill svg { width: 16px; height: 16px; }
+
+  .line-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 0 16px;
+  }
+
+  /* WordLine: container has wordRow flex wrap centered */
+  .word-line {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    column-gap: 6px;
+    row-gap: 0;
+    transition: opacity 0.18s ease;
+    max-width: 100%;
+  }
+  .word-line.fade { opacity: 0.18; }
+  .word-line .w {
+    font-size: 22px;
+    line-height: 33px;
+    font-weight: 400;
+    text-align: center;
+    color: var(--word-dim);
+    transition: color 0.12s ease;
+    cursor: pointer;
+  }
+  /* spoken 词：基础 → CEFR 染色；B1+ 加粗 */
+  .word-line .w.spoken { color: var(--word-spoken); }
+  .word-line .w.spoken[data-cefr="A1"],
+  .word-line .w.spoken[data-cefr="A2"] { color: var(--cefr-a); }
+  .word-line .w.spoken[data-cefr="B1"] { color: var(--cefr-b1); font-weight: 700; }
+  .word-line .w.spoken[data-cefr="B2"] { color: var(--cefr-b2); font-weight: 700; }
+  .word-line .w.spoken[data-cefr="C1"] { color: var(--cefr-c1); font-weight: 700; }
+  .word-line .w.spoken[data-cefr="C2"] { color: var(--cefr-c2); font-weight: 700; }
+  .word-line .w.active { color: var(--word-active); }
+
+  .zh-line {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 20px;
+    text-align: center;
+    min-height: 20px;
+    max-width: 320px;
+    display: none;
+  }
+  .zh-line.show { display: block; }
+
+  /* zh 折叠时：translationBar (190x8 pill) — 视觉占位 */
+  .translation-bar {
+    width: 190px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--bg-surface-2);
+    margin-top: 6px;
+  }
+
+  /* ============ 控制区 (transport + progress + utility) ============ */
+  .controls-wrap {
+    display: flex; flex-direction: column;
+    gap: 16px;
+    margin-top: 12px;
+  }
+  /* utility row 现在分两端：左 zh/speed，右 拆开听 */
+  .utility-row {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px;
+    padding: 0 2px;
+  }
+  .utility-row-left { display: flex; gap: 10px; align-items: center; }
+  .utility-row-right { display: flex; gap: 10px; align-items: center; }
+  .utility-btn {
+    min-width: 48px; min-height: 40px;
+    border-radius: 999px;
+    background: var(--bg-surface-1);
+    border: 1px solid var(--stroke);
+    padding: 6px 12px;
+    color: var(--text-tertiary);
+    font-size: 14px;
+    font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .utility-btn.on {
+    background: var(--bg-surface-2);
+    border-color: var(--stroke-strong);
+    color: var(--text-primary);
+  }
+  /* 谷歌翻译图标（文 / A 双卡片） */
+  .translate-icon { position: relative; width: 22px; height: 18px; }
+  .translate-icon .card {
+    position: absolute;
+    width: 13px; height: 13px;
+    border-radius: 4px;
+    border: 1px solid var(--text-tertiary);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    color: var(--text-tertiary);
+  }
+  .translate-icon .card.back  { left: 0; bottom: 0; background: var(--bg-app);     font-size: 7px; }
+  .translate-icon .card.front { right: 0; top: 0;   background: var(--bg-surface-1); font-size: 8px; }
+  .utility-btn.on .translate-icon .card { border-color: var(--text-primary); color: var(--text-primary); }
+
+  /* Player area：transport 居中 + 右侧 L-镜像 (心/收藏竖排在上、字幕/倍速横排在下) */
+  .transport-row {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 96px;
+    padding: 0 4px;
+  }
+  .transport-row .transport-cluster {
+    display: flex; align-items: center; gap: 20px;
+  }
+  .side-tools {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-rows: auto auto auto;
+    gap: 6px 8px;
+    align-items: center;
+    justify-items: end;
+  }
+  .side-tools .st-heart { grid-row: 1; grid-column: 2; }
+  .side-tools .st-bookmark { grid-row: 2; grid-column: 2; }
+  .side-tools .st-utility {
+    grid-row: 3;
+    grid-column: 1 / 3;
+    display: flex; gap: 8px; justify-content: flex-end;
+  }
+  .transport-btn {
+    width: 42px; height: 42px;
+    border-radius: 999px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-secondary);
+  }
+  .transport-btn:disabled { opacity: 0.45; pointer-events: none; }
+  .transport-btn svg { width: 20px; height: 20px; }
+  .transport-btn.primary {
+    width: 58px; height: 58px;
+    background: var(--accent-feed);
+    color: var(--text-on-accent);
+  }
+  .transport-btn.primary svg { width: 26px; height: 26px; }
+
+  .progress-section { display: flex; flex-direction: column; gap: 2px; }
+  .progress-track {
+    position: relative;
+    width: 100%; height: 22px;
+    cursor: pointer;
+  }
+  .progress-rail {
+    position: absolute; top: 9px; left: 0; right: 0; height: 4px;
+    border-radius: 999px;
+    background: var(--progress-bg);
+  }
+  .progress-fill {
+    position: absolute; top: 9px; left: 0; height: 4px;
+    border-radius: 999px;
+    background: var(--progress-fill);
+    width: 0%;
+  }
+  .progress-thumb {
+    position: absolute; top: 6px;
+    width: 10px; height: 10px; border-radius: 999px;
+    margin-left: -5px;
+    background: var(--text-primary);
+    left: 0%;
+  }
+  .time-row {
+    display: flex; justify-content: space-between;
+  }
+  .time-text {
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+
+  /* swipe hint，4s 后淡出 */
+  .swipe-hint {
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    color: var(--text-tertiary);
+    font-size: 11px;
+    z-index: 4;
+    opacity: 0.7;
+    transition: opacity 0.5s;
+    pointer-events: none;
+  }
+  .swipe-hint.fade { opacity: 0; }
+
+  .boot-fail {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center; color: var(--text-secondary);
+    padding: 20px; font-size: 13px; line-height: 1.6;
+  }
+  .boot-fail code {
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    padding: 2px 6px; border-radius: 4px;
+    font-size: 12px;
+  }
+
+  /* ============ 菜单抽屉 ============ */
+  .menu-overlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 80;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+  }
+  .menu-overlay.open { opacity: 1; pointer-events: auto; }
+  /* hamburger 在左上 → drawer 从左侧滑入（拇指/视线一致） */
+  .menu-drawer {
+    position: absolute; top: 0; left: 0; bottom: 0;
+    width: 78%; max-width: 320px;
+    background: var(--bg-app);
+    border-right: 1px solid var(--stroke);
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(.2,.8,.2,1);
+    display: flex; flex-direction: column;
+    padding: 20px 0 24px;
+    z-index: 81;
+  }
+  .menu-overlay.open .menu-drawer { transform: translateX(0); }
+  .menu-close {
+    position: absolute; top: 14px; left: 14px;
+    background: transparent; border: none;
+    color: var(--text-secondary);
+    font-size: 22px; line-height: 1;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .menu-header {
+    padding: 6px 22px 18px 56px;
+    border-bottom: 1px solid var(--stroke);
+    margin-bottom: 8px;
+  }
+  .menu-greeting {
+    color: var(--text-primary);
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .menu-meta {
+    color: var(--text-tertiary);
+    font-size: 11px;
+    letter-spacing: 0.3px;
+  }
+  .menu-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 22px;
+    background: transparent; border: none;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left;
+    width: 100%;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .menu-item:hover { background: var(--bg-surface-1); }
+  .menu-item:active { background: var(--bg-surface-2); }
+  .menu-item .mi-icon {
+    width: 22px; height: 22px;
+    color: var(--text-secondary);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .menu-item .mi-icon svg { width: 22px; height: 22px; }
+  .menu-item .mi-label { flex: 1; }
+  .menu-item .mi-badge {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    background: var(--bg-surface-2);
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+
+  /* ============ 生词本面板（菜单内推一层 push view） ============ */
+  .vocab-panel {
+    position: absolute; inset: 0;
+    background: var(--bg-app);
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(.2,.8,.2,1);
+    display: flex; flex-direction: column;
+    z-index: 82;
+  }
+  .vocab-panel.open { transform: translateX(0); }
+  .vocab-panel-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 18px 18px 12px;
+    border-bottom: 1px solid var(--stroke);
+  }
+  .vocab-back {
+    background: transparent; border: none;
+    color: var(--text-secondary);
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .vocab-back svg { width: 18px; height: 18px; }
+  .vocab-panel-title {
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 700;
+    flex: 1;
+  }
+  .vocab-panel-meta {
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .vocab-list {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 8px 0 24px;
+  }
+  .vocab-list::-webkit-scrollbar { display: none; }
+  .vocab-entry {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--stroke);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .vocab-entry-head {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .vocab-entry-word {
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 700;
+    flex: 1;
+  }
+  .vocab-entry-cefr {
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--bg-surface-2);
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .vocab-entry-status {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.3px;
+  }
+  .vocab-entry-status.learned {
+    color: #22C55E;
+    background: rgba(34,197,94,0.10);
+  }
+  .vocab-entry-status.review {
+    color: #F97316;
+    background: rgba(249,115,22,0.10);
+  }
+  .vocab-entry-en {
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .vocab-entry-zh {
+    color: var(--text-tertiary);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .vocab-empty {
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 13px;
+    line-height: 1.6;
+    padding: 60px 30px;
+  }
+</style>
+</head>
+<body>
+<div id="app"><div class="boot-fail">加载 clip 数据中…</div></div>
+
+<script>
+/* ============================================================================
+ * Flipod v3 · Split Entry Demo
+ *   首屏 = 卡片 feed，无 OB / 无智能体引导
+ *   视觉与字幕渲染照搬 jp_test 的 mobile/src/screens/FeedScreen.tsx +
+ *     mobile/src/components/WordLine.tsx + PlayerControls.tsx
+ *   每张卡片埋一个低调"拆开听"入口（侧栏第三个图标）→ practice-v2-demo.html?clip=
+ * ============================================================================ */
+
+const FEED_IDX_KEY = "flipodV3FeedIdx";
+const SPEED_OPTIONS = [0.75, 1, 1.25, 1.5, 2];
+
+let CLIPS = null;
+let currentIndex = 0;
+
+// 当前卡的运行态（per-card scope，renderCard 重置）
+let cardState = null;
+
+function esc(s){
+  return String(s||"").replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtTime(ms){
+  const t = (ms || 0) / 1000;
+  if(!isFinite(t) || t < 0) return "0:00";
+  const m = Math.floor(t/60);
+  const s = Math.floor(t%60);
+  return `${m}:${String(s).padStart(2,"0")}`;
+}
+
+/* ---- icons (与 RN 版的 Ionicons / Feather 视觉一致) ---- */
+function iconHelp(){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+}
+function iconMenu(){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7"  x2="20" y2="7"/><line x1="4" y1="13" x2="20" y2="13"/><line x1="4" y1="19" x2="14" y2="19"/></svg>';
+}
+function iconBack(){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+}
+function iconBook(){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>';
+}
+function iconCompass(){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>';
+}
+function iconStar(){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 8.5 22 9.3 17 14 18.5 21 12 17.5 5.5 21 7 14 2 9.3 9 8.5 12 2"/></svg>';
+}
+function iconSettings(){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+}
+function iconHeart(filled){
+  if(filled) return '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
+}
+function iconBookmark(filled){
+  if(filled) return '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
+}
+function iconDeep(){
+  // 同心圆 target — "聚焦深练" 语义，避免被误读为 search/help
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>';
+}
+function iconRewind(){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
+}
+function iconForward(){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
+}
+function iconPlay(){
+  return '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>';
+}
+function iconPause(){
+  return '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+}
+function iconTranslate(active){
+  return `<span class="translate-icon"><span class="card back">文</span><span class="card front">A</span></span>`;
+}
+
+/* ---- WordLine 渲染（照搬 RN WordLine.tsx 的 restorePunctuation + spokenWordStyle） ---- */
+function restorePunctuation(words, fullText){
+  let searchPos = 0;
+  return words.map(w => {
+    const bare = (w.word || "").trim();
+    const idx = fullText.toLowerCase().indexOf(bare.toLowerCase(), searchPos);
+    let trailing = "";
+    if(idx >= 0){
+      const after = idx + bare.length;
+      searchPos = after;
+      const m = fullText.slice(after).match(/^([^a-zA-Z0-9\s]*)/);
+      if(m && m[1]) trailing = m[1];
+    }
+    return Object.assign({}, w, { display: bare + trailing });
+  });
+}
+function renderWordsHTML(line){
+  if(!line.words || !line.words.length) return esc(line.en || "");
+  const enriched = restorePunctuation(line.words, line.en || "");
+  return enriched.map(w =>
+    `<span class="w" data-start="${w.start}" data-end="${w.end}" data-cefr="${(w.cefr||'').toUpperCase()}">${esc(w.display || w.word)}</span>`
+  ).join(" ");
+}
+
+/* ---- 渲染单卡 ---- */
+function renderCard(idx, direction){
+  const app = document.getElementById("app");
+  const bootFail = app.querySelector(".boot-fail");
+  if(bootFail) bootFail.remove();
+  const old = app.querySelector(".page");
+
+  const clip = CLIPS[idx];
+  const podcast = clip.source?.podcast || "";
+  const tagOrTopic = clip.source?.tier || "";  // 用 tier 充当 topic 占位
+  const sourceLine = tagOrTopic ? `${podcast} · ${tagOrTopic}` : podcast;
+
+  const page = document.createElement("div");
+  page.className = "page";
+  page.innerHTML = `
+    <div class="header-block">
+      <div class="status-row">
+        <button class="icon-btn" id="menu-btn" aria-label="菜单">${iconMenu()}</button>
+        <div class="status-row-spacer"></div>
+      </div>
+      <div class="header-copy">
+        <div class="clip-source">${esc(sourceLine)}</div>
+        <div class="clip-title">${esc(clip.title)}</div>
+      </div>
+    </div>
+    <div class="content-stage">
+      <div class="line-wrap">
+        <div class="word-line" id="word-line"></div>
+        <div class="zh-line" id="zh-line"></div>
+        <div class="translation-bar" id="translation-bar"></div>
+      </div>
+    </div>
+    <div class="controls-wrap">
+      <div class="transport-row">
+        <div class="transport-cluster">
+          <button class="transport-btn" id="prev-btn" aria-label="上一句">${iconRewind()}</button>
+          <button class="transport-btn primary" id="play-btn" aria-label="播放">${iconPlay()}</button>
+          <button class="transport-btn" id="next-btn" aria-label="下一句">${iconForward()}</button>
+        </div>
+        <div class="side-tools">
+          <button class="icon-btn st-heart" id="like-btn" aria-label="喜欢">${iconHeart(false)}</button>
+          <button class="icon-btn st-bookmark" id="bookmark-btn" aria-label="收藏">${iconBookmark(false)}</button>
+          <div class="st-utility">
+            <button class="utility-btn" id="zh-btn" aria-label="中文">${iconTranslate(false)}</button>
+            <button class="utility-btn" id="speed-btn">1x</button>
+          </div>
+        </div>
+      </div>
+      <div class="progress-section">
+        <div class="progress-track" id="progress-track">
+          <div class="progress-rail"></div>
+          <div class="progress-fill" id="prog-fill"></div>
+          <div class="progress-thumb" id="prog-thumb"></div>
+        </div>
+        <div class="time-row">
+          <span class="time-text" id="time-cur">0:00</span>
+          <span class="time-text" id="time-dur">0:00</span>
+        </div>
+      </div>
+      <div class="utility-row">
+        <div class="utility-row-left"></div>
+        <div class="utility-row-right">
+          <button class="deep-pill" id="deep-btn" aria-label="深度练这一条">
+            ${iconDeep()}
+            <span>拆开听</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  if(direction === "up"){
+    page.classList.add("enter-up");
+    if(old) old.classList.add("exit-up");
+  } else if(direction === "down"){
+    page.classList.add("enter-down");
+    if(old) old.classList.add("exit-down");
+  }
+  app.appendChild(page);
+  setTimeout(()=> page.classList.remove("enter-up","enter-down"), 10);
+  if(old) setTimeout(()=> old.remove(), 350);
+
+  bindCard(page, idx);
+}
+
+function bindCard(page, idx){
+  const clip = CLIPS[idx];
+  const lines = clip.lines || [];
+
+  // 销毁上一张卡的 audio
+  if(cardState?.audio){
+    try{ cardState.audio.pause(); }catch(e){}
+    cardState.audio.src = "";
+  }
+  if(cardState?.progressTimer) clearInterval(cardState.progressTimer);
+
+  const audio = new Audio(clip.audio);
+  audio.preload = "auto";
+
+  cardState = {
+    audio, lines, renderedLineIdx: -1,
+    showZh: false, speedIdx: 1,
+    liked: false, bookmarked: false,
+    progressTimer: null,
+  };
+  window.__flipodAudio = audio;  // demo 验证用
+
+  const wordLineEl = page.querySelector("#word-line");
+  const zhLineEl   = page.querySelector("#zh-line");
+  const tBar       = page.querySelector("#translation-bar");
+  const playBtn    = page.querySelector("#play-btn");
+  const prevBtn    = page.querySelector("#prev-btn");
+  const nextBtn    = page.querySelector("#next-btn");
+  const zhBtn      = page.querySelector("#zh-btn");
+  const speedBtn   = page.querySelector("#speed-btn");
+  const likeBtn    = page.querySelector("#like-btn");
+  const bookmarkBtn= page.querySelector("#bookmark-btn");
+  const deepBtn    = page.querySelector("#deep-btn");
+  const progFill   = page.querySelector("#prog-fill");
+  const progThumb  = page.querySelector("#prog-thumb");
+  const progTrack  = page.querySelector("#progress-track");
+  const timeCur    = page.querySelector("#time-cur");
+  const timeDur    = page.querySelector("#time-dur");
+
+  function findLineAt(t){
+    let idx = -1;
+    for(let i = 0; i < lines.length; i++){
+      if(t >= lines[i].start) idx = i; else break;
+    }
+    return idx;
+  }
+  function paintWordStates(t){
+    const wEls = wordLineEl.querySelectorAll(".w");
+    wEls.forEach(el => {
+      const ws = parseFloat(el.dataset.start);
+      const we = parseFloat(el.dataset.end);
+      el.classList.remove("active","spoken");
+      if(t >= we) el.classList.add("spoken");
+      else if(t >= ws) el.classList.add("active");
+    });
+  }
+  function renderActiveLine(t){
+    const lineIdx = findLineAt(t);
+    if(lineIdx < 0){
+      if(cardState.renderedLineIdx !== -1){
+        cardState.renderedLineIdx = -1;
+        wordLineEl.innerHTML = "";
+        zhLineEl.textContent = "";
+      }
+      return;
+    }
+    const line = lines[lineIdx];
+    if(lineIdx !== cardState.renderedLineIdx){
+      cardState.renderedLineIdx = lineIdx;
+      // 句子切换 — fade out → 替换 → fade in，然后立刻刷词态
+      wordLineEl.classList.add("fade");
+      setTimeout(()=>{
+        wordLineEl.innerHTML = renderWordsHTML(line);
+        zhLineEl.textContent = line.zh || "";
+        wordLineEl.classList.remove("fade");
+        paintWordStates(audio.currentTime);
+      }, 90);
+      return;
+    }
+    paintWordStates(t);
+  }
+  function updateProgress(){
+    const dur = audio.duration;
+    const t = audio.currentTime;
+    if(isFinite(dur) && dur > 0){
+      const pct = Math.min(1, Math.max(0, t / dur));
+      progFill.style.width = (pct * 100) + "%";
+      progThumb.style.left = (pct * 100) + "%";
+      timeDur.textContent = fmtTime(dur * 1000);
+    }
+    timeCur.textContent = fmtTime(t * 1000);
+  }
+  function setPlayingUI(playing){
+    playBtn.innerHTML = playing ? iconPause() : iconPlay();
+    playBtn.setAttribute("aria-label", playing ? "暂停" : "播放");
+  }
+
+  audio.addEventListener("loadedmetadata", updateProgress);
+  audio.addEventListener("ended", ()=>{
+    setPlayingUI(false);
+    audio.currentTime = 0;
+    renderActiveLine(0);
+    updateProgress();
+  });
+  audio.addEventListener("timeupdate", ()=>{
+    renderActiveLine(audio.currentTime);
+  });
+
+  playBtn.addEventListener("click", ()=>{
+    if(audio.paused){
+      audio.play().then(()=>{
+        setPlayingUI(true);
+        if(cardState.progressTimer) clearInterval(cardState.progressTimer);
+        cardState.progressTimer = setInterval(updateProgress, 200);
+      }).catch(()=>{});
+    } else {
+      audio.pause();
+      setPlayingUI(false);
+      if(cardState.progressTimer){ clearInterval(cardState.progressTimer); cardState.progressTimer = null; }
+    }
+  });
+
+  // 上一句 / 下一句 — 跳到当前句开头 (rewind) / 下一句开头 (forward)
+  prevBtn.addEventListener("click", ()=>{
+    const cur = findLineAt(audio.currentTime);
+    if(cur < 0) return;
+    // 若已在当前句开头很近 (<1s) 则跳到上一句
+    const startCur = lines[cur].start;
+    const targetIdx = (audio.currentTime - startCur < 1 && cur > 0) ? cur - 1 : cur;
+    audio.currentTime = lines[targetIdx].start;
+    renderActiveLine(audio.currentTime);
+    updateProgress();
+  });
+  nextBtn.addEventListener("click", ()=>{
+    const cur = findLineAt(audio.currentTime);
+    const target = Math.min(lines.length - 1, cur + 1);
+    if(target < 0 || target >= lines.length) return;
+    audio.currentTime = lines[target].start;
+    renderActiveLine(audio.currentTime);
+    updateProgress();
+  });
+
+  // zh toggle
+  zhBtn.addEventListener("click", ()=>{
+    cardState.showZh = !cardState.showZh;
+    zhBtn.classList.toggle("on", cardState.showZh);
+    zhLineEl.classList.toggle("show", cardState.showZh);
+    tBar.style.display = cardState.showZh ? "none" : "block";
+  });
+  // 默认 zh 折叠 → 显示 translation bar
+  tBar.style.display = "block";
+
+  // 速度循环
+  speedBtn.addEventListener("click", ()=>{
+    cardState.speedIdx = (cardState.speedIdx + 1) % SPEED_OPTIONS.length;
+    const rate = SPEED_OPTIONS[cardState.speedIdx];
+    audio.playbackRate = rate;
+    speedBtn.textContent = rate + "x";
+    speedBtn.classList.toggle("on", rate !== 1);
+  });
+
+  // 心 / 收藏 — UI-only state
+  likeBtn.addEventListener("click", ()=>{
+    cardState.liked = !cardState.liked;
+    likeBtn.classList.toggle("heart-on", cardState.liked);
+    likeBtn.innerHTML = iconHeart(cardState.liked);
+  });
+  bookmarkBtn.addEventListener("click", ()=>{
+    cardState.bookmarked = !cardState.bookmarked;
+    bookmarkBtn.classList.toggle("bookmark-on", cardState.bookmarked);
+    bookmarkBtn.innerHTML = iconBookmark(cardState.bookmarked);
+  });
+
+  // 菜单按钮
+  page.querySelector("#menu-btn").addEventListener("click", openMenu);
+
+  // 拆开听 → 跳到 practice 页
+  deepBtn.addEventListener("click", ()=>{
+    try{ sessionStorage.setItem(FEED_IDX_KEY, String(currentIndex)); }catch(e){}
+    if(cardState.audio){ try{ cardState.audio.pause(); }catch(e){} }
+    const filename = clip.audio.replace(/^.*\//, "");
+    location.href = `practice-v2-demo.html?clip=${encodeURIComponent(filename)}`;
+  });
+
+  // 进度条点击 seek
+  progTrack.addEventListener("click", e => {
+    const rect = progTrack.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    if(audio.duration > 0){
+      audio.currentTime = ratio * audio.duration;
+      renderActiveLine(audio.currentTime);
+      updateProgress();
+    }
+  });
+
+  // 渲染首句，避免空白闪
+  renderActiveLine(0);
+
+  // 自动播放
+  audio.play().then(()=>{
+    setPlayingUI(true);
+    if(cardState.progressTimer) clearInterval(cardState.progressTimer);
+    cardState.progressTimer = setInterval(updateProgress, 200);
+  }).catch(()=>{});
+
+  // 上下滑切卡
+  let touchStartY = null;
+  page.addEventListener("touchstart", e => { touchStartY = e.touches[0].clientY; }, { passive: true });
+  page.addEventListener("touchend", e => {
+    if(touchStartY === null) return;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    touchStartY = null;
+    if(dy < -60) goNext();
+    else if(dy > 60) goPrev();
+  });
+  let wheelLocked = false;
+  page.addEventListener("wheel", e => {
+    if(wheelLocked) return;
+    if(Math.abs(e.deltaY) < 30) return;
+    wheelLocked = true;
+    setTimeout(()=> wheelLocked = false, 600);
+    if(e.deltaY > 0) goNext();
+    else goPrev();
+  }, { passive: true });
+}
+
+function goNext(){
+  if(currentIndex >= CLIPS.length - 1){
+    showToast("歇会儿，明天再来听新的");
+    return;
+  }
+  currentIndex += 1;
+  renderCard(currentIndex, "up");
+}
+function goPrev(){
+  if(currentIndex <= 0) return;
+  currentIndex -= 1;
+  renderCard(currentIndex, "down");
+}
+
+/* ============ 菜单 + 生词本 ============ */
+const VOCAB_BOOK_KEY = "flipodVocabBook";
+function readVocabBook(){
+  try{ return JSON.parse(localStorage.getItem(VOCAB_BOOK_KEY) || "[]"); }catch(e){ return []; }
+}
+
+function openMenu(){
+  let overlay = document.getElementById("menu-overlay");
+  if(overlay){ overlay.classList.add("open"); return; }
+  const book = readVocabBook();
+  const learnedCount = book.filter(x=>x.status==="learned").length;
+  const reviewCount  = book.filter(x=>x.status==="review").length;
+  overlay = document.createElement("div");
+  overlay.id = "menu-overlay";
+  overlay.className = "menu-overlay";
+  overlay.innerHTML = `
+    <div class="menu-drawer">
+      <button class="menu-close" id="menu-close" aria-label="关闭">×</button>
+      <div class="menu-header">
+        <div class="menu-greeting">Hi, Learner</div>
+        <div class="menu-meta">已收 ${book.length} 个词　·　已掌握 ${learnedCount}　·　待复习 ${reviewCount}</div>
+      </div>
+      <button class="menu-item" data-go="vocab">
+        <span class="mi-icon">${iconBook()}</span>
+        <span class="mi-label">生词本</span>
+        <span class="mi-badge">${book.length}</span>
+      </button>
+      <button class="menu-item" data-go="liked">
+        <span class="mi-icon">${iconHeart(false)}</span>
+        <span class="mi-label">喜欢的</span>
+      </button>
+      <button class="menu-item" data-go="bookmarks">
+        <span class="mi-icon">${iconBookmark(false)}</span>
+        <span class="mi-label">收藏</span>
+      </button>
+      <button class="menu-item" data-go="browse">
+        <span class="mi-icon">${iconCompass()}</span>
+        <span class="mi-label">看看有什么</span>
+      </button>
+      <button class="menu-item" data-go="interest">
+        <span class="mi-icon">${iconStar()}</span>
+        <span class="mi-label">学习兴趣</span>
+      </button>
+      <button class="menu-item" data-go="settings">
+        <span class="mi-icon">${iconSettings()}</span>
+        <span class="mi-label">设置</span>
+      </button>
+    </div>
+  `;
+  document.getElementById("app").appendChild(overlay);
+  setTimeout(()=> overlay.classList.add("open"), 10);
+  // 延迟挂 click-outside，避免触发本次 menu-btn click 冒泡
+  setTimeout(()=>{
+    overlay.addEventListener("click", e => { if(e.target === overlay) closeMenu(); });
+  }, 0);
+  overlay.querySelector("#menu-close").addEventListener("click", closeMenu);
+  overlay.querySelectorAll(".menu-item").forEach(btn => {
+    btn.addEventListener("click", ()=>{
+      const target = btn.dataset.go;
+      if(target === "vocab") openVocabPanel();
+      else showToast("「" + btn.querySelector(".mi-label").textContent + "」demo 暂未实现");
+    });
+  });
+}
+function closeMenu(){
+  const overlay = document.getElementById("menu-overlay");
+  if(!overlay) return;
+  overlay.classList.remove("open");
+  setTimeout(()=> overlay.remove(), 280);
+}
+
+function openVocabPanel(){
+  const overlay = document.getElementById("menu-overlay");
+  if(!overlay) return;
+  let panel = overlay.querySelector(".vocab-panel");
+  if(panel) { panel.classList.add("open"); return; }
+  const book = readVocabBook().slice().reverse(); // 最新的在最上
+  panel = document.createElement("div");
+  panel.className = "vocab-panel";
+  panel.innerHTML = `
+    <div class="vocab-panel-header">
+      <button class="vocab-back" id="vocab-back" aria-label="返回">${iconBack()}</button>
+      <div class="vocab-panel-title">生词本</div>
+      <span class="vocab-panel-meta">${book.length} 词</span>
+    </div>
+    <div class="vocab-list">
+      ${book.length === 0 ? `
+        <div class="vocab-empty">还没有生词。<br>去拆开听一段再来看看。</div>
+      ` : book.map(e => `
+        <div class="vocab-entry">
+          <div class="vocab-entry-head">
+            <span class="vocab-entry-word">${esc(e.word)}</span>
+            ${e.cefr ? `<span class="vocab-entry-cefr">${esc(e.cefr)}</span>` : ""}
+            <span class="vocab-entry-status ${e.status === 'learned' ? 'learned' : 'review'}">
+              ${e.status === 'learned' ? '已掌握' : '待复习'}
+            </span>
+          </div>
+          ${e.sentence_en ? `<div class="vocab-entry-en">${esc(e.sentence_en)}</div>` : ""}
+          ${e.sentence_zh ? `<div class="vocab-entry-zh">${esc(e.sentence_zh)}</div>` : ""}
+        </div>
+      `).join("")}
+    </div>
+  `;
+  overlay.appendChild(panel);
+  setTimeout(()=> panel.classList.add("open"), 10);
+  panel.querySelector("#vocab-back").addEventListener("click", ()=>{
+    panel.classList.remove("open");
+    setTimeout(()=> panel.remove(), 280);
+  });
+}
+
+let toastTimer = null;
+function showToast(msg){
+  let t = document.getElementById("toast");
+  if(!t){
+    t = document.createElement("div");
+    t.id = "toast";
+    Object.assign(t.style, {
+      position:"absolute", bottom:"30px", left:"50%", transform:"translateX(-50%)",
+      background:"var(--bg-surface-2)", color:"var(--text-primary)",
+      padding:"10px 16px", borderRadius:"10px",
+      border:"1px solid var(--stroke)", fontSize:"13px", zIndex:"100",
+      opacity:"0", transition:"opacity 0.2s", pointerEvents:"none",
+    });
+    document.getElementById("app").appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = "1";
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.style.opacity = "0", 1500);
+}
+
+async function boot(){
+  try{
+    const resp = await fetch("./practice-v2-demo-data.json", { cache: "no-store" });
+    if(!resp.ok) throw new Error("data HTTP " + resp.status);
+    const data = await resp.json();
+    CLIPS = data.clips;
+    if(!Array.isArray(CLIPS) || CLIPS.length === 0) throw new Error("no clips");
+
+    const saved = parseInt(sessionStorage.getItem(FEED_IDX_KEY) || "0", 10);
+    currentIndex = (Number.isFinite(saved) && saved >= 0 && saved < CLIPS.length) ? saved : 0;
+    renderCard(currentIndex);
+  }catch(e){
+    document.getElementById("app").innerHTML = `
+      <div class="boot-fail">
+        加载失败：${esc(e.message)}<br><br>
+        请在项目根运行 <code>node scripts/dev_server.js</code><br>
+        然后访问 <code>http://localhost:8080/flipod_v3_split_entry.html</code>
+      </div>
+    `;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", boot);
+window.addEventListener("pageshow", e => {
+  if(e.persisted && CLIPS){
+    const saved = parseInt(sessionStorage.getItem(FEED_IDX_KEY) || "0", 10);
+    if(Number.isFinite(saved) && saved !== currentIndex && saved < CLIPS.length){
+      currentIndex = saved;
+      renderCard(currentIndex);
+    }
+  }
+});
+</script>
+</body>
+</html>
