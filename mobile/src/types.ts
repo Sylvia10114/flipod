@@ -43,6 +43,7 @@ export type ClipQuestion = {
   options: string[];
   answer: string;
   explanation_zh?: string;
+  stage?: number;
 };
 
 export type ClipPrimingWord = {
@@ -63,6 +64,8 @@ export type LocalizedClipLine = {
 };
 
 export type LocalizedClipQuestion = {
+  question?: string;
+  options?: string[];
   explanation: string;
 };
 
@@ -140,7 +143,7 @@ export type AuthSession = {
 export type DominantHand = 'left' | 'right';
 export type SubtitleSize = 'sm' | 'md' | 'lg';
 export type PlaybackPhase = 'idle' | 'loading' | 'playing' | 'paused' | 'error';
-export type HomeMode = 'listen' | 'learn';
+export type HomeMode = 'practice' | 'just_listen';
 
 export type ChallengeWord = {
   word: string;

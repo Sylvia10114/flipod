@@ -4,6 +4,7 @@ import {
   ActionButton,
   EmptyState,
   GlassCard,
+  ScreenHeader,
   ScreenSurface,
 } from '../components/AppChrome';
 import { ChallengeWordPills } from '../components/ChallengeWordPills';
@@ -33,6 +34,9 @@ type Props = {
   showIntro: boolean;
   onDismissIntro: () => void;
   contentViewportHeight?: number;
+  headerTitle?: string;
+  headerSubtitle?: string;
+  onBack?: (() => void) | null;
   onGenerateMore: () => void;
   onStartPractice: (practiceId: string) => void;
   onOpenCompletedPractice: (practiceId: string) => void;
@@ -94,6 +98,9 @@ export function PracticeScreen({
   showIntro,
   onDismissIntro,
   contentViewportHeight = 0,
+  headerTitle,
+  headerSubtitle,
+  onBack = null,
   onGenerateMore,
   onStartPractice,
   onOpenCompletedPractice,
@@ -114,7 +121,18 @@ export function PracticeScreen({
   const completedPreview = completedPractices.slice(-3).reverse();
 
   return (
-    <ScreenSurface edges={['left', 'right', 'bottom']}>
+    <ScreenSurface edges={headerTitle ? ['top', 'left', 'right', 'bottom'] : ['left', 'right', 'bottom']}>
+      {headerTitle ? (
+        <ScreenHeader
+          title={headerTitle}
+          subtitle={headerSubtitle}
+          leading={onBack ? (
+            <Pressable onPress={onBack} hitSlop={8} style={styles.backButton}>
+              <Text style={styles.backButtonText}>{t('common.back')}</Text>
+            </Pressable>
+          ) : undefined}
+        />
+      ) : null}
       <ScrollView
         style={[styles.scroll, contentViewportHeight > 0 && { minHeight: contentViewportHeight }]}
         contentContainerStyle={[
@@ -298,6 +316,17 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
   return StyleSheet.create({
     scroll: {
       flex: 1,
+    },
+    backButton: {
+      minHeight: 40,
+      justifyContent: 'center',
+      paddingHorizontal: spacing.sm,
+      borderRadius: radii.pill,
+    },
+    backButtonText: {
+      color: colors.textPrimary,
+      fontSize: typography.caption,
+      fontWeight: '700',
     },
     content: {
       paddingTop: spacing.lg,

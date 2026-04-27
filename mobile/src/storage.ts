@@ -10,6 +10,7 @@ import type {
   LikeEvent,
   LocalizedClipContent,
   PracticeMap,
+  PracticeTabState,
   Profile,
   ReviewState,
   VocabEntry,
@@ -34,6 +35,7 @@ const LEVEL_SIGNALS_KEY = 'flipodLevelSignals';
 const LEVEL_CALIBRATION_KEY = 'flipodLevelCalibration';
 const CONTENT_TRANSLATIONS_KEY = 'flipodContentTranslations';
 const GENERATED_PRACTICE_KEY = 'flipodGeneratedPracticeState';
+const PRACTICE_TAB_STATE_KEY = 'flipodPracticeTabState';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   dominantHand: 'right',
@@ -232,7 +234,8 @@ export async function loadSettings(): Promise<AppSettings> {
     const normalizedHomeMode: AppSettings['homeMode'] = 'just_listen';
     return {
       ...DEFAULT_SETTINGS,
-      ...(JSON.parse(raw) as Partial<AppSettings>),
+      ...parsed,
+      homeMode: normalizedHomeMode,
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -320,6 +323,21 @@ export async function loadGeneratedPracticeState(): Promise<GeneratedPracticeSta
 
 export async function saveGeneratedPracticeState(state: GeneratedPracticeState) {
   await AsyncStorage.setItem(GENERATED_PRACTICE_KEY, JSON.stringify(state));
+}
+
+export async function loadPracticeTabState(): Promise<PracticeTabState | null> {
+  const raw = await AsyncStorage.getItem(PRACTICE_TAB_STATE_KEY);
+  if (!raw) return null;
+
+  try {
+    return normalizePracticeTabState(JSON.parse(raw) as Partial<PracticeTabState>);
+  } catch {
+    return null;
+  }
+}
+
+export async function savePracticeTabState(state: PracticeTabState) {
+  await AsyncStorage.setItem(PRACTICE_TAB_STATE_KEY, JSON.stringify(state));
 }
 
 export async function loadContentTranslations(): Promise<Record<string, LocalizedClipContent>> {
@@ -443,6 +461,7 @@ export async function clearAccountState() {
   await AsyncStorage.multiRemove([
     PROFILE_KEY,
     PRACTICE_KEY,
+    PRACTICE_TAB_STATE_KEY,
     KNOWN_WORDS_KEY,
     BOOKMARKS_KEY,
     VOCAB_KEY,

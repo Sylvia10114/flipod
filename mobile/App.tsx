@@ -23,11 +23,12 @@ import {
 } from './src/content-localization';
 import { AppToast } from './src/components/AppToast';
 import { CalibrationToast } from './src/components/CalibrationToast';
+import { PracticeSessionModal } from './src/components/PracticeSessionModal';
 import { GeneratedPracticeSessionModal } from './src/components/GeneratedPracticeSessionModal';
 import { HomeTopChrome } from './src/components/HomeTopChrome';
 import { HowItWorksSheet } from './src/components/HowItWorksSheet';
 import { type MenuScreen, SlideMenu } from './src/components/SlideMenu';
-import { demoClips } from './src/demo-clips';
+import { bundledFallbackClips, bundledFallbackSource } from './src/demo-clips';
 import {
   applyRankedFeedOrder,
   buildLocalizedRecommendationReason,
@@ -61,6 +62,7 @@ import { LibraryScreen } from './src/screens/LibraryScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { PracticeScreen } from './src/screens/PracticeScreen';
+import { PracticeTabScreen } from './src/screens/PracticeTabScreen';
 import { VocabScreen } from './src/screens/VocabScreen';
 import { api } from './src/services/api';
 import { disposeUiFeedback, primeUiFeedback, triggerUiFeedback } from './src/feedback';
@@ -71,6 +73,7 @@ import {
   clearAccountState,
   clearAuthToken,
   clearGuestMode,
+  createDefaultPracticeTabState,
   DEFAULT_SETTINGS,
   getOrCreateDeviceId,
   loadAuthToken,
@@ -85,6 +88,7 @@ import {
   loadKnownWords,
   loadContentTranslations,
   loadPracticeData,
+  loadPracticeTabState,
   loadProfile,
   loadReviewState,
   loadSettings,
@@ -102,6 +106,7 @@ import {
   saveListenedClips,
   saveKnownWords,
   savePracticeData,
+  savePracticeTabState,
   saveProfile,
   saveReviewState,
   saveSettings,
@@ -125,6 +130,8 @@ import type {
   NativeLanguage,
   HomeMode,
   PracticeMap,
+  PracticeTabCompletedClip,
+  PracticeTabState,
   Profile,
   RankMode,
   RankRequest,
@@ -277,6 +284,30 @@ function preserveFeedPrefixThroughClip(
   return [...preservedPrefix, ...reorderedTail];
 }
 
+function buildPracticeFeedSnapshot(clips: Clip[]) {
+  const keys = clips.map((clip, index) => buildClipKey(clip, index)).filter(Boolean);
+  return {
+    keys,
+    signature: keys.join('||'),
+  };
+}
+
+function resolvePracticeCursor(
+  previousKeys: string[],
+  nextKeys: string[],
+  previousCursor: number
+) {
+  if (!nextKeys.length) return 0;
+  const previousKey = previousKeys[previousCursor];
+  if (previousKey) {
+    const nextIndex = nextKeys.indexOf(previousKey);
+    if (nextIndex >= 0) {
+      return nextIndex;
+    }
+  }
+  return Math.max(0, Math.min(previousCursor, nextKeys.length - 1));
+}
+
 function cycleSubtitleSize(size: SubtitleSize): SubtitleSize {
   if (size === 'sm') return 'md';
   if (size === 'md') return 'lg';
@@ -311,7 +342,7 @@ export default function App() {
   const [profile, setProfile] = useState<Profile>(defaultProfile);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [practiceData, setPracticeData] = useState<PracticeMap>({});
-  const [clipsData, setClipsData] = useState<Clip[]>(demoClips);
+  const [clipsData, setClipsData] = useState<Clip[]>(bundledFallbackClips);
   const [contentTranslations, setContentTranslations] = useState<Record<string, LocalizedClipContent>>({});
   const [clipsLoaded, setClipsLoaded] = useState(false);
   const [feedOrderIds, setFeedOrderIds] = useState<number[]>([]);
@@ -323,6 +354,7 @@ export default function App() {
   const [generatedPracticeState, setGeneratedPracticeState] = useState<GeneratedPracticeState>(
     createDefaultGeneratedPracticeState()
   );
+  const [practiceTabState, setPracticeTabState] = useState<PracticeTabState>(createDefaultPracticeTabState());
   const [likedClipKeys, setLikedClipKeys] = useState<string[]>([]);
   const [listenedClipKeys, setListenedClipKeys] = useState<string[]>([]);
   const [likeEvents, setLikeEvents] = useState<LikeEvent[]>([]);
@@ -356,7 +388,7 @@ export default function App() {
   const playedKeysRef = useRef<Set<string>>(new Set());
   const calibrationStateRef = useRef<CalibrationState>({});
   const lastFeedSignatureRef = useRef<string | null>(null);
-  const currentClipsRef = useRef<Clip[]>(demoClips);
+  const currentClipsRef = useRef<Clip[]>(bundledFallbackClips);
   const rankContextRef = useRef<{
     manifest: ReturnType<typeof buildClipManifest>;
     listenedClipIds: number[];
@@ -364,7 +396,7 @@ export default function App() {
     likedTopics: string[];
     wordsLookedUp: number;
   }>({
-    manifest: buildClipManifest(demoClips),
+    manifest: buildClipManifest(bundledFallbackClips),
     listenedClipIds: [],
     skippedClipIds: [],
     likedTopics: [],
@@ -550,6 +582,14 @@ export default function App() {
     });
   }, [contentTranslations, generatedPracticeState.completedPractices, profile.nativeLanguage, ui]);
 
+  const updatePracticeTabState = useCallback((updater: (prev: PracticeTabState) => PracticeTabState) => {
+    setPracticeTabState(prev => {
+      const next = updater(prev);
+      void savePracticeTabState(next);
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     return () => {
       if (toastTimeoutRef.current) {
@@ -592,6 +632,7 @@ export default function App() {
           localBookmarks,
           localVocab,
           localGeneratedPracticeState,
+          localPracticeTabState,
           localLikedClips,
           localLikeEvents,
           localListenedClips,
@@ -610,6 +651,7 @@ export default function App() {
           loadBookmarks(),
           loadVocab(),
           loadGeneratedPracticeState(),
+          loadPracticeTabState(),
           loadLikedClips(),
           loadLikeEvents(),
           loadListenedClips(),
@@ -749,17 +791,19 @@ export default function App() {
         if (lastError) {
           throw lastError;
         }
-        setClipsData(demoClips);
+        setClipsData(bundledFallbackClips);
         setClipsLoaded(true);
-        console.log('[clips-load] falling back to bundled demo clips', {
-          count: demoClips.length,
+        console.log('[clips-load] falling back to bundled clips', {
+          source: bundledFallbackSource,
+          count: bundledFallbackClips.length,
         });
       } catch {
         if (!cancelled) {
-          setClipsData(demoClips);
+          setClipsData(bundledFallbackClips);
           setClipsLoaded(true);
-          console.log('[clips-load] fatal fallback to bundled demo clips', {
-            count: demoClips.length,
+          console.log('[clips-load] fatal fallback to bundled clips', {
+            source: bundledFallbackSource,
+            count: bundledFallbackClips.length,
           });
         }
       }
@@ -898,6 +942,25 @@ export default function App() {
     }
     return localizedClipsData;
   }, [localizedClipsData, rankedFeed, resolveRankReason]);
+  const livePracticeFeedReady = useMemo(() => {
+    if (!clipsLoaded || !currentClips.length) return false;
+    if (!authToken) return true;
+    if (feedOrderIds.length > 0) return true;
+    return feedState !== 'loading';
+  }, [authToken, clipsLoaded, currentClips.length, feedOrderIds.length, feedState]);
+  const livePracticeFeedSnapshot = useMemo(() => {
+    return buildPracticeFeedSnapshot(currentClips);
+  }, [currentClips]);
+  const practiceFeedKeys = practiceTabState.practice_feed_keys;
+  const practiceClips = useMemo(() => {
+    if (!practiceFeedKeys.length) return [];
+    return practiceFeedKeys
+      .map(clipKey => {
+        const index = findClipIndexByKey(localizedClipsData, clipKey);
+        return index >= 0 ? localizedClipsData[index] : null;
+      })
+      .filter(Boolean) as Clip[];
+  }, [localizedClipsData, practiceFeedKeys]);
   const visibleFeedClips = useMemo(() => {
     return currentClips.slice(0, visibleFeedCount);
   }, [currentClips, visibleFeedCount]);
@@ -1213,9 +1276,32 @@ export default function App() {
       homeMode: mode,
     };
     void persistSettings(nextSettings);
+    updatePracticeTabState(prev => {
+      const shouldRefreshPracticeFeed = mode === 'practice'
+        && livePracticeFeedReady
+        && !prev.session
+        && (
+          prev.practice_feed_keys.length === 0
+          || prev.practice_feed_signature !== livePracticeFeedSnapshot.signature
+        );
+      const nextCursor = shouldRefreshPracticeFeed
+        ? resolvePracticeCursor(prev.practice_feed_keys, livePracticeFeedSnapshot.keys, prev.practice_cursor)
+        : prev.practice_cursor;
+      return {
+        ...prev,
+        ui_state: {
+          ...prev.ui_state,
+          current_tab: mode,
+          last_active_at: new Date().toISOString(),
+        },
+        practice_feed_keys: shouldRefreshPracticeFeed ? livePracticeFeedSnapshot.keys : prev.practice_feed_keys,
+        practice_feed_signature: shouldRefreshPracticeFeed ? livePracticeFeedSnapshot.signature : prev.practice_feed_signature,
+        practice_cursor: nextCursor,
+      };
+    });
     setActiveScreen('feed');
     setMenuOpen(false);
-  }, [activeScreen, persistSettings, settings]);
+  }, [activeScreen, livePracticeFeedReady, livePracticeFeedSnapshot, persistSettings, settings, updatePracticeTabState]);
 
   const maybeShowCalibration = useCallback((signals: CalibrationSignals) => {
     if (activeGeneratedPracticeSession || calibrationSuggestion) return;
@@ -1422,16 +1508,20 @@ export default function App() {
     setActiveScreen(getHomeModeScreen(DEFAULT_SETTINGS.homeMode));
     setMenuOpen(false);
     setActiveGeneratedPracticeSession(null);
+    setActiveClipPracticeSession(null);
     setFeedOrderIds([]);
     setFeedReasons({});
     setSkippedClipIds([]);
     setVisibleFeedCount(FEED_BATCH_SIZE);
     lastFeedSignatureRef.current = null;
+    const nextPracticeTabState = createDefaultPracticeTabState();
     await Promise.all([
       saveProfile(defaultProfile),
       saveSettings(nextSettings),
+      savePracticeTabState(nextPracticeTabState),
     ]);
     setSettings(nextSettings);
+    setPracticeTabState(nextPracticeTabState);
     if (authToken) {
       try {
         await api.saveProfile(authToken, defaultProfile);
@@ -1975,12 +2065,12 @@ export default function App() {
 
   const handleReturnFeed = useCallback(() => {
     setActiveGeneratedPracticeSession(null);
-    handleHomeModeChange('listen');
+    handleHomeModeChange('just_listen');
   }, [handleHomeModeChange]);
 
   const handlePracticeAgain = useCallback(() => {
     setActiveGeneratedPracticeSession(null);
-    handleHomeModeChange('learn');
+    setActiveScreen('practice');
   }, [handleHomeModeChange]);
 
   const requestPracticeClipTranslations = useCallback((clipIndex: number) => {
@@ -2224,11 +2314,13 @@ export default function App() {
     setSkippedClipIds([]);
     setVisibleFeedCount(FEED_BATCH_SIZE);
     lastFeedSignatureRef.current = null;
+    setPracticeTabState(createDefaultPracticeTabState());
     setActiveScreen(getHomeModeScreen(DEFAULT_SETTINGS.homeMode));
     setMenuOpen(false);
     setShowAuthSheet(false);
     setShowHowItWorks(false);
     setActiveGeneratedPracticeSession(null);
+    setActiveClipPracticeSession(null);
     setAuthError('');
   }, [authToken]);
 
@@ -2271,11 +2363,13 @@ export default function App() {
     setSkippedClipIds([]);
     setVisibleFeedCount(FEED_BATCH_SIZE);
     lastFeedSignatureRef.current = null;
+    setPracticeTabState(createDefaultPracticeTabState());
     setActiveScreen(getHomeModeScreen(DEFAULT_SETTINGS.homeMode));
     setMenuOpen(false);
     setShowAuthSheet(false);
     setShowHowItWorks(false);
     setActiveGeneratedPracticeSession(null);
+    setActiveClipPracticeSession(null);
     setAuthError('');
     showToast(ui.t('app.toastAccountDeleted'));
   }, [authToken, showToast, ui]);
@@ -2358,7 +2452,26 @@ export default function App() {
         onMarkKnown={handleMarkKnown}
       />
     );
-  } else if (activeScreen === 'feed' || activeScreen === 'practice') {
+  } else if (activeScreen === 'practice') {
+    content = (
+      <PracticeScreen
+        practiceState={generatedPracticeState}
+        pendingPractices={localizedPendingPractices}
+        completedPractices={localizedCompletedPractices}
+        profile={profile}
+        vocabList={vocabList}
+        showIntro={!settings.practiceIntroSeen}
+        onDismissIntro={handleDismissPracticeIntro}
+        headerTitle={ui.t('menu.practice')}
+        onBack={() => setActiveScreen('feed')}
+        onGenerateMore={() => {
+          void generatePracticeBatch('manual_more');
+        }}
+        onStartPractice={handleStartPractice}
+        onOpenCompletedPractice={practiceId => handleStartPractice(practiceId, true)}
+      />
+    );
+  } else if (activeScreen === 'feed') {
     const resolvedHomeViewportHeight = homeContentHeight > 0
       ? homeContentHeight
       : Math.max(0, windowHeight - homeTopChromeHeight);
@@ -2513,36 +2626,16 @@ export default function App() {
               onClipCompleted={handleClipCompleted}
               onClipSkipped={handleClipSkipped}
               onVisibleClipChange={(clip, index) => {
+                updatePracticeTabState(prev => ({
+                  ...prev,
+                  listen_cursor: index,
+                }));
                 const nextTargets = [{ clip: currentRawClips[index] || clip, index }];
                 if (currentRawClips[index + 1]) {
                   nextTargets.push({ clip: currentRawClips[index + 1], index: index + 1 });
                 }
                 void requestContentTranslations(nextTargets, profile.nativeLanguage);
               }}
-            />
-          </View>
-
-          <View
-            style={[
-              styles.homeModePane,
-              settings.homeMode === 'learn' ? styles.homeModePaneActive : styles.homeModePaneHidden,
-            ]}
-            pointerEvents={settings.homeMode === 'learn' ? 'auto' : 'none'}
-          >
-            <PracticeScreen
-              practiceState={generatedPracticeState}
-              pendingPractices={localizedPendingPractices}
-              completedPractices={localizedCompletedPractices}
-              profile={profile}
-              vocabList={vocabList}
-              showIntro={!settings.practiceIntroSeen}
-              onDismissIntro={handleDismissPracticeIntro}
-              contentViewportHeight={resolvedHomeViewportHeight}
-              onGenerateMore={() => {
-                void generatePracticeBatch('manual_more');
-              }}
-              onStartPractice={handleStartPractice}
-              onOpenCompletedPractice={practiceId => handleStartPractice(practiceId, true)}
             />
           </View>
         </View>
@@ -2610,11 +2703,12 @@ export default function App() {
                   onClose={() => setMenuOpen(false)}
                   onNavigate={screen => {
                     if (screen === 'feed') {
-                      handleHomeModeChange('listen');
+                      handleHomeModeChange('just_listen');
                       return;
                     }
                     if (screen === 'practice') {
-                      handleHomeModeChange('learn');
+                      setActiveScreen('practice');
+                      setMenuOpen(false);
                       return;
                     }
                     setActiveScreen(screen);
@@ -2718,6 +2812,11 @@ const styles = StyleSheet.create({
   homeModePaneHidden: {
     zIndex: 0,
     opacity: 0,
+  },
+  homeModeLoadingState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   rootLight: {
     backgroundColor: '#F2F2F7',

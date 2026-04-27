@@ -20,13 +20,18 @@ type Props = {
 };
 
 function findActiveLineIndex(lines: ClipLine[], currentTime: number) {
-  if (!Number.isFinite(currentTime) || currentTime <= 0 || lines.length === 0) {
+  if (!Number.isFinite(currentTime) || lines.length === 0) {
     return -1;
   }
   const activeIndex = lines.findIndex(line => currentTime >= line.start && currentTime < line.end);
   if (activeIndex >= 0) return activeIndex;
   if (currentTime >= lines[lines.length - 1].end) return lines.length - 1;
-  return -1;
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    if (currentTime >= lines[index].start) {
+      return index;
+    }
+  }
+  return 0;
 }
 
 export function PracticeTranscriptPanel({
@@ -41,6 +46,7 @@ export function PracticeTranscriptPanel({
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const scrollRef = React.useRef<ScrollView | null>(null);
   const lineOffsetsRef = React.useRef<Record<number, number>>({});
+  const lineHeightsRef = React.useRef<Record<number, number>>({});
   const activeLineIndex = React.useMemo(
     () => findActiveLineIndex(lines, currentTime),
     [currentTime, lines]
@@ -49,15 +55,19 @@ export function PracticeTranscriptPanel({
   React.useEffect(() => {
     if (activeLineIndex < 0) return;
     const nextY = lineOffsetsRef.current[activeLineIndex];
+    const nextHeight = lineHeightsRef.current[activeLineIndex] || 0;
     if (typeof nextY !== 'number') return;
     scrollRef.current?.scrollTo({
-      y: Math.max(0, nextY - 20),
+      y: Math.max(0, nextY - Math.max(20, maxHeight / 2 - nextHeight / 2)),
       animated: true,
     });
-  }, [activeLineIndex]);
+  }, [activeLineIndex, maxHeight]);
 
   return (
     <View style={[styles.panel, { maxHeight }, style]}>
+      <View style={styles.scrollCueWrap}>
+        <View style={styles.scrollCue} />
+      </View>
       <ScrollView
         ref={scrollRef}
         nestedScrollEnabled
@@ -71,6 +81,7 @@ export function PracticeTranscriptPanel({
               key={`transcript-${index}-${line.start}`}
               onLayout={event => {
                 lineOffsetsRef.current[index] = event.nativeEvent.layout.y;
+                lineHeightsRef.current[index] = event.nativeEvent.layout.height;
               }}
               style={[
                 styles.lineShell,
@@ -90,8 +101,25 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
   return StyleSheet.create({
     panel: {
       borderRadius: radii.xl,
-      backgroundColor: colors.bgSurface2,
+      borderWidth: 1,
+      borderColor: colors.strokeStrong,
+      backgroundColor: colors.bgSurface3,
       overflow: 'hidden',
+    },
+    scrollCueWrap: {
+      alignItems: 'center',
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.xs,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.strokeStrong,
+      backgroundColor: colors.bgSurface1,
+    },
+    scrollCue: {
+      width: 34,
+      height: 4,
+      borderRadius: 999,
+      backgroundColor: colors.textTertiary,
+      opacity: 0.7,
     },
     content: {
       padding: spacing.md,
@@ -101,10 +129,12 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.sm,
       borderRadius: radii.lg,
-      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: 'transparent',
+      backgroundColor: colors.bgSurface1,
     },
     lineShellActive: {
-      backgroundColor: colors.bgSurface1,
+      backgroundColor: colors.bgApp,
       borderWidth: 1,
       borderColor: colors.strokeStrong,
     },

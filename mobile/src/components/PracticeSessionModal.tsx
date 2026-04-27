@@ -1,6 +1,6 @@
 import { Audio, type AVPlaybackStatus } from 'expo-av';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   buildClipKey,
@@ -9,41 +9,49 @@ import {
   getClipDurationSeconds,
   getClipAudioEndSeconds,
   getClipAudioStartSeconds,
-  getSentenceMarkers,
-  getSentenceRange,
   getSourceLabel,
   resolveClipAudioUrl,
 } from '../clip-utils';
-import { CircularProgressPlayButton } from './CircularProgressPlayButton';
+import { ActionButton, GlassCard, StepDots } from './AppChrome';
 import { ChallengeWordPills } from './ChallengeWordPills';
+import { CircularProgressPlayButton } from './CircularProgressPlayButton';
+import { deriveChallengeWords } from '../learning-scaffold';
 import { triggerMediumHaptic, triggerUiFeedback } from '../feedback';
 import { useUiI18n } from '../i18n';
 import { getLocalizedTopicLabel } from '../i18n/helpers';
-import { buildFadeSegments, deriveChallengeWords } from '../learning-scaffold';
 import { useResponsiveLayout } from '../responsive';
 import { useAppTheme } from '../theme';
-import type { Clip, ClipLineWord, Level, NativeLanguage, PracticeRecord, VocabEntry } from '../types';
-import { ProgressBar } from './ProgressBar';
+import type {
+  Clip,
+  ClipLineWord,
+  ClipQuestion,
+  Level,
+  NativeLanguage,
+  PracticeTabCompletedClip,
+  PracticeTabQuizResult,
+  PracticeTabReason,
+  PracticeTabVocabPick,
+  VocabEntry,
+} from '../types';
 import { WordLine } from './WordLine';
 import { WordPopup } from './WordPopup';
+import { PracticeCardHeader } from './generated-practice/PracticeCardHeader';
+import { PracticeTranscriptPanel } from './generated-practice/PracticeTranscriptPanel';
+import { fetchWordTranslation } from '../word-translation';
 
-type Step = 1 | 2 | 3 | 4 | 5;
+type Stage = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+type QuizStage = 0 | 1 | 2 | 3 | 4;
+type AttributionStep = 1 | 2 | null;
 
 type PopupState = {
   word: ClipLineWord;
   contextEn: string;
   contextZh: string;
-  lineIndex: number | null;
+  lineIndex: number;
 } | null;
-
-type LookedWord = {
-  word: string;
-  cefr?: string;
-};
 
 type PendingPlayback = {
   targetStartMillis: number;
-  targetEndMillis: number | null;
 };
 
 type StagePlaybackMode = QuizStage | 'blind';
@@ -106,12 +114,68 @@ function answerIndex(question: ClipQuestion) {
   return optionIndex >= 0 ? optionIndex : 0;
 }
 
-function stepLabel(step: Step, t: (key: string, params?: Record<string, string | number>) => string) {
-  if (step === 1) return t('practiceSession.stepNativeLanguage');
-  if (step === 2) return t('practiceSession.stepEnglish');
-  if (step === 3) return t('practiceSession.stepFade');
-  if (step === 4) return t('practiceSession.stepBlind');
-  return t('practiceSession.stepComplete');
+function stageLabel(stage: Stage, t: (key: string, params?: Record<string, string | number>) => string) {
+  if (stage === 0) return t('practiceSession.previewTitle');
+  if (stage === 1) return t('practiceSession.gistLabel');
+  if (stage === 2) return t('practiceSession.decodeLabel');
+  if (stage === 3) return t('practiceSession.fadeTitle');
+  if (stage === 4) return t('practiceSession.blindTitle');
+  if (stage === 5) return t('practiceSession.vocabReviewTitle');
+  return t('practiceSession.finishPractice');
+}
+
+function practiceProgressStep(stage: Stage) {
+  if (stage <= 1) return 1;
+  if (stage === 2) return 2;
+  if (stage === 3) return 3;
+  if (stage === 4) return 4;
+  return 5;
+}
+
+function bucketKey(stage: QuizStage) {
+  if (stage === 0) return 'stage0';
+  if (stage === 1) return 'stage1';
+  if (stage === 2) return 'stage2';
+  if (stage === 3) return 'stage3';
+  return 'stage4';
+}
+
+function quizStageFromStage(stage: Stage): QuizStage | null {
+  if (stage === 0) return 0;
+  if (stage === 1) return 1;
+  if (stage === 2) return 2;
+  if (stage === 3) return 3;
+  if (stage === 4) return 4;
+  return null;
+}
+
+function questionBuckets(clip: Clip | null): QuestionBuckets {
+  const buckets: QuestionBuckets = {
+    stage0: [],
+    stage1: [],
+    stage2: [],
+    stage3: [],
+    stage4: [],
+  };
+
+  (clip?.questions || []).forEach((question, index) => {
+    if (typeof question.stage === 'number') {
+      if (question.stage === 0) buckets.stage0.push(question);
+      else if (question.stage === 1) buckets.stage1.push(question);
+      else if (question.stage === 2) buckets.stage2.push(question);
+      else if (question.stage === 3) buckets.stage3.push(question);
+      else buckets.stage4.push(question);
+      return;
+    }
+
+    if (index === 0) buckets.stage0.push(question);
+    else if (index === 1) buckets.stage1.push(question);
+    else if (index === 2) buckets.stage2.push(question);
+    else if (index === 3) buckets.stage3.push(question);
+    else buckets.stage4.push(question);
+  });
+
+  return buckets;
 }
 
 function hasReadableCharacters(value: string) {
@@ -297,39 +361,47 @@ function PlaybackControlStrip({
 
 export function PracticeSessionModal({
   visible,
+  isActive = true,
   clip,
   clipIndex,
+  initialStage = 0,
+  inline = false,
   level,
   nativeLanguage,
   vocabWords,
   knownWords,
+  completedRecord = null,
+  readOnly = false,
   onSaveVocab,
   onMarkKnown,
   onRecordWordLookup,
+  onStageChange,
   onComplete,
   onDismiss,
-  onReturnFeed,
-  onPracticeAgain,
+  onNextClip,
+  onReturnListen,
 }: Props) {
   const { colors } = useAppTheme();
   const { t } = useUiI18n();
   const metrics = useResponsiveLayout();
-  const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const scrollRef = useRef<ScrollView | null>(null);
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const soundRef = useRef<Audio.Sound | null>(null);
+  const onStageChangeRef = useRef(onStageChange);
+  const onPlaybackEndedRef = useRef<(mode: StagePlaybackMode) => void>(noop);
+  const bodyScrollRef = useRef<ScrollView | null>(null);
+  const loadSoundRef = useRef<() => Promise<boolean>>(async () => false);
+  const unloadSoundRef = useRef<() => Promise<void>>(async () => {});
   const soundReadyRef = useRef(false);
   const loadPromiseRef = useRef<Promise<boolean> | null>(null);
-  const loadRequestIdRef = useRef(0);
   const playbackRequestRef = useRef(0);
+  const playbackModeRef = useRef<StagePlaybackMode | null>(null);
   const pendingPlaybackRef = useRef<PendingPlayback | null>(null);
-  const segmentEndRef = useRef<number | null>(null);
   const completionSavedRef = useRef(false);
-  const stepRef = useRef<Step>(1);
-  const wordsLookedRef = useRef(0);
-  const hardSentencesRef = useRef<number[]>([]);
+  const stageRunRef = useRef('');
 
-  const [step, setStep] = useState<Step>(1);
+  const [stage, setStage] = useState<Stage>(readOnly ? 6 : (Math.max(0, Math.min(initialStage, 6)) as Stage));
   const [status, setStatus] = useState({
     isPlaying: false,
     isLoading: false,
@@ -337,11 +409,8 @@ export function PracticeSessionModal({
     durationMillis: 0,
     errorMessage: null as string | null,
   });
-  const [sentenceIndex, setSentenceIndex] = useState(0);
-  const [hardSentences, setHardSentences] = useState<number[]>([]);
-  const [wordsLooked, setWordsLooked] = useState(0);
-  const [lookedWordsList, setLookedWordsList] = useState<LookedWord[]>([]);
-  const [fadePlaybackFinished, setFadePlaybackFinished] = useState(false);
+  const [stageAudioFinished, setStageAudioFinished] = useState(false);
+  const [blindListenStarted, setBlindListenStarted] = useState(false);
   const [blindListenFinished, setBlindListenFinished] = useState(false);
   const [activeQuestionFlow, setActiveQuestionFlow] = useState<QuestionFlow>(null);
   const [currentQuestionSelection, setCurrentQuestionSelection] = useState<number | null>(null);
@@ -360,13 +429,13 @@ export function PracticeSessionModal({
   const [stage5Cursor, setStage5Cursor] = useState(0);
   const [expandedSentenceIndex, setExpandedSentenceIndex] = useState<number | null>(null);
   const [popup, setPopup] = useState<PopupState>(null);
+  const [stage1QuestionAnchorY, setStage1QuestionAnchorY] = useState<number | null>(null);
+  const [stage5Translations, setStage5Translations] = useState<Record<string, string>>({});
 
-  const clipKey = useMemo(() => {
-    if (!clip) return '';
-    return buildClipKey(clip, clipIndex);
-  }, [clip, clipIndex]);
+  const clipKey = useMemo(() => (clip ? buildClipKey(clip, clipIndex) : ''), [clip, clipIndex]);
+  const buckets = useMemo(() => questionBuckets(clip), [clip]);
   const challengeWords = useMemo(
-    () => (clip ? deriveChallengeWords(clip, level, knownWords) : []),
+    () => (clip ? deriveChallengeWords(clip, level, knownWords).slice(0, 3) : []),
     [clip, knownWords, level]
   );
   const previewLines = useMemo(() => {
@@ -471,16 +540,31 @@ export function PracticeSessionModal({
     : '';
 
   useEffect(() => {
-    stepRef.current = step;
-  }, [step]);
+    if (nativeLanguage === 'english' || stage5ReviewItems.length === 0) {
+      setStage5Translations({});
+      return;
+    }
 
-  useEffect(() => {
-    hardSentencesRef.current = hardSentences;
-  }, [hardSentences]);
+    let cancelled = false;
+    const uniqueWords = [...new Set(stage5ReviewItems.map(item => item.word.trim()).filter(Boolean))];
 
-  useEffect(() => {
-    wordsLookedRef.current = wordsLooked;
-  }, [wordsLooked]);
+    void Promise.all(
+      uniqueWords.map(async word => [word, await fetchWordTranslation(word, nativeLanguage)] as const)
+    ).then(entries => {
+      if (cancelled) return;
+      const next: Record<string, string> = {};
+      entries.forEach(([word, translation]) => {
+        if (translation) {
+          next[word.toLowerCase()] = translation;
+        }
+      });
+      setStage5Translations(next);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [nativeLanguage, stage5ReviewItems]);
 
   useEffect(() => {
     setStage5Cursor(prev => Math.max(0, Math.min(prev, Math.max(0, stage5ReviewItems.length - 1))));
@@ -488,6 +572,7 @@ export function PracticeSessionModal({
 
   const unloadSound = useCallback(async () => {
     soundReadyRef.current = false;
+    playbackModeRef.current = null;
     pendingPlaybackRef.current = null;
     if (!soundRef.current) return;
     try {
@@ -505,24 +590,8 @@ export function PracticeSessionModal({
     return sourceUrl;
   }, [clip]);
 
-  const finishPractice = useCallback(() => {
-    if (!clip || !clipKey || completionSavedRef.current) {
-      setStep(5);
-      return;
-    }
-
-    completionSavedRef.current = true;
-    triggerUiFeedback('practiceComplete');
-    onComplete(clipKey, {
-      done: true,
-      words: wordsLookedRef.current,
-      hard: hardSentencesRef.current.length,
-      ts: Date.now(),
-    });
-    setStep(5);
-  }, [clip, clipKey, onComplete]);
-
   const handleStatus = useCallback((nextStatus: AVPlaybackStatus) => {
+    if (!clip) return;
     if (!nextStatus.isLoaded) {
       setStatus(prev => ({
         ...prev,
@@ -533,27 +602,20 @@ export function PracticeSessionModal({
       return;
     }
 
-    const clipWindowEndMillis = clip ? Math.floor(getClipAudioEndSeconds(clip) * 1000) : 0;
-    const clipWindowStartMillis = clip ? Math.floor(getClipAudioStartSeconds(clip) * 1000) : 0;
-    const clipDurationMillis = clip ? Math.floor(getClipDurationSeconds(clip) * 1000) : 0;
-    const relativePositionMillis = clip
-      ? Math.max(0, nextStatus.positionMillis - clipWindowStartMillis)
-      : nextStatus.positionMillis;
-    const pendingPlayback = pendingPlaybackRef.current;
-    if (pendingPlayback) {
-      const settled =
-        Math.abs(nextStatus.positionMillis - pendingPlayback.targetStartMillis) <= 400
-        || (
-          nextStatus.positionMillis >= pendingPlayback.targetStartMillis
-          && nextStatus.positionMillis <= pendingPlayback.targetStartMillis + 1200
-        );
-      if (!settled) {
-        return;
-      }
+    const clipWindowStartMillis = Math.floor(getClipAudioStartSeconds(clip) * 1000);
+    const clipWindowEndMillis = Math.floor(getClipAudioEndSeconds(clip) * 1000);
+    const clipDurationMillis = Math.floor(getClipDurationSeconds(clip) * 1000);
+    const relativePositionMillis = Math.max(0, nextStatus.positionMillis - clipWindowStartMillis);
+
+    if (pendingPlaybackRef.current) {
+      const deltaFromTarget = nextStatus.positionMillis - pendingPlaybackRef.current.targetStartMillis;
+      const settled = Math.abs(deltaFromTarget) <= 400
+        || (deltaFromTarget > 0 && deltaFromTarget <= 1200);
+      if (!settled) return;
       pendingPlaybackRef.current = null;
-      segmentEndRef.current = pendingPlayback.targetEndMillis;
     }
-    const reachedClipEnd = clip && clipWindowEndMillis > clipWindowStartMillis
+
+    const reachedClipEnd = clipWindowEndMillis > clipWindowStartMillis
       && nextStatus.positionMillis >= clipWindowEndMillis - 160;
 
     setStatus(prev => ({
@@ -567,70 +629,39 @@ export function PracticeSessionModal({
       errorMessage: null,
     }));
 
-    if (
-      segmentEndRef.current !== null &&
-      nextStatus.isPlaying &&
-      nextStatus.positionMillis >= segmentEndRef.current
-    ) {
-      const sound = soundRef.current;
-      segmentEndRef.current = null;
-      if (sound) {
-        void sound.pauseAsync();
+    if (reachedClipEnd || nextStatus.didJustFinish) {
+      const mode = playbackModeRef.current;
+      playbackModeRef.current = null;
+      if (mode) {
+        // Only unlock the next question flow for the playback run that this stage started.
+        setStageAudioFinished(true);
+        onPlaybackEndedRef.current(mode);
       }
-    }
-
-    if (reachedClipEnd && soundRef.current) {
-      const sound = soundRef.current;
-      segmentEndRef.current = null;
-      void sound.pauseAsync().catch(() => {});
-      void sound.setPositionAsync(clipWindowEndMillis).catch(() => {});
-      if (stepRef.current === 3) {
-        setFadePlaybackFinished(true);
-      }
-      if (stepRef.current === 4) {
-        setBlindListenFinished(true);
-      }
-      return;
-    }
-
-    if (!nextStatus.didJustFinish) return;
-
-    segmentEndRef.current = null;
-    if (stepRef.current === 3) {
-      setFadePlaybackFinished(true);
-    }
-    if (stepRef.current === 4) {
-      setBlindListenFinished(true);
     }
   }, [clip, t]);
 
   const loadSound = useCallback(async () => {
-    if (!clip || !visible) return false;
+    if (!clip || !visible || readOnly) return false;
     if (soundRef.current && soundReadyRef.current) {
       return true;
     }
     if (loadPromiseRef.current) {
       return loadPromiseRef.current;
     }
+
     setStatus(prev => ({ ...prev, isLoading: true, errorMessage: null }));
     const preparedAudioUri = await ensurePreparedAudioUri();
     if (!preparedAudioUri) {
-      setStatus({
-        isPlaying: false,
+      setStatus(prev => ({
+        ...prev,
         isLoading: false,
-        positionMillis: 0,
-        durationMillis: Math.floor(getClipDurationSeconds(clip) * 1000),
         errorMessage: t('practiceSession.noAudio'),
-      });
+      }));
       return false;
     }
 
-    const loadRequestId = loadRequestIdRef.current + 1;
-    loadRequestIdRef.current = loadRequestId;
-
     const currentLoad = (async () => {
       await unloadSound();
-
       const sound = new Audio.Sound();
       soundRef.current = sound;
       sound.setOnPlaybackStatusUpdate(handleStatus);
@@ -640,65 +671,60 @@ export function PracticeSessionModal({
           { uri: preparedAudioUri },
           {
             shouldPlay: false,
-            progressUpdateIntervalMillis: 120,
+            progressUpdateIntervalMillis: 240,
             positionMillis: Math.floor(getClipAudioStartSeconds(clip) * 1000),
           }
         );
-        await sound.setProgressUpdateIntervalAsync(120);
+        await sound.setProgressUpdateIntervalAsync(240);
         soundReadyRef.current = true;
         const initialStatus = await sound.getStatusAsync();
         handleStatus(initialStatus);
         return true;
       } catch {
-        if (soundRef.current === sound) {
-          sound.setOnPlaybackStatusUpdate(null);
-          soundRef.current = null;
-        }
         try {
           await sound.unloadAsync();
         } catch {
+        }
+        sound.setOnPlaybackStatusUpdate(null);
+        if (soundRef.current === sound) {
+          soundRef.current = null;
         }
         setStatus(prev => ({
           ...prev,
           isPlaying: false,
           isLoading: false,
-          positionMillis: 0,
-          durationMillis: Math.floor(getClipDurationSeconds(clip) * 1000),
           errorMessage: t('practiceSession.loadError'),
         }));
         return false;
       } finally {
-        if (loadRequestIdRef.current === loadRequestId) {
-          loadPromiseRef.current = null;
-        }
+        loadPromiseRef.current = null;
       }
     })();
 
     loadPromiseRef.current = currentLoad;
     return currentLoad;
-  }, [clip, ensurePreparedAudioUri, handleStatus, t, unloadSound, visible]);
+  }, [clip, ensurePreparedAudioUri, handleStatus, readOnly, t, unloadSound, visible]);
 
-  const playWholeClip = useCallback(async (fromMillis = 0) => {
-    if (!clip) return;
+  const playWholeClip = useCallback(async (fromMillis = 0, mode?: StagePlaybackMode) => {
+    if (!clip || readOnly) return;
+    if (mode) {
+      playbackModeRef.current = mode;
+      setStageAudioFinished(false);
+    }
     const requestId = playbackRequestRef.current + 1;
     playbackRequestRef.current = requestId;
-    segmentEndRef.current = null;
     const targetStartMillis = Math.max(0, Math.floor(clipRelativeToSourceSeconds(clip, fromMillis / 1000) * 1000));
-    pendingPlaybackRef.current = {
-      targetStartMillis,
-      targetEndMillis: null,
-    };
+    pendingPlaybackRef.current = { targetStartMillis };
     const ready = await loadSound();
     if (!ready || requestId !== playbackRequestRef.current || !soundRef.current) return;
     try {
-      await soundRef.current.pauseAsync().catch(() => {});
+      await soundRef.current.pauseAsync().catch(noop);
       await soundRef.current.setPositionAsync(targetStartMillis);
       const seekStatus = await soundRef.current.getStatusAsync();
       handleStatus(seekStatus);
       await soundRef.current.playAsync();
     } catch {
       if (requestId !== playbackRequestRef.current) return;
-      pendingPlaybackRef.current = null;
       setStatus(prev => ({
         ...prev,
         isPlaying: false,
@@ -706,39 +732,7 @@ export function PracticeSessionModal({
         errorMessage: t('practiceSession.loadError'),
       }));
     }
-  }, [clip, loadSound, t]);
-
-  const playSentence = useCallback(async (lineIndex: number) => {
-    if (!clip) return;
-    const line = clip.lines?.[lineIndex];
-    if (!line) return;
-    const requestId = playbackRequestRef.current + 1;
-    playbackRequestRef.current = requestId;
-    const targetStartMillis = Math.max(0, Math.floor(clipRelativeToSourceSeconds(clip, line.start) * 1000));
-    const targetEndMillis = Math.floor(clipRelativeToSourceSeconds(clip, line.end) * 1000);
-    pendingPlaybackRef.current = {
-      targetStartMillis,
-      targetEndMillis,
-    };
-    const ready = await loadSound();
-    if (!ready || requestId !== playbackRequestRef.current || !soundRef.current) return;
-    try {
-      await soundRef.current.pauseAsync().catch(() => {});
-      await soundRef.current.setPositionAsync(targetStartMillis);
-      const seekStatus = await soundRef.current.getStatusAsync();
-      handleStatus(seekStatus);
-      await soundRef.current.playAsync();
-    } catch {
-      if (requestId !== playbackRequestRef.current) return;
-      pendingPlaybackRef.current = null;
-      setStatus(prev => ({
-        ...prev,
-        isPlaying: false,
-        isLoading: false,
-        errorMessage: t('practiceSession.loadError'),
-      }));
-    }
-  }, [clip, loadSound, t]);
+  }, [clip, handleStatus, loadSound, readOnly, t]);
 
   const pause = useCallback(async () => {
     playbackRequestRef.current += 1;
@@ -750,19 +744,19 @@ export function PracticeSessionModal({
     }
   }, []);
 
-  const togglePlay = useCallback(async () => {
+  const togglePlay = useCallback(async (mode?: StagePlaybackMode) => {
     if (status.isPlaying) {
       await pause();
       return;
     }
-
-    if (stepRef.current === 2) {
-      if (soundRef.current && soundReadyRef.current) {
-        try {
-          await soundRef.current.playAsync();
-          return;
-        } catch {
-        }
+    if (mode) {
+      playbackModeRef.current = mode;
+    }
+    if (soundRef.current && soundReadyRef.current) {
+      try {
+        await soundRef.current.playAsync();
+        return;
+      } catch {
       }
     }
     await playWholeClip(status.positionMillis, mode);
@@ -845,40 +839,65 @@ export function PracticeSessionModal({
       goToStage(1);
       return;
     }
-    if (stepRef.current === 3) {
-      if (soundRef.current && soundReadyRef.current) {
-        try {
-          await soundRef.current.playAsync();
-          return;
-        } catch {
-        }
-      }
-      await playWholeClip(status.positionMillis);
+    if (quizStage === 1) {
+      goToStage(2);
       return;
     }
+    if (quizStage === 2) {
+      goToStage(3);
+      return;
+    }
+    if (quizStage === 3) {
+      goToStage(4);
+      return;
+    }
+    setAttributionStep(1);
+  }, [goToStage]);
 
-    const totalDurationMillis = Math.max(
-      status.durationMillis,
-      Math.floor((clip ? getClipDurationSeconds(clip) : 0) * 1000)
-    );
-    const restart = status.positionMillis >= Math.max(0, totalDurationMillis - 300);
-    await playWholeClip(restart ? 0 : status.positionMillis);
-  }, [clip, pause, playSentence, playWholeClip, sentenceIndex, status.durationMillis, status.isPlaying, status.positionMillis]);
+  const startPlaybackForStage = useCallback(async (mode: StagePlaybackMode, fromMillis = 0) => {
+    playbackModeRef.current = mode;
+    setStageAudioFinished(false);
+    if (mode === 'blind') {
+      setBlindListenStarted(true);
+      setBlindListenFinished(false);
+    }
+    await playWholeClip(fromMillis, mode);
+  }, [playWholeClip]);
+
+  const completePractice = useCallback(() => {
+    if (!clip || !clipKey || completionSavedRef.current || readOnly) return;
+    completionSavedRef.current = true;
+    const completedClip: PracticeTabCompletedClip = {
+      clipKey,
+      title: clip.title,
+      tag: clip.tag,
+      completedAt: Date.now(),
+      tabEnteredFrom: 'practice',
+      reasons: attributionReasons,
+      vocabPicked: selectedVocabPicks,
+      quizResults,
+      durationSec: Math.round(getClipDurationSeconds(clip)),
+    };
+    onComplete(completedClip);
+  }, [attributionReasons, clip, clipKey, onComplete, quizResults, readOnly, selectedVocabPicks]);
 
   useEffect(() => {
-    if (!visible || !clip) return;
-
+    if (!visible || !clip || !clipKey) return;
+    completionSavedRef.current = false;
+    stageRunRef.current = '';
     playbackRequestRef.current += 1;
     loadPromiseRef.current = null;
     pendingPlaybackRef.current = null;
-    completionSavedRef.current = false;
-    segmentEndRef.current = null;
-    setStep(1);
-    setSentenceIndex(0);
-    setHardSentences([]);
-    setWordsLooked(0);
-    setLookedWordsList([]);
-    setFadePlaybackFinished(false);
+    setStage(readOnly ? 6 : (Math.max(0, Math.min(initialStage, 6)) as Stage));
+    setStatus({
+      isPlaying: false,
+      isLoading: false,
+      positionMillis: 0,
+      durationMillis: Math.floor(getClipDurationSeconds(clip) * 1000),
+      errorMessage: null,
+    });
+    setStageAudioFinished(false);
+    setBlindListenStarted(false);
     setBlindListenFinished(false);
     setActiveQuestionFlow(null);
     setCurrentQuestionSelection(null);
@@ -897,61 +916,88 @@ export function PracticeSessionModal({
     setStage5Cursor(0);
     setExpandedSentenceIndex(null);
     setPopup(null);
-    wordsLookedRef.current = 0;
-    hardSentencesRef.current = [];
-
-    void loadSound();
-
+    setStage1QuestionAnchorY(null);
+    if (!readOnly) {
+      void loadSoundRef.current();
+    }
     return () => {
       loadPromiseRef.current = null;
-      void unloadSound();
+      void unloadSoundRef.current();
     };
-  }, [clip, loadSound, unloadSound, visible]);
+  }, [
+    clipKey,
+    completedRecord?.clipKey,
+    completedRecord?.completedAt,
+    readOnly,
+    visible,
+  ]);
 
   useEffect(() => {
-    if (!visible || !clip || step !== 2) return;
-    void playSentence(sentenceIndex);
-  }, [clip, playSentence, sentenceIndex, step, visible]);
+    onStageChangeRef.current = onStageChange;
+  }, [onStageChange]);
 
   useEffect(() => {
-    if (!visible || !clip || step !== 3) return;
-    setFadePlaybackFinished(false);
-    void playWholeClip(0);
-  }, [clip, playWholeClip, step, visible]);
+    loadSoundRef.current = loadSound;
+  }, [loadSound]);
 
   useEffect(() => {
-    if (!visible || !clip || step !== 4) return;
-    if (blindListenFinished) return;
-    void playWholeClip(0);
-  }, [blindListenFinished, clip, playWholeClip, step, visible]);
+    unloadSoundRef.current = unloadSound;
+  }, [unloadSound]);
 
-  useEffect(() => {
-    if (!visible) return;
-
-    let cancelled = false;
-    const timer = setInterval(() => {
-      const sound = soundRef.current;
-      if (!sound) return;
-
-      void sound.getStatusAsync().then(nextStatus => {
-        if (cancelled) return;
-        handleStatus(nextStatus);
-      }).catch(() => {
-      });
-    }, 180);
-
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [handleStatus, visible]);
-
-  useEffect(() => {
-    if (!visible || step !== 5) return;
-    requestAnimationFrame(() => {
-      scrollRef.current?.scrollTo({ y: 0, animated: true });
+  const handlePlaybackEnded = useCallback((mode: StagePlaybackMode) => {
+    practiceDebug('playback-ended', {
+      clipKey,
+      mode,
+      stage,
+      visible,
+      inline,
     });
-  }, [step, visible]);
+    if (mode === 'blind') {
+      setBlindListenFinished(true);
+      const opened = openNextQuestionIfNeeded(4);
+      if (!opened) {
+        setAttributionStep(1);
+      }
+      return;
+    }
+    void openNextQuestionIfNeeded(mode);
+  }, [clipKey, inline, openNextQuestionIfNeeded, stage, visible]);
+
+  useEffect(() => {
+    onPlaybackEndedRef.current = handlePlaybackEnded;
+  }, [handlePlaybackEnded]);
+
+  useEffect(() => {
+    if (!visible || readOnly) return;
+    onStageChangeRef.current(stage);
+  }, [clipKey, inline, readOnly, stage, visible]);
+
+  useEffect(() => {
+    if (!inline || !visible || stage !== 1) return;
+    if (currentQuestionFlow?.stage !== 1 || !currentQuestion) return;
+    const timer = setTimeout(() => {
+      bodyScrollRef.current?.scrollTo({
+        y: Math.max(0, (stage1QuestionAnchorY || 0) - 20),
+        animated: true,
+      });
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [currentQuestion, currentQuestionFlow?.stage, inline, stage, stage1QuestionAnchorY, visible]);
+
+  useEffect(() => {
+    if (inline && !isActive) return;
+    if (!visible || readOnly || !stagePlaybackFinished) return;
+    if (stage !== 1 && stage !== 2 && stage !== 3) return;
+    if (currentQuestionFlow) return;
+    practiceDebug('stage-audio-finished', {
+      clipKey,
+      stage,
+      visible,
+      inline,
+      activeQuestionStage: null,
+    });
+    void openNextQuestionIfNeeded(stage);
+  }, [clipKey, currentQuestionFlow, inline, isActive, openNextQuestionIfNeeded, readOnly, stage, stagePlaybackFinished, visible]);
 
   useEffect(() => {
     if (inline && !isActive) return;
@@ -990,23 +1036,86 @@ export function PracticeSessionModal({
     }
   }, [clip, clipKey, goToStage, inline, isActive, openNextQuestionIfNeeded, pause, readOnly, stage, startPlaybackForStage, visible]);
 
-  const questions = clip.questions || [];
-  const currentQuestion = questions[quizIndex] || null;
-  const currentSelection = quizSelections[quizIndex] || '';
-  const currentAnswer = currentQuestion?.answer?.trim().charAt(0).toUpperCase() || '';
+  useEffect(() => {
+    if (stage === 6) {
+      completePractice();
+    }
+  }, [completePractice, stage]);
 
-  const handleWordTap = (word: ClipLineWord, contextEn: string, contextZh: string, lineIndex: number | null) => {
+  const handleWordTap = useCallback((word: ClipLineWord, contextEn: string, contextZh: string, lineIndex: number) => {
     onRecordWordLookup(word.cefr, {
       clip,
       word: word.word,
     });
-    setWordsLooked(prev => prev + 1);
-    setLookedWordsList(prev => {
-      const normalized = word.word.toLowerCase();
-      if (prev.some(item => item.word === normalized)) return prev;
-      return [...prev, { word: normalized, cefr: word.cefr }];
+    setPopup({
+      word,
+      contextEn,
+      contextZh,
+      lineIndex,
     });
-    setPopup({ word, contextEn, contextZh, lineIndex });
+  }, [clip, onRecordWordLookup]);
+
+  useEffect(() => {
+    if (!inline || !visible || !isActive) {
+      if (status.isPlaying) {
+        void pause();
+      }
+      return;
+    }
+  }, [inline, isActive, pause, status.isPlaying, visible]);
+
+  const handleAdvanceQuestion = useCallback(() => {
+    const questionFlow = currentQuestionFlow;
+    if (!questionFlow || !currentQuestion) return;
+    const selection = currentQuestionSelection;
+    if (selection === null) {
+      if (
+        questionFlow.stage === 1
+        || questionFlow.stage === 2
+        || questionFlow.stage === 3
+        || questionFlow.stage === 4
+      ) {
+        setActiveQuestionFlow(null);
+        setCurrentQuestionSelection(null);
+        advanceFromQuizStage(questionFlow.stage);
+      }
+      return;
+    }
+    const correctIndex = answerIndex(currentQuestion);
+    const result: PracticeTabQuizResult = {
+      qIdx: questionFlow.index,
+      picked: selection,
+      correct: selection === correctIndex,
+    };
+    const key = bucketKey(questionFlow.stage);
+    setQuizResults(prev => ({
+      ...prev,
+      [key]: [...prev[key], result],
+    }));
+    const questions = stageQuestions(questionFlow.stage);
+    if (questionFlow.index + 1 < questions.length) {
+      setActiveQuestionFlow({
+        stage: questionFlow.stage,
+        index: questionFlow.index + 1,
+      });
+      setCurrentQuestionSelection(null);
+      return;
+    }
+    setActiveQuestionFlow(null);
+    setCurrentQuestionSelection(null);
+    advanceFromQuizStage(questionFlow.stage);
+  }, [advanceFromQuizStage, currentQuestion, currentQuestionFlow, currentQuestionSelection, stageQuestions]);
+
+  const quizExplanation = currentQuestion
+    ? explanationForQuestion(currentQuestion, t('practiceSession.explanationUnavailable'))
+    : '';
+
+  const handleToggleReason = (reason: PracticeTabReason) => {
+    setAttributionReasons(prev => (
+      prev.includes(reason)
+        ? prev.filter(item => item !== reason)
+        : [...prev, reason]
+    ));
   };
 
   const handleToggleVocabPick = (word: string, sentenceIndex: number, cefr?: string) => {
@@ -1024,17 +1133,11 @@ export function PracticeSessionModal({
       setAttributionStep(2);
       return;
     }
-    setFadePlaybackFinished(false);
-    setStep(3);
+    goToStage(6);
   };
 
-  const moveToNextSentence = () => {
-    const nextIndex = sentenceIndex + 1;
-    if (nextIndex < lineCount) {
-      setSentenceIndex(nextIndex);
-      return;
-    }
-    beginFadeStage();
+  const handleCompleteAttributionStep2 = () => {
+    goToStage(5);
   };
 
   const handleConsumeStage5Word = (decision: 'learned' | 'review') => {
@@ -1078,26 +1181,84 @@ export function PracticeSessionModal({
     void startPlaybackForStage('blind', 0);
   }, [startPlaybackForStage, status.isLoading, status.isPlaying]);
 
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onDismiss}>
-      <SafeAreaView edges={['bottom']} style={styles.safeArea}>
-        <View
-          style={[
-            styles.header,
-            {
-              paddingTop: Math.max(insets.top + 10, 18),
-              paddingHorizontal: metrics.pageHorizontalPadding,
-            },
-          ]}
-        >
-          <View style={[styles.headerInner, { maxWidth: metrics.modalMaxWidth }]}>
-            <Pressable
-              onPress={() => {
-                triggerUiFeedback('menu');
-                onDismiss();
-              }}
-              style={styles.closeButton}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+  const handleReplayStage = useCallback((targetStage: QuizStage) => {
+    if (readOnly) return;
+    setStageAudioFinished(false);
+    if (targetStage === 4) {
+      setBlindListenStarted(false);
+      setBlindListenFinished(false);
+      setAttributionStep(null);
+      setExpandedSentenceIndex(null);
+      setSelectedVocabPicks([]);
+    }
+    if (currentQuestionFlow?.stage === targetStage) {
+      setActiveQuestionFlow(null);
+      setCurrentQuestionSelection(null);
+    }
+    void startPlaybackForStage(targetStage, 0);
+  }, [currentQuestionFlow?.stage, readOnly, startPlaybackForStage]);
+
+  const renderQuestionBlock = useCallback((quizStage: QuizStage, options?: { onLayout?: (y: number) => void }) => {
+    if (currentQuestionFlow?.stage !== quizStage || !currentQuestion) return null;
+    return (
+      <View
+        style={styles.inlineQuestionSection}
+        onLayout={options?.onLayout ? event => options.onLayout?.(event.nativeEvent.layout.y) : undefined}
+      >
+        <PracticeCardHeader label={t('practiceSession.questionLabel')} />
+        <Text style={styles.questionText}>{currentQuestion.question}</Text>
+        <View style={styles.optionsWrap}>
+          {(currentQuestion.options || []).map((option, index) => {
+            const locked = currentQuestionAnswered;
+            const isSelected = currentQuestionSelection === index;
+            const isCorrectOption = currentQuestionAnswered && index === currentQuestionCorrectIndex;
+            const isIncorrectSelection = currentQuestionAnswered && isSelected && !currentQuestionCorrect;
+            return (
+              <Pressable
+                key={option}
+                onPress={() => {
+                  if (locked) return;
+                  setCurrentQuestionSelection(index);
+                  if (index === currentQuestionCorrectIndex) {
+                    triggerUiFeedback('success');
+                  } else {
+                    triggerMediumHaptic();
+                  }
+                }}
+                hitSlop={8}
+                style={[
+                  styles.optionButton,
+                  isSelected && styles.optionButtonSelected,
+                  isCorrectOption && styles.optionButtonCorrect,
+                  isIncorrectSelection && styles.optionButtonIncorrect,
+                  locked && !isSelected && !isCorrectOption && styles.optionButtonIdleLocked,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.optionText,
+                    isCorrectOption && styles.optionTextCorrect,
+                    isIncorrectSelection && styles.optionTextIncorrect,
+                  ]}
+                >
+                  {option}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {currentQuestionAnswered ? (
+          <View
+            style={[
+              styles.answerFeedbackCard,
+              currentQuestionCorrect ? styles.answerFeedbackCardCorrect : styles.answerFeedbackCardIncorrect,
+            ]}
+          >
+            <Text
+              style={[
+                styles.answerFeedbackTitle,
+                currentQuestionCorrect ? styles.answerFeedbackTitleCorrect : styles.answerFeedbackTitleIncorrect,
+              ]}
             >
               {currentQuestionCorrect
                 ? t('practiceSession.answerCorrectTitle')
@@ -1256,6 +1417,17 @@ export function PracticeSessionModal({
                 <ActionButton label={t('practiceSession.blindAllClear')} variant="secondary" onPress={() => goToStage(6)} />
               ) : null}
             </View>
+          );
+        }
+        return attributionStep === 2 ? (
+          <View style={styles.inlineFooterStack}>
+            <ActionButton
+              label={selectedVocabPicks.length > 0 ? t('common.continue') : t('practiceSession.blindCantTell')}
+              onPress={handleCompleteAttributionStep2}
+            />
+            {selectedVocabPicks.length > 0 ? (
+              <ActionButton label={t('practiceSession.blindCantTell')} variant="secondary" onPress={() => goToStage(6)} />
+            ) : null}
           </View>
         ) : null;
       }
@@ -1586,7 +1758,10 @@ export function PracticeSessionModal({
                     ))}
                   </ScrollView>
                 </View>
-              </View>
+              </GlassCard>
+            )}
+          </View>
+        ) : null}
 
         {stage === 5 ? (
           <View style={styles.stageCard}>
@@ -1706,51 +1881,127 @@ export function PracticeSessionModal({
                 )}
                 <ActionButton label={t('common.close')} variant="secondary" onPress={onDismiss} />
               </View>
-              <View style={styles.summaryActions}>
-                <Pressable onPress={() => {
-                  triggerUiFeedback('primary');
-                  onPracticeAgain();
-                }} style={[styles.summaryButton, styles.summaryButtonPrimary]}>
-                  <Text style={[styles.summaryButtonText, styles.summaryButtonTextPrimary]}>{t('practiceSession.practiceAnother')}</Text>
-                </Pressable>
-                <Pressable onPress={() => {
-                  triggerUiFeedback('menu');
-                  onReturnFeed();
-                }} style={styles.summaryButton}>
-                  <Text style={styles.summaryButtonText}>{t('practiceSession.backToFeed')}</Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : null}
-        </ScrollView>
-
-        {popup ? (
-          <WordPopup
-            word={popup.word}
-            contextEn={popup.contextEn}
-            contextZh={popup.contextZh}
-            isSaved={vocabWords.includes(popup.word.word.toLowerCase())}
-            isKnown={knownWords.includes(popup.word.word.toLowerCase())}
-            onSave={info => {
-              onSaveVocab({
-                word: popup.word.word.toLowerCase(),
-                cefr: popup.word.cefr,
-                phonetic: info?.phonetic || '',
-                definitionZh: info?.definition || '',
-                context: popup.contextEn,
-                contextZh: popup.contextZh,
-                contentKey: clip.contentKey,
-                lineIndex: popup.lineIndex ?? undefined,
-                clipKey,
-                clipTitle: clip.title,
-                sourceType: 'practice',
-                practiced: true,
-              });
-            }}
-            onMarkKnown={() => onMarkKnown(popup.word.word.toLowerCase())}
-            onDismiss={() => setPopup(null)}
-          />
+            ) : null}
+          </View>
         ) : null}
+    </>
+  );
+
+  const inlineFooterReservedSpace = Math.max(insets.bottom + 112, 132);
+
+  const bodyScroller = inline ? (
+    <ScrollView
+      ref={bodyScrollRef}
+      keyboardShouldPersistTaps="handled"
+      nestedScrollEnabled
+      style={styles.bodyInlineScroller}
+      contentContainerStyle={[
+        styles.body,
+        styles.bodyInline,
+        {
+          paddingHorizontal: metrics.pageHorizontalPadding,
+          paddingBottom: inlineFooterReservedSpace,
+          maxWidth: metrics.modalMaxWidth,
+          alignSelf: 'center',
+          width: '100%',
+        },
+      ]}
+    >
+      {stageContent}
+    </ScrollView>
+  ) : (
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={[
+        styles.body,
+        {
+          paddingHorizontal: metrics.pageHorizontalPadding,
+          paddingBottom: Math.max(insets.bottom + 28, 28),
+          maxWidth: metrics.modalMaxWidth,
+          alignSelf: 'center',
+          width: '100%',
+        },
+      ]}
+    >
+      {stageContent}
+    </ScrollView>
+  );
+
+  const bodyContent = (
+    <>
+      {bodyHeader}
+      {bodyScroller}
+
+      {inline && inlineFooterActions ? (
+        <View
+          style={[
+            styles.inlineFooter,
+            {
+              paddingBottom: Math.max(insets.bottom + 10, 14),
+              paddingHorizontal: metrics.pageHorizontalPadding,
+            },
+          ]}
+        >
+          <View style={[styles.inlineFooterInner, { maxWidth: metrics.modalMaxWidth }]}>
+            {inlineFooterActions}
+          </View>
+        </View>
+      ) : null}
+
+      {!inline ? (
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom + 12, 16), paddingHorizontal: metrics.pageHorizontalPadding }]}>
+          <ActionButton
+            label={readOnly ? t('common.close') : t('common.cancel')}
+            variant="secondary"
+            onPress={onDismiss}
+            style={styles.footerButton}
+          />
+        </View>
+      ) : null}
+
+      {popup ? (
+        <WordPopup
+          word={popup.word}
+          contextEn={popup.contextEn}
+          contextZh={popup.contextZh}
+          isSaved={selectedWordSaved}
+          isKnown={selectedWordKnown}
+          onDismiss={() => setPopup(null)}
+          onSave={info => {
+            onSaveVocab({
+              word: popup.word.word.toLowerCase(),
+              cefr: popup.word.cefr,
+              phonetic: info.phonetic,
+              definitionZh: info.definition,
+              context: popup.contextEn,
+              contextZh: popup.contextZh,
+              lineIndex: popup.lineIndex,
+              clipKey,
+              clipTitle: clip.title,
+              tag: clip.tag,
+              sourceType: 'practice',
+            });
+          }}
+          onMarkKnown={() => {
+            onMarkKnown(popup.word.word.toLowerCase());
+          }}
+        />
+      ) : null}
+    </>
+  );
+
+  if (inline) {
+    return (
+      <View style={styles.inlineRoot}>
+        {bodyContent}
+      </View>
+    );
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onDismiss}>
+      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
+        {bodyContent}
       </SafeAreaView>
     </Modal>
   );
