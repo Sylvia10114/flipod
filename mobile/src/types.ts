@@ -174,6 +174,7 @@ export type PracticeTabReason =
 export type PracticeTabVocabPick = {
   word: string;
   sentenceIndex: number;
+  cefr?: string;
 };
 
 export type PracticeTabQuizResult = {
@@ -318,6 +319,7 @@ export type VocabEntry = {
   tag?: string;
   sourceType?: 'feed' | 'practice';
   practiced?: boolean;
+  reviewStatus?: 'learned' | 'review';
   known?: boolean;
   timestamp?: number;
   createdAt?: string;

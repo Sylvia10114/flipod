@@ -58,7 +58,6 @@ import {
 } from './src/generated-practice';
 import { FeedScreen } from './src/screens/FeedScreen';
 import { AccountScreen } from './src/screens/AccountScreen';
-import { FirstUseBridgeScreen } from './src/screens/FirstUseBridgeScreen';
 import { LibraryScreen } from './src/screens/LibraryScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
@@ -377,6 +376,7 @@ export default function App() {
     clipIndex: number;
     clipKey: string;
     readOnly: boolean;
+    clip?: Clip;
   } | null>(null);
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
@@ -673,7 +673,7 @@ export default function App() {
         setDeviceId(nextDeviceId);
         setGuestMode(nextGuestMode);
         const normalizedPracticeTabState = localPracticeTabState || createDefaultPracticeTabState();
-        const restoredHomeMode = normalizedPracticeTabState.ui_state.current_tab || localSettings.homeMode;
+        const restoredHomeMode: HomeMode = 'just_listen';
         const nextSettings = {
           ...localSettings,
           homeMode: restoredHomeMode,
@@ -1046,6 +1046,7 @@ export default function App() {
     if (activeClipPracticeSession) {
       const nextIndex = practiceFeedKeys.indexOf(activeClipPracticeSession.clipKey);
       if (nextIndex < 0) {
+        if (activeClipPracticeSession.clip) return;
         setActiveClipPracticeSession(null);
       } else if (nextIndex !== activeClipPracticeSession.clipIndex) {
         setActiveClipPracticeSession(prev => (
@@ -1443,23 +1444,17 @@ export default function App() {
     setActiveScreen(getHomeModeScreen(settings.homeMode));
   };
 
-  const handleCompleteFirstUseBridge = useCallback(() => {
-    if (settings.firstUseBridgeSeen) return;
-    const nextSettings: AppSettings = {
-      ...settings,
-      firstUseBridgeSeen: true,
-    };
-    void persistSettings(nextSettings);
-  }, [persistSettings, settings]);
-
   const markFeedCoachSeen = useCallback((key: 'feedCoachListenSeen' | 'feedCoachNavSeen') => {
-    if (settings[key]) return;
-    const nextSettings: AppSettings = {
-      ...settings,
-      [key]: true,
-    };
-    void persistSettings(nextSettings);
-  }, [persistSettings, settings]);
+    setSettings(prev => {
+      if (prev[key]) return prev;
+      const nextSettings: AppSettings = {
+        ...prev,
+        [key]: true,
+      };
+      void saveSettings(nextSettings);
+      return nextSettings;
+    });
+  }, []);
 
   const handleShowWordCoach = useCallback(() => {
     if (settings.feedCoachWordSeen) return;
@@ -2133,16 +2128,60 @@ export default function App() {
     requestPracticeClipTranslations(clipIndex);
   }, [persistSettings, practiceClips, practiceFeedKeys, requestPracticeClipTranslations, settings, updatePracticeTabState]);
 
+  const handleStartFeedClipPractice = useCallback((clip: Clip, clipIndex: number) => {
+    const snapshot = livePracticeFeedSnapshot.keys.length
+      ? livePracticeFeedSnapshot
+      : buildPracticeFeedSnapshot(currentClips);
+    const clipKey = snapshot.keys[clipIndex] || buildClipKey(clip, clipIndex);
+    if (!clipKey) return;
+    updatePracticeTabState(prev => ({
+      ...prev,
+      ui_state: {
+        ...prev.ui_state,
+        current_tab: 'practice',
+        last_active_at: new Date().toISOString(),
+      },
+      practice_feed_keys: snapshot.keys.length ? snapshot.keys : prev.practice_feed_keys,
+      practice_feed_signature: snapshot.signature || prev.practice_feed_signature,
+      practice_cursor: clipIndex,
+      session: {
+        active_clip_key: clipKey,
+        current_stage: prev.session?.active_clip_key === clipKey
+          ? Math.max(1, prev.session.current_stage)
+          : 1,
+        current_clip_index: clipIndex,
+        started_at: prev.session?.active_clip_key === clipKey
+          ? prev.session.started_at
+          : new Date().toISOString(),
+      },
+    }));
+    setActiveScreen('feed');
+    setActiveClipPracticeSession({ clipIndex, clipKey, readOnly: false, clip });
+    const translationTargets = [{ clip: currentRawClips[clipIndex] || clip, index: clipIndex }];
+    if (currentRawClips[clipIndex + 1]) {
+      translationTargets.push({ clip: currentRawClips[clipIndex + 1], index: clipIndex + 1 });
+    }
+    void requestContentTranslations(translationTargets, profile.nativeLanguage);
+  }, [
+    currentClips,
+    currentRawClips,
+    livePracticeFeedSnapshot,
+    profile.nativeLanguage,
+    requestContentTranslations,
+    updatePracticeTabState,
+  ]);
+
   const handleDismissClipPractice = useCallback(() => {
     setActiveClipPracticeSession(null);
   }, []);
 
   const handleReturnListenFromClipPractice = useCallback(() => {
+    setActiveClipPracticeSession(null);
     handleHomeModeChange('just_listen');
   }, [handleHomeModeChange]);
 
   const handleClipPracticeStageChange = useCallback((clipIndex: number, stage: number) => {
-    const clipKey = practiceFeedKeys[clipIndex];
+    const clipKey = practiceFeedKeys[clipIndex] || activeClipPracticeSession?.clipKey;
     if (!clipKey) return;
     updatePracticeTabState(prev => {
       if (
@@ -2166,7 +2205,7 @@ export default function App() {
           },
         };
     });
-  }, [practiceFeedKeys, updatePracticeTabState]);
+  }, [activeClipPracticeSession?.clipKey, practiceFeedKeys, updatePracticeTabState]);
 
   const handleClipPracticeComplete = useCallback((completedClip: PracticeTabCompletedClip) => {
     updatePracticeTabState(prev => {
@@ -2213,19 +2252,9 @@ export default function App() {
   }, [updatePracticeTabState]);
 
   const handlePracticeNextClip = useCallback(() => {
-    if (!activeClipPracticeSession) {
-      setActiveClipPracticeSession(null);
-      return;
-    }
-    const currentIndex = practiceFeedKeys.indexOf(activeClipPracticeSession.clipKey);
-    const resolvedCurrentIndex = currentIndex >= 0 ? currentIndex : activeClipPracticeSession.clipIndex;
-    const nextIndex = Math.min(resolvedCurrentIndex + 1, Math.max(0, practiceClips.length - 1));
-    if (nextIndex === resolvedCurrentIndex) {
-      setActiveClipPracticeSession(null);
-      return;
-    }
-    handleStartClipPractice(nextIndex, false);
-  }, [activeClipPracticeSession, practiceClips.length, practiceFeedKeys, handleStartClipPractice]);
+    setActiveClipPracticeSession(null);
+    handleHomeModeChange('just_listen');
+  }, [handleHomeModeChange]);
 
   const handleTryGuest = useCallback(async () => {
     await saveGuestMode(true);
@@ -2367,8 +2396,6 @@ export default function App() {
     );
   } else if (!profile.onboardingDone) {
     content = <OnboardingScreen initialProfile={profile} onSubmit={handleProfileSubmit} />;
-  } else if (!settings.firstUseBridgeSeen) {
-    content = <FirstUseBridgeScreen onContinue={handleCompleteFirstUseBridge} />;
   } else if (!clipsLoaded) {
     content = (
       <View style={styles.centered}>
@@ -2448,10 +2475,11 @@ export default function App() {
     const resolvedHomeViewportHeight = homeContentHeight > 0
       ? homeContentHeight
       : Math.max(0, windowHeight - homeTopChromeHeight);
+    const effectiveHomeMode: HomeMode = activeClipPracticeSession ? 'practice' : settings.homeMode;
     content = (
       <View style={styles.homeModeHost}>
         <HomeTopChrome
-          mode={settings.homeMode}
+          mode={effectiveHomeMode}
           onChangeMode={handleHomeModeChange}
           onOpenMenu={() => setMenuOpen(true)}
           onLayout={event => {
@@ -2470,9 +2498,9 @@ export default function App() {
           <View
             style={[
               styles.homeModePane,
-              settings.homeMode === 'practice' ? styles.homeModePaneActive : styles.homeModePaneHidden,
+              effectiveHomeMode === 'practice' ? styles.homeModePaneActive : styles.homeModePaneHidden,
             ]}
-            pointerEvents={settings.homeMode === 'practice' ? 'auto' : 'none'}
+            pointerEvents={effectiveHomeMode === 'practice' ? 'auto' : 'none'}
           >
             {practiceTabState.practice_feed_keys.length === 0 ? (
               <View style={styles.homeModeLoadingState}>
@@ -2506,6 +2534,9 @@ export default function App() {
                   });
                 }}
                 renderInlineSession={({ clip, clipIndex, completedRecord, isVisible }) => {
+                  if (activeClipPracticeSession?.clip) {
+                    return null;
+                  }
                   const renderClipKey = practiceFeedKeys[clipIndex] || buildClipKey(clip, clipIndex);
                   if (!activeClipPracticeSession || activeClipPracticeSession.clipKey !== renderClipKey) {
                     return null;
@@ -2514,7 +2545,7 @@ export default function App() {
                     <PracticeSessionModal
                       inline
                       visible
-                      isActive={isVisible && settings.homeMode === 'practice'}
+                      isActive={isVisible && effectiveHomeMode === 'practice'}
                       clip={clip}
                       clipIndex={clipIndex}
                       initialStage={
@@ -2551,9 +2582,9 @@ export default function App() {
           <View
             style={[
               styles.homeModePane,
-              settings.homeMode === 'just_listen' ? styles.homeModePaneActive : styles.homeModePaneHidden,
+              effectiveHomeMode === 'just_listen' ? styles.homeModePaneActive : styles.homeModePaneHidden,
             ]}
-            pointerEvents={settings.homeMode === 'just_listen' ? 'auto' : 'none'}
+            pointerEvents={effectiveHomeMode === 'just_listen' ? 'auto' : 'none'}
           >
             <FeedScreen
               clips={currentClips}
@@ -2574,7 +2605,7 @@ export default function App() {
               vocabWords={vocabWords}
               knownWords={knownWords}
               clipsPlayed={clipsPlayed}
-              isForeground={settings.homeMode === 'just_listen'}
+              isForeground={effectiveHomeMode === 'just_listen'}
               showListenCoach={!settings.feedCoachListenSeen}
               showNavCoach={!settings.feedCoachNavSeen}
               showWordCoach={!settings.feedCoachWordSeen}
@@ -2588,6 +2619,7 @@ export default function App() {
               onRecordWordLookup={handleRecordWordLookup}
               onReviewAction={handleReviewAction}
               onLoadMoreClips={handleLoadMoreFeed}
+              onStartPractice={handleStartFeedClipPractice}
               onPlaybackRateChange={handlePlaybackRateChange}
               onSubtitleSizeChange={handleSubtitleSizeChange}
               onClipStarted={handleClipStarted}
@@ -2613,12 +2645,49 @@ export default function App() {
     content = null;
   }
 
+  const activeClipPracticeCompletedRecord = activeClipPracticeSession
+    ? practiceTabState.completed_clips.find(item => item.clipKey === activeClipPracticeSession.clipKey) || null
+    : null;
+  const activeClipPracticeInitialStage = activeClipPracticeSession
+    && !activeClipPracticeSession.readOnly
+    && practiceTabState.session?.active_clip_key === activeClipPracticeSession.clipKey
+      ? Math.max(1, practiceTabState.session.current_stage)
+      : 1;
+
   return (
     <SafeAreaProvider>
       <AppThemeProvider theme={currentTheme}>
         <UiI18nProvider nativeLanguage={profile.nativeLanguage}>
           <View style={[styles.root, currentTheme === 'light' && styles.rootLight]}>
             {content}
+
+            {activeClipPracticeSession?.clip ? (
+              <PracticeSessionModal
+                visible
+                isActive
+                clip={activeClipPracticeSession.clip}
+                clipIndex={activeClipPracticeSession.clipIndex}
+                initialStage={activeClipPracticeInitialStage}
+                level={profile.level}
+                nativeLanguage={profile.nativeLanguage}
+                vocabWords={vocabWords}
+                knownWords={knownWords}
+                onSaveVocab={handleSaveVocab}
+                onMarkKnown={handleMarkKnown}
+                onRecordWordLookup={handleRecordWordLookup}
+                completedRecord={activeClipPracticeSession.readOnly ? activeClipPracticeCompletedRecord : null}
+                readOnly={Boolean(activeClipPracticeSession.readOnly)}
+                onStageChange={stage => {
+                  if (!activeClipPracticeSession.readOnly) {
+                    handleClipPracticeStageChange(activeClipPracticeSession.clipIndex, stage);
+                  }
+                }}
+                onComplete={handleClipPracticeComplete}
+                onDismiss={handleReturnListenFromClipPractice}
+                onNextClip={handlePracticeNextClip}
+                onReturnListen={handleReturnListenFromClipPractice}
+              />
+            ) : null}
 
             {canAccessApp && !booting ? (
               <>

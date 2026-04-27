@@ -41,7 +41,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   dominantHand: 'right',
   playbackRate: 1,
   subtitleSize: 'md',
-  homeMode: 'practice',
+  homeMode: 'just_listen',
   practiceIntroSeen: false,
   bookmarkPracticeHintSeen: false,
   firstUseBridgeSeen: false,
@@ -66,7 +66,7 @@ function createId() {
 export function createDefaultPracticeTabState(): PracticeTabState {
   return {
     ui_state: {
-      current_tab: 'practice',
+      current_tab: 'just_listen',
       last_active_at: new Date().toISOString(),
     },
     practice_feed_keys: [],
@@ -231,11 +231,7 @@ export async function loadSettings(): Promise<AppSettings> {
 
   try {
     const parsed = JSON.parse(raw) as Partial<AppSettings> & { homeMode?: string };
-    const normalizedHomeMode = parsed.homeMode === 'just_listen'
-      ? 'just_listen'
-      : parsed.homeMode === 'practice'
-        ? 'practice'
-        : 'practice';
+    const normalizedHomeMode: AppSettings['homeMode'] = 'just_listen';
     return {
       ...DEFAULT_SETTINGS,
       ...parsed,

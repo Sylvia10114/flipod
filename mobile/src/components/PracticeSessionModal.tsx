@@ -1,4 +1,3 @@
-import * as FileSystem from 'expo-file-system';
 import { Audio, type AVPlaybackStatus } from 'expo-av';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -103,15 +102,6 @@ type Props = {
 
 const ATTRIBUTION_REASONS: PracticeTabReason[] = ['unknown', 'unclear', 'meaning'];
 
-function hashPracticeAudioKey(value: string) {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(16);
-}
-
 function answerIndex(question: ClipQuestion) {
   const normalized = String(question.answer || '').trim().toUpperCase();
   if (/^[A-Z]$/.test(normalized)) {
@@ -192,16 +182,12 @@ function hasReadableCharacters(value: string) {
   return /[A-Za-z]/.test(value);
 }
 
-function lineCandidateWords(line: Clip['lines'][number], knownWords: string[]) {
-  const known = new Set(knownWords.map(item => item.toLowerCase()));
+function lineCandidateWords(line: Clip['lines'][number]) {
   const seen = new Set<string>();
   return (line.words || []).filter(word => {
     const normalized = word.word.toLowerCase();
-    if (!normalized || seen.has(normalized) || known.has(normalized)) return false;
+    if (!normalized || seen.has(normalized)) return false;
     if (!hasReadableCharacters(word.word)) return false;
-    const cefr = String(word.cefr || '').toUpperCase();
-    const advanced = cefr === 'B2' || cefr === 'C1' || cefr === 'C2';
-    if (!advanced && word.word.length < 8) return false;
     seen.add(normalized);
     return true;
   });
@@ -226,7 +212,6 @@ function attributionLabel(
 function deriveStage5ReviewItems(
   clip: Clip,
   selectedVocabPicks: PracticeTabVocabPick[],
-  knownWords: string[],
   options?: {
     allowFallback?: boolean;
   }
@@ -239,7 +224,7 @@ function deriveStage5ReviewItems(
       normalizedWord: item.word.toLowerCase(),
       sentenceIndex: item.sentenceIndex,
       line,
-      cefr: matchingWord?.cefr,
+      cefr: item.cefr || matchingWord?.cefr,
     };
   }).filter(item => item.line);
 
@@ -261,7 +246,7 @@ function deriveStage5ReviewItems(
   }> = [];
 
   clip.lines?.forEach((line, sentenceIndex) => {
-    lineCandidateWords(line, knownWords).forEach(word => {
+    lineCandidateWords(line).forEach(word => {
       const normalizedWord = word.word.toLowerCase();
       if (seen.has(normalizedWord)) return;
       seen.add(normalizedWord);
@@ -409,9 +394,6 @@ export function PracticeSessionModal({
   const loadSoundRef = useRef<() => Promise<boolean>>(async () => false);
   const unloadSoundRef = useRef<() => Promise<void>>(async () => {});
   const soundReadyRef = useRef(false);
-  const preparedAudioUriRef = useRef<string | null>(null);
-  const preparedAudioKeyRef = useRef('');
-  const prepareAudioPromiseRef = useRef<Promise<string | null> | null>(null);
   const loadPromiseRef = useRef<Promise<boolean> | null>(null);
   const playbackRequestRef = useRef(0);
   const playbackModeRef = useRef<StagePlaybackMode | null>(null);
@@ -443,6 +425,8 @@ export function PracticeSessionModal({
   const [attributionReasons, setAttributionReasons] = useState<PracticeTabReason[]>([]);
   const [attributionStep, setAttributionStep] = useState<AttributionStep>(null);
   const [selectedVocabPicks, setSelectedVocabPicks] = useState<PracticeTabVocabPick[]>([]);
+  const [stage5Decisions, setStage5Decisions] = useState<Record<string, 'learned' | 'review'>>({});
+  const [stage5Cursor, setStage5Cursor] = useState(0);
   const [expandedSentenceIndex, setExpandedSentenceIndex] = useState<number | null>(null);
   const [popup, setPopup] = useState<PopupState>(null);
   const [stage1QuestionAnchorY, setStage1QuestionAnchorY] = useState<number | null>(null);
@@ -532,19 +516,28 @@ export function PracticeSessionModal({
     return (clip?.lines || []).map((line, index) => ({
       sentenceIndex: index,
       line,
-      words: lineCandidateWords(line, knownWords),
+      words: lineCandidateWords(line),
     })).filter(item => item.words.length > 0);
-  }, [clip?.lines, knownWords]);
+  }, [clip?.lines]);
   const stage5ReviewItems = useMemo(() => (
     clip
       ? deriveStage5ReviewItems(
           clip,
           selectedVocabPicks,
-          knownWords,
           { allowFallback: Boolean(readOnly && selectedVocabPicks.length === 0) }
         )
       : []
-  ), [clip, knownWords, readOnly, selectedVocabPicks]);
+  ), [clip, readOnly, selectedVocabPicks]);
+  const stage5PendingItems = useMemo(
+    () => stage5ReviewItems.filter(item => !stage5Decisions[`${item.normalizedWord}:${item.sentenceIndex}`]),
+    [stage5Decisions, stage5ReviewItems]
+  );
+  const activeStage5ReviewItem = stage5ReviewItems.length > 0
+    ? stage5ReviewItems[Math.min(stage5Cursor, stage5ReviewItems.length - 1)]
+    : null;
+  const activeStage5DecisionKey = activeStage5ReviewItem
+    ? `${activeStage5ReviewItem.normalizedWord}:${activeStage5ReviewItem.sentenceIndex}`
+    : '';
 
   useEffect(() => {
     if (nativeLanguage === 'english' || stage5ReviewItems.length === 0) {
@@ -573,6 +566,10 @@ export function PracticeSessionModal({
     };
   }, [nativeLanguage, stage5ReviewItems]);
 
+  useEffect(() => {
+    setStage5Cursor(prev => Math.max(0, Math.min(prev, Math.max(0, stage5ReviewItems.length - 1))));
+  }, [stage5ReviewItems.length]);
+
   const unloadSound = useCallback(async () => {
     soundReadyRef.current = false;
     playbackModeRef.current = null;
@@ -590,55 +587,7 @@ export function PracticeSessionModal({
     if (!clip) return null;
     const sourceUrl = resolveClipAudioUrl(clip);
     if (!sourceUrl) return null;
-    if (!/^https?:\/\//i.test(sourceUrl)) {
-      preparedAudioUriRef.current = sourceUrl;
-      preparedAudioKeyRef.current = sourceUrl;
-      return sourceUrl;
-    }
-
-    const cacheRoot = FileSystem.cacheDirectory;
-    if (!cacheRoot) return sourceUrl;
-    const cacheKey = hashPracticeAudioKey(sourceUrl);
-    if (preparedAudioKeyRef.current === cacheKey && preparedAudioUriRef.current) {
-      return preparedAudioUriRef.current;
-    }
-    if (prepareAudioPromiseRef.current) {
-      return prepareAudioPromiseRef.current;
-    }
-
-    const extensionMatch = sourceUrl.match(/\.([a-z0-9]+)(?:$|[?#])/i);
-    const extension = extensionMatch ? extensionMatch[1].toLowerCase() : 'mp3';
-    const cacheDir = `${cacheRoot}practice-audio/`;
-    const localUri = `${cacheDir}${cacheKey}.${extension}`;
-
-    const currentPrepare = (async () => {
-      try {
-        await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true });
-        const existing = await FileSystem.getInfoAsync(localUri);
-        if (existing.exists && !existing.isDirectory) {
-          preparedAudioUriRef.current = localUri;
-          preparedAudioKeyRef.current = cacheKey;
-          return localUri;
-        }
-        await FileSystem.downloadAsync(sourceUrl, localUri);
-        preparedAudioUriRef.current = localUri;
-        preparedAudioKeyRef.current = cacheKey;
-        return localUri;
-      } catch {
-        try {
-          await FileSystem.deleteAsync(localUri, { idempotent: true });
-        } catch {
-        }
-        preparedAudioUriRef.current = sourceUrl;
-        preparedAudioKeyRef.current = cacheKey;
-        return sourceUrl;
-      } finally {
-        prepareAudioPromiseRef.current = null;
-      }
-    })();
-
-    prepareAudioPromiseRef.current = currentPrepare;
-    return currentPrepare;
+    return sourceUrl;
   }, [clip]);
 
   const handleStatus = useCallback((nextStatus: AVPlaybackStatus) => {
@@ -879,6 +828,12 @@ export function PracticeSessionModal({
     }
   }, [pause]);
 
+  const handleStartStage0Question = useCallback(() => {
+    if (!openNextQuestionIfNeeded(0)) {
+      goToStage(1);
+    }
+  }, [goToStage, openNextQuestionIfNeeded]);
+
   const advanceFromQuizStage = useCallback((quizStage: QuizStage) => {
     if (quizStage === 0) {
       goToStage(1);
@@ -931,9 +886,6 @@ export function PracticeSessionModal({
     completionSavedRef.current = false;
     stageRunRef.current = '';
     playbackRequestRef.current += 1;
-    preparedAudioKeyRef.current = '';
-    preparedAudioUriRef.current = null;
-    prepareAudioPromiseRef.current = null;
     loadPromiseRef.current = null;
     pendingPlaybackRef.current = null;
     setStage(readOnly ? 6 : (Math.max(0, Math.min(initialStage, 6)) as Stage));
@@ -960,6 +912,8 @@ export function PracticeSessionModal({
     setAttributionReasons(readOnly ? (completedRecord?.reasons || []) : []);
     setAttributionStep(null);
     setSelectedVocabPicks(readOnly ? (completedRecord?.vocabPicked || []) : []);
+    setStage5Decisions({});
+    setStage5Cursor(0);
     setExpandedSentenceIndex(null);
     setPopup(null);
     setStage1QuestionAnchorY(null);
@@ -1052,7 +1006,6 @@ export function PracticeSessionModal({
     if (stageRunRef.current === runKey) return;
     stageRunRef.current = runKey;
     if (stage === 0) {
-      void openNextQuestionIfNeeded(0);
       return;
     }
     if (stage === 1) {
@@ -1165,13 +1118,13 @@ export function PracticeSessionModal({
     ));
   };
 
-  const handleToggleVocabPick = (word: string, sentenceIndex: number) => {
+  const handleToggleVocabPick = (word: string, sentenceIndex: number, cefr?: string) => {
     setSelectedVocabPicks(prev => {
       const exists = prev.some(item => item.word === word && item.sentenceIndex === sentenceIndex);
       if (exists) {
         return prev.filter(item => !(item.word === word && item.sentenceIndex === sentenceIndex));
       }
-      return [...prev, { word, sentenceIndex }];
+      return [...prev, { word, sentenceIndex, cefr }];
     });
   };
 
@@ -1185,6 +1138,42 @@ export function PracticeSessionModal({
 
   const handleCompleteAttributionStep2 = () => {
     goToStage(5);
+  };
+
+  const handleConsumeStage5Word = (decision: 'learned' | 'review') => {
+    if (!clip || !activeStage5ReviewItem) return;
+    const line = activeStage5ReviewItem.line;
+    const normalizedWord = activeStage5ReviewItem.normalizedWord;
+    onSaveVocab({
+      word: normalizedWord,
+      cefr: activeStage5ReviewItem.cefr || line?.words?.find(word => word.word.toLowerCase() === normalizedWord)?.cefr,
+      context: line?.en || '',
+      contextZh: line?.zh || '',
+      lineIndex: activeStage5ReviewItem.sentenceIndex,
+      clipKey,
+      clipTitle: clip.title,
+      tag: clip.tag,
+      sourceType: 'practice',
+      practiced: true,
+      reviewStatus: decision,
+      known: decision === 'learned',
+    });
+    if (decision === 'learned') {
+      onMarkKnown(normalizedWord);
+    }
+    setStage5Decisions(prev => {
+      const next = {
+        ...prev,
+        [activeStage5DecisionKey]: decision,
+      };
+      const nextPendingIndex = stage5ReviewItems.findIndex(item => !next[`${item.normalizedWord}:${item.sentenceIndex}`]);
+      if (nextPendingIndex < 0) {
+        setTimeout(() => goToStage(6), 0);
+      } else {
+        setStage5Cursor(nextPendingIndex);
+      }
+      return next;
+    });
   };
 
   const handleStartBlindListen = useCallback(() => {
@@ -1332,7 +1321,7 @@ export function PracticeSessionModal({
             />
           );
         }
-        return <ActionButton label={t('common.continue')} onPress={() => goToStage(1)} />;
+        return <ActionButton label={t('practiceSession.startPrediction')} onPress={handleStartStage0Question} />;
       }
       if (stage === 1) {
         if (currentQuestionFlow?.stage === 1 && currentQuestion) {
@@ -1443,13 +1432,14 @@ export function PracticeSessionModal({
         ) : null;
       }
       if (stage === 5) {
-        return <ActionButton label={t('common.continue')} onPress={() => goToStage(6)} />;
+        return stage5ReviewItems.length === 0
+          ? <ActionButton label={t('common.continue')} onPress={() => goToStage(6)} />
+          : null;
       }
       if (stage === 6) {
         return (
           <View style={styles.inlineFooterStack}>
-            {!readOnly ? <ActionButton label={t('practiceSession.nextClip')} onPress={onNextClip} /> : null}
-            <ActionButton label={t('home.listenTab')} variant="secondary" onPress={onReturnListen} />
+            <ActionButton label={t('practiceSession.finishReturn')} onPress={readOnly ? onReturnListen : onNextClip} />
           </View>
         );
       }
@@ -1486,32 +1476,35 @@ export function PracticeSessionModal({
     <>
         {stage === 0 ? (
           <View style={styles.stageCard}>
-            <GlassCard tone="practice" style={styles.cardBlock}>
-              <PracticeCardHeader label={stageLabel(0, t)} />
-              {challengeWords.length > 0 ? (
-                <ChallengeWordPills words={challengeWords} tone="practice" />
-              ) : null}
-              <Text style={styles.supportText}>{t('practiceSession.previewBody')}</Text>
-            </GlassCard>
-
-            <GlassCard tone="practice" style={styles.cardBlock}>
-              <PracticeCardHeader label={t('practiceSession.meaningFirstLabel')} />
-              <View style={[styles.transcriptPanel, { maxHeight: transcriptPanelCompactHeight }]}>
-                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator contentContainerStyle={styles.transcriptScrollContent}>
-                  {previewLines.map(item => (
-                    <View key={`gist-${item.index}`} style={styles.previewRow}>
-                      <Text style={styles.previewPrimary}>{item.localized}</Text>
-                    </View>
-                  ))}
-                </ScrollView>
-              </View>
-            </GlassCard>
-
             {currentQuestionFlow?.stage === 0 && currentQuestion ? (
               <GlassCard tone="practice" style={styles.cardBlock}>
+                <PracticeCardHeader label={stageLabel(0, t)} />
                 {renderQuestionBlock(0)}
               </GlassCard>
-            ) : null}
+            ) : (
+              <>
+                <GlassCard tone="practice" style={styles.cardBlock}>
+                  <PracticeCardHeader label={stageLabel(0, t)} />
+                  {challengeWords.length > 0 ? (
+                    <ChallengeWordPills words={challengeWords} tone="practice" />
+                  ) : null}
+                  <Text style={styles.supportText}>{t('practiceSession.previewBody')}</Text>
+                </GlassCard>
+
+                <GlassCard tone="practice" style={styles.cardBlock}>
+                  <PracticeCardHeader label={t('practiceSession.meaningFirstLabel')} />
+                  <View style={[styles.transcriptPanel, { maxHeight: transcriptPanelCompactHeight }]}>
+                    <ScrollView nestedScrollEnabled showsVerticalScrollIndicator contentContainerStyle={styles.transcriptScrollContent}>
+                      {previewLines.map(item => (
+                        <View key={`gist-${item.index}`} style={styles.previewRow}>
+                          <Text style={styles.previewPrimary}>{item.localized}</Text>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  </View>
+                </GlassCard>
+              </>
+            )}
           </View>
         ) : null}
 
@@ -1519,27 +1512,27 @@ export function PracticeSessionModal({
           <View style={styles.stageCard}>
             <GlassCard tone="practice" style={styles.cardBlock}>
               <PracticeCardHeader label={t('practiceSession.gistLabel')} />
-              <Text style={styles.supportText}>{t('practiceSession.gistBody')}</Text>
-              {replayableQuizStage === 1 ? (
-                <View style={styles.stageUtilityRow}>
-                  <Pressable
-                    onPress={() => handleReplayStage(1)}
-                    style={styles.stageReplayButton}
-                    hitSlop={8}
-                  >
-                    <Text style={styles.stageReplayButtonText}>↻ {t('common.replay')}</Text>
-                  </Pressable>
-                  {stage1AutoLoading ? (
-                    <View style={styles.stageUtilitySpinner}>
-                      <ActivityIndicator size="small" color={colors.accentPractice} />
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
               {currentQuestionFlow?.stage === 1 && currentQuestion ? (
                 renderQuestionBlock(1, { onLayout: setStage1QuestionAnchorY })
               ) : (
                 <>
+                  <Text style={styles.supportText}>{t('practiceSession.gistBody')}</Text>
+                  {replayableQuizStage === 1 ? (
+                    <View style={styles.stageUtilityRow}>
+                      <Pressable
+                        onPress={() => handleReplayStage(1)}
+                        style={styles.stageReplayButton}
+                        hitSlop={8}
+                      >
+                        <Text style={styles.stageReplayButtonText}>↻ {t('common.replay')}</Text>
+                      </Pressable>
+                      {stage1AutoLoading ? (
+                        <View style={styles.stageUtilitySpinner}>
+                          <ActivityIndicator size="small" color={colors.accentPractice} />
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
                   <PracticeTranscriptPanel
                     lines={clip.lines || []}
                     currentTime={alignedPlaybackSeconds}
@@ -1576,33 +1569,35 @@ export function PracticeSessionModal({
           <View style={styles.stageCard}>
             <GlassCard tone="practice" style={styles.cardBlock}>
               <PracticeCardHeader label={t('practiceSession.decodeLabel')} />
-              <Text style={styles.supportText}>{t('practiceSession.decodeBody')}</Text>
               {currentQuestionFlow?.stage === 2 && currentQuestion ? (
                 renderQuestionBlock(2)
               ) : (
-                <PracticeTranscriptPanel
-                  lines={clip.lines || []}
-                  currentTime={alignedPlaybackSeconds}
-                  maxHeight={transcriptPanelTallHeight}
-                  renderLine={({ line, index, isActive }) => (
-                    <Pressable
-                      onPress={() => setShownTranslations(prev => ({ ...prev, [index]: !prev[index] }))}
-                      style={[
-                        styles.decodeLine,
-                        isActive && styles.decodeLineActive,
-                      ]}
-                    >
-                      <WordLine
-                        line={line}
-                        currentTime={isActive ? alignedPlaybackSeconds : 0}
-                        isActive={isActive}
-                        showZh={Boolean(shownTranslations[index])}
-                        compact
-                        onWordTap={(word, tappedLine) => handleWordTap(word, tappedLine.en, tappedLine.zh || '', index)}
-                      />
-                    </Pressable>
-                  )}
-                />
+                <>
+                  <Text style={styles.supportText}>{t('practiceSession.decodeBody')}</Text>
+                  <PracticeTranscriptPanel
+                    lines={clip.lines || []}
+                    currentTime={alignedPlaybackSeconds}
+                    maxHeight={transcriptPanelTallHeight}
+                    renderLine={({ line, index, isActive }) => (
+                      <Pressable
+                        onPress={() => setShownTranslations(prev => ({ ...prev, [index]: !prev[index] }))}
+                        style={[
+                          styles.decodeLine,
+                          isActive && styles.decodeLineActive,
+                        ]}
+                      >
+                        <WordLine
+                          line={line}
+                          currentTime={isActive ? alignedPlaybackSeconds : 0}
+                          isActive={isActive}
+                          showZh={Boolean(shownTranslations[index])}
+                          compact
+                          onWordTap={(word, tappedLine) => handleWordTap(word, tappedLine.en, tappedLine.zh || '', index)}
+                        />
+                      </Pressable>
+                    )}
+                  />
+                </>
               )}
             </GlassCard>
           </View>
@@ -1610,13 +1605,15 @@ export function PracticeSessionModal({
 
         {stage === 3 ? (
           <View style={styles.stageCard}>
-            <GlassCard tone="practice" style={[styles.cardBlock, styles.fadeCard]}>
-              <PracticeCardHeader label={t('practiceSession.fadeTitle')} />
-              {challengeWords.length > 0 ? (
-                <ChallengeWordPills words={challengeWords} tone="practice" singleRow />
-              ) : null}
-              <Text style={styles.supportText}>{t('practiceSession.fadeBody')}</Text>
-            </GlassCard>
+            {currentQuestionFlow?.stage === 3 && currentQuestion ? null : (
+              <GlassCard tone="practice" style={[styles.cardBlock, styles.fadeCard]}>
+                <PracticeCardHeader label={t('practiceSession.fadeTitle')} />
+                {challengeWords.length > 0 ? (
+                  <ChallengeWordPills words={challengeWords} tone="practice" singleRow />
+                ) : null}
+                <Text style={styles.supportText}>{t('practiceSession.fadeBody')}</Text>
+              </GlassCard>
+            )}
 
             <GlassCard tone="practice" style={[styles.cardBlock, styles.fadeTranscriptCard]}>
               <PracticeCardHeader label={t('practiceSession.fadeTitle')} />
@@ -1736,15 +1733,22 @@ export function PracticeSessionModal({
                               const picked = selectedVocabPicks.some(
                                 item => item.word === word.word.toLowerCase() && item.sentenceIndex === sentenceIndex
                               );
+                              const cefr = String(word.cefr || '').toUpperCase();
+                              const showCefr = cefr === 'B1' || cefr === 'B2' || cefr === 'C1' || cefr === 'C2';
                               return (
                                 <Pressable
                                   key={`${sentenceIndex}-${word.word}`}
-                                  onPress={() => handleToggleVocabPick(word.word.toLowerCase(), sentenceIndex)}
+                                  onPress={() => handleToggleVocabPick(word.word.toLowerCase(), sentenceIndex, word.cefr)}
                                   style={[styles.wordChip, picked && styles.wordChipActive]}
                                 >
                                   <Text style={[styles.wordChipText, picked && styles.wordChipTextActive]}>
                                     {word.word}
                                   </Text>
+                                  {showCefr ? (
+                                    <Text style={[styles.wordChipCefr, picked && styles.wordChipTextActive]}>
+                                      {cefr}
+                                    </Text>
+                                  ) : null}
                                 </Pressable>
                               );
                             })}
@@ -1762,70 +1766,56 @@ export function PracticeSessionModal({
         {stage === 5 ? (
           <View style={styles.stageCard}>
             <GlassCard tone="practice" style={styles.cardBlock}>
-              <PracticeCardHeader label={t('practiceSession.vocabReviewTitle')} />
-              <Text style={styles.supportText}>{t('practiceSession.vocabReviewBody')}</Text>
-              <View style={[styles.transcriptPanel, styles.vocabWorkspace, { maxHeight: transcriptPanelTallHeight }]}>
-                <View style={styles.scrollCueWrap}>
-                  <View style={styles.scrollCue} />
-                </View>
-                <ScrollView
-                  nestedScrollEnabled
-                  showsVerticalScrollIndicator
-                  keyboardShouldPersistTaps="handled"
-                  contentContainerStyle={styles.vocabWorkspaceScrollContent}
-                >
+              <PracticeCardHeader label={t('practiceSession.vocabConsumeTitle')} />
+              <Text style={styles.supportText}>{t('practiceSession.vocabConsumeBody')}</Text>
+              {activeStage5ReviewItem ? (
+                <View style={[styles.transcriptPanel, styles.vocabWorkspace, { maxHeight: transcriptPanelTallHeight }]}>
                   <View style={styles.vocabWorkspaceInner}>
                     <View style={styles.vocabWorkspaceBanner}>
-                      <Text style={styles.vocabWorkspaceBannerText}>{t('practiceSession.pickedWordsTitle')}</Text>
+                      <Text style={styles.vocabWorkspaceBannerText}>
+                        {t('practiceSession.vocabConsumedCount', {
+                          current: stage5ReviewItems.length - stage5PendingItems.length + 1,
+                          total: stage5ReviewItems.length,
+                        })}
+                      </Text>
                     </View>
-                    <View style={styles.vocabReviewList}>
-                      {stage5ReviewItems.map(item => {
-                        const line = item.line;
-                        const normalizedWord = item.normalizedWord;
-                        const saved = vocabWords.includes(normalizedWord);
-                        const known = knownWords.includes(normalizedWord);
-                        return (
-                          <GlassCard key={`${item.word}-${item.sentenceIndex}`} style={styles.vocabReviewCard}>
-                            <Text style={styles.vocabWord}>{item.word}</Text>
-                            {stage5Translations[normalizedWord] ? (
-                              <Text style={styles.vocabWordTranslation}>{stage5Translations[normalizedWord]}</Text>
-                            ) : null}
-                            <View style={styles.vocabContextBlock}>
-                              <Text style={styles.vocabContext}>{line?.en || ''}</Text>
-                              {line?.zh ? <Text style={styles.vocabContextZh}>{line.zh}</Text> : null}
-                            </View>
-                            <View style={[styles.controlsRow, styles.vocabCardActions]}>
-                              <ActionButton
-                                label={saved ? t('practiceSession.savedLabel') : t('practiceSession.saveLabel')}
-                                variant="secondary"
-                                onPress={() => {
-                                  if (!line) return;
-                                  onSaveVocab({
-                                    word: normalizedWord,
-                                    cefr: item.cefr || line.words?.find(word => word.word.toLowerCase() === normalizedWord)?.cefr,
-                                    context: line.en,
-                                    contextZh: line.zh,
-                                    lineIndex: item.sentenceIndex,
-                                    clipKey,
-                                    clipTitle: clip.title,
-                                    tag: clip.tag,
-                                    sourceType: 'practice',
-                                  });
-                                }}
-                              />
-                              <ActionButton
-                                label={known ? t('practiceSession.knownLabel') : t('practiceSession.markKnownLabel')}
-                                variant="secondary"
-                                onPress={() => onMarkKnown(normalizedWord)}
-                              />
-                            </View>
-                          </GlassCard>
-                        );
-                      })}
-                    </View>
+                    <GlassCard style={styles.vocabReviewCard}>
+                      <Text style={styles.vocabWord}>
+                        {activeStage5ReviewItem.word}
+                        {activeStage5ReviewItem.cefr ? (
+                          <Text style={styles.vocabWordCefr}> {activeStage5ReviewItem.cefr}</Text>
+                        ) : null}
+                      </Text>
+                      {stage5Translations[activeStage5ReviewItem.normalizedWord] ? (
+                        <Text style={styles.vocabWordTranslation}>
+                          {stage5Translations[activeStage5ReviewItem.normalizedWord]}
+                        </Text>
+                      ) : null}
+                      <View style={styles.vocabContextBlock}>
+                        <Text style={styles.vocabContext}>{activeStage5ReviewItem.line?.en || ''}</Text>
+                        {activeStage5ReviewItem.line?.zh ? (
+                          <Text style={styles.vocabContextZh}>{activeStage5ReviewItem.line.zh}</Text>
+                        ) : null}
+                      </View>
+                      <View style={[styles.controlsRow, styles.vocabCardActions]}>
+                        <ActionButton
+                          label={t('practiceSession.rememberedLabel')}
+                          onPress={() => handleConsumeStage5Word('learned')}
+                        />
+                        <ActionButton
+                          label={t('practiceSession.reviewAgainLabel')}
+                          variant="secondary"
+                          onPress={() => handleConsumeStage5Word('review')}
+                        />
+                      </View>
+                    </GlassCard>
                   </View>
-                </ScrollView>
-              </View>
+                </View>
+              ) : (
+                <View style={styles.emptyStateCard}>
+                  <Text style={styles.supportText}>{t('practiceSession.vocabReviewBody')}</Text>
+                </View>
+              )}
             </GlassCard>
           </View>
         ) : null}
@@ -1884,10 +1874,11 @@ export function PracticeSessionModal({
 
             {!inline ? (
               <View style={styles.buttonStack}>
-                {!readOnly ? (
-                  <ActionButton label={t('practiceSession.nextClip')} onPress={onNextClip} />
-                ) : null}
-                <ActionButton label={t('home.listenTab')} variant="secondary" onPress={onReturnListen} />
+                {readOnly ? (
+                  <ActionButton label={t('practiceSession.finishReturn')} onPress={onReturnListen} />
+                ) : (
+                  <ActionButton label={t('practiceSession.finishReturn')} onPress={onNextClip} />
+                )}
                 <ActionButton label={t('common.close')} variant="secondary" onPress={onDismiss} />
               </View>
             ) : null}
@@ -2386,6 +2377,9 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       gap: 8,
     },
     wordChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
       borderRadius: 999,
       borderWidth: 1,
       borderColor: colors.stroke,
@@ -2404,6 +2398,13 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
     },
     wordChipTextActive: {
       color: colors.accentPractice,
+    },
+    wordChipCefr: {
+      color: colors.textTertiary,
+      fontSize: 10,
+      lineHeight: 12,
+      fontWeight: '800',
+      letterSpacing: 0.4,
     },
     vocabWorkspace: {
       backgroundColor: `${colors.accentPractice}10`,
@@ -2459,6 +2460,12 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: 20,
       fontWeight: '700',
     },
+    vocabWordCefr: {
+      color: colors.textTertiary,
+      fontSize: 12,
+      fontWeight: '800',
+      letterSpacing: 0.4,
+    },
     vocabWordTranslation: {
       color: colors.accentPractice,
       fontSize: 14,
@@ -2489,6 +2496,14 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       paddingTop: 4,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: colors.stroke,
+    },
+    emptyStateCard: {
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.stroke,
+      backgroundColor: colors.bgSurface2,
+      paddingHorizontal: 14,
+      paddingVertical: 16,
     },
     summaryLine: {
       gap: 6,

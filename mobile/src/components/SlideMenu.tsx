@@ -115,14 +115,6 @@ export function SlideMenu({
                   }}
                 />
                 <MenuItem
-                  label={t('menu.practice')}
-                  active={activeScreen === 'practice'}
-                  onPress={() => {
-                    triggerUiFeedback('menu');
-                    onNavigate('practice');
-                  }}
-                />
-                <MenuItem
                   label={t('menu.savedClips')}
                   count={bookmarksCount}
                   active={activeScreen === 'library'}
