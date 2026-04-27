@@ -163,6 +163,71 @@ export type AppSettings = {
   feedCoachNavSeen: boolean;
 };
 
+export type PracticeTabReason =
+  | 'unknown'
+  | 'unclear'
+  | 'meaning';
+
+export type PracticeTabVocabPick = {
+  word: string;
+  sentenceIndex: number;
+  cefr?: string;
+};
+
+export type PracticeTabQuizResult = {
+  qIdx: number;
+  picked: number;
+  correct: boolean;
+};
+
+export type PracticeTabCompletedClip = {
+  clipKey: string;
+  title: string;
+  tag?: string;
+  completedAt: number;
+  tabEnteredFrom: 'practice';
+  reasons: PracticeTabReason[];
+  vocabPicked: PracticeTabVocabPick[];
+  quizResults: {
+    stage0?: PracticeTabQuizResult[];
+    stage1?: PracticeTabQuizResult[];
+    stage2?: PracticeTabQuizResult[];
+    stage3?: PracticeTabQuizResult[];
+    stage4?: PracticeTabQuizResult[];
+  };
+  durationSec: number;
+};
+
+export type PracticeTabVocabInboxEntry = {
+  word: string;
+  clipKey: string;
+  sentenceIndex: number;
+  addedAt: number;
+};
+
+export type PracticeTabState = {
+  ui_state: {
+    current_tab: HomeMode;
+    last_active_at: string;
+  };
+  practice_feed_keys: string[];
+  practice_feed_signature: string | null;
+  session: {
+    active_clip_key: string;
+    current_stage: number;
+    current_clip_index: number;
+    started_at: string;
+  } | null;
+  completed_clips: PracticeTabCompletedClip[];
+  vocab_inbox: {
+    entries: PracticeTabVocabInboxEntry[];
+    week_window_start: string;
+  };
+  attribution_aggregate: Record<PracticeTabReason, number>;
+  listen_cursor: number;
+  practice_cursor: number;
+};
+
 export type SessionResponse = {
   user: {
     id: string;
@@ -251,6 +316,7 @@ export type VocabEntry = {
   tag?: string;
   sourceType?: 'feed' | 'practice';
   practiced?: boolean;
+  reviewStatus?: 'learned' | 'review';
   known?: boolean;
   timestamp?: number;
   createdAt?: string;

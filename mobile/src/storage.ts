@@ -39,7 +39,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   dominantHand: 'right',
   playbackRate: 1,
   subtitleSize: 'md',
-  homeMode: 'listen',
+  homeMode: 'just_listen',
   practiceIntroSeen: false,
   bookmarkPracticeHintSeen: false,
   firstUseBridgeSeen: false,
@@ -59,6 +59,106 @@ export const DEFAULT_CALIBRATION_SIGNALS: CalibrationSignals = {
 
 function createId() {
   return `dev_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function createDefaultPracticeTabState(): PracticeTabState {
+  return {
+    ui_state: {
+      current_tab: 'just_listen',
+      last_active_at: new Date().toISOString(),
+    },
+    practice_feed_keys: [],
+    practice_feed_signature: null,
+    session: null,
+    completed_clips: [],
+    vocab_inbox: {
+      entries: [],
+      week_window_start: new Date().toISOString(),
+    },
+    attribution_aggregate: {
+      unknown: 0,
+      unclear: 0,
+      meaning: 0,
+    },
+    listen_cursor: 0,
+    practice_cursor: 0,
+  };
+}
+
+function normalizePracticeReason(value: unknown) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'unknown') return 'unknown';
+  if (normalized === 'unclear') return 'unclear';
+  if (normalized === 'meaning') return 'meaning';
+  if (
+    normalized === 'linking'
+    || normalized === 'weak'
+    || normalized === 'speed'
+    || normalized === 'accent'
+  ) {
+    return 'unclear';
+  }
+  if (normalized === 'other') {
+    return 'meaning';
+  }
+  return null;
+}
+
+export function normalizePracticeTabState(
+  state: Partial<PracticeTabState> | null | undefined
+): PracticeTabState {
+  const base = createDefaultPracticeTabState();
+  if (!state || typeof state !== 'object') return base;
+  const currentTab = state.ui_state?.current_tab === 'just_listen' ? 'just_listen' : 'practice';
+  const normalizedCompletedClips = Array.isArray(state.completed_clips)
+    ? state.completed_clips.map(item => ({
+        ...item,
+        reasons: Array.isArray(item?.reasons)
+          ? item.reasons
+              .map(normalizePracticeReason)
+              .filter((reason): reason is NonNullable<ReturnType<typeof normalizePracticeReason>> => Boolean(reason))
+          : [],
+      }))
+    : [];
+  const rawAggregate = (state.attribution_aggregate && typeof state.attribution_aggregate === 'object')
+    ? state.attribution_aggregate
+    : {};
+  const normalizedAggregate = {
+    ...base.attribution_aggregate,
+  };
+  Object.entries(rawAggregate).forEach(([rawReason, rawCount]) => {
+    const reason = normalizePracticeReason(rawReason);
+    if (!reason) return;
+    normalizedAggregate[reason] = (normalizedAggregate[reason] || 0) + Math.max(0, Number(rawCount || 0));
+  });
+  return {
+    ui_state: {
+      current_tab: currentTab,
+      last_active_at: state.ui_state?.last_active_at || base.ui_state.last_active_at,
+    },
+    practice_feed_keys: Array.isArray(state.practice_feed_keys)
+      ? state.practice_feed_keys.map(value => String(value)).filter(Boolean)
+      : [],
+    practice_feed_signature: typeof state.practice_feed_signature === 'string'
+      ? state.practice_feed_signature
+      : null,
+    session: state.session && typeof state.session === 'object'
+      ? {
+          active_clip_key: String(state.session.active_clip_key || ''),
+          current_stage: 0,
+          current_clip_index: Math.max(0, Number(state.session.current_clip_index || 0)),
+          started_at: String(state.session.started_at || new Date().toISOString()),
+        }
+      : null,
+    completed_clips: normalizedCompletedClips,
+    vocab_inbox: {
+      entries: Array.isArray(state.vocab_inbox?.entries) ? state.vocab_inbox.entries : [],
+      week_window_start: state.vocab_inbox?.week_window_start || base.vocab_inbox.week_window_start,
+    },
+    attribution_aggregate: normalizedAggregate,
+    listen_cursor: Math.max(0, Number(state.listen_cursor || 0)),
+    practice_cursor: Math.max(0, Number(state.practice_cursor || 0)),
+  };
 }
 
 export async function getOrCreateDeviceId() {
@@ -128,6 +228,8 @@ export async function loadSettings(): Promise<AppSettings> {
   if (!raw) return DEFAULT_SETTINGS;
 
   try {
+    const parsed = JSON.parse(raw) as Partial<AppSettings> & { homeMode?: string };
+    const normalizedHomeMode: AppSettings['homeMode'] = 'just_listen';
     return {
       ...DEFAULT_SETTINGS,
       ...(JSON.parse(raw) as Partial<AppSettings>),

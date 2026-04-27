@@ -7,7 +7,6 @@ import { triggerUiFeedback } from '../feedback';
 import { useResponsiveLayout } from '../responsive';
 import { useAppTheme } from '../theme';
 import type { HomeMode } from '../types';
-import { HomeModeTabs } from './HomeModeTabs';
 
 type Props = {
   mode: HomeMode;
@@ -16,7 +15,7 @@ type Props = {
   onLayout?: (event: LayoutChangeEvent) => void;
 };
 
-export function HomeTopChrome({ mode, onChangeMode, onOpenMenu, onLayout }: Props) {
+export function HomeTopChrome({ onOpenMenu, onLayout }: Props) {
   const { colors } = useAppTheme();
   const metrics = useResponsiveLayout();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
@@ -46,9 +45,7 @@ export function HomeTopChrome({ mode, onChangeMode, onOpenMenu, onLayout }: Prop
           >
             <Feather name="menu" size={18} color={colors.textSecondary} />
           </Pressable>
-          <View style={styles.tabsWrap}>
-            <HomeModeTabs mode={mode} onChangeMode={onChangeMode} />
-          </View>
+          <View style={styles.headerSpacer} />
         </View>
       </SafeAreaView>
     </View>
@@ -76,7 +73,7 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       paddingTop: spacing.sm,
       paddingBottom: spacing.sm,
     },
-    tabsWrap: {
+    headerSpacer: {
       flex: 1,
     },
     menuButton: {

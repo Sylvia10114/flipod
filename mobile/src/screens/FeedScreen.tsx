@@ -120,6 +120,7 @@ type Props = {
   onRecordWordLookup: (cefr?: string, details?: { clip?: Clip | null; word?: string }) => void;
   onReviewAction: (word: string, action: 'remember' | 'forgot') => void;
   onLoadMoreClips: () => void;
+  onStartPractice: (clip: Clip, index: number) => void;
   onPlaybackRateChange: (rate: number) => void;
   onSubtitleSizeChange: () => void;
   onClipStarted: (clip: Clip, index: number) => void;
@@ -226,6 +227,7 @@ export function FeedScreen({
   onRecordWordLookup,
   onReviewAction,
   onLoadMoreClips,
+  onStartPractice,
   onPlaybackRateChange,
   onSubtitleSizeChange,
   onClipStarted,
@@ -1181,6 +1183,24 @@ export function FeedScreen({
                       }}
                       onToggleMask={() => setMasked(prev => !prev)}
                     />
+                    <View style={styles.practiceEntryRow}>
+                      <Pressable
+                        onPress={() => {
+                          triggerUiFeedback('primary');
+                          clearPreviewSession();
+                          void pause();
+                          onStartPractice(clip, index);
+                        }}
+                        style={({ pressed }) => [
+                          styles.practiceEntryButton,
+                          pressed && styles.practiceEntryButtonPressed,
+                        ]}
+                        hitSlop={10}
+                      >
+                        <Feather name="target" size={14} color={colors.textPrimary} />
+                        <Text style={styles.practiceEntryText}>{t('feed.practiceEntry')}</Text>
+                      </Pressable>
+                    </View>
                     {isVisible && navCoachVisible ? (
                       <View style={styles.navCoachWrap}>
                         <Text style={styles.navCoachText}>{t('feedCoach.navHint')}</Text>
@@ -1217,7 +1237,6 @@ export function FeedScreen({
                       />
                     </Pressable>
                   </View>
-
                   <View style={[styles.lineWrap, { width: lineWrapWidth }]}>
                     {line ? (
                       <WordLine
@@ -1656,6 +1675,13 @@ return StyleSheet.create({
   controlsWrap: {
     gap: spacing.md,
   },
+  practiceEntryRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingRight: 2,
+  },
   navCoachWrap: {
     alignItems: 'center',
   },
@@ -1863,6 +1889,28 @@ return StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  practiceEntryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(168,85,247,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(168,85,247,0.38)',
+  },
+  practiceEntryButtonPressed: {
+    opacity: 0.78,
+    transform: [{ scale: 0.98 }],
+  },
+  practiceEntryText: {
+    color: colors.textPrimary,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   lineWrap: {
     alignItems: 'center',

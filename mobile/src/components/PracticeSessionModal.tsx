@@ -1,4 +1,3 @@
-import * as FileSystem from 'expo-file-system';
 import { Audio, type AVPlaybackStatus } from 'expo-av';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -47,31 +46,65 @@ type PendingPlayback = {
   targetEndMillis: number | null;
 };
 
-function hashPracticeAudioKey(value: string) {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(16);
-}
+type StagePlaybackMode = QuizStage | 'blind';
+
+type QuestionBuckets = {
+  stage0: ClipQuestion[];
+  stage1: ClipQuestion[];
+  stage2: ClipQuestion[];
+  stage3: ClipQuestion[];
+  stage4: ClipQuestion[];
+};
+
+type QuizResults = {
+  stage0: PracticeTabQuizResult[];
+  stage1: PracticeTabQuizResult[];
+  stage2: PracticeTabQuizResult[];
+  stage3: PracticeTabQuizResult[];
+  stage4: PracticeTabQuizResult[];
+};
+
+type QuestionFlow = {
+  stage: QuizStage;
+  index: number;
+} | null;
 
 type Props = {
   visible: boolean;
+  isActive?: boolean;
   clip: Clip | null;
   clipIndex: number;
+  initialStage?: number;
+  inline?: boolean;
   level: Level | null;
   nativeLanguage: NativeLanguage;
   vocabWords: string[];
   knownWords: string[];
+  completedRecord?: PracticeTabCompletedClip | null;
+  readOnly?: boolean;
   onSaveVocab: (entry: VocabEntry) => void;
   onMarkKnown: (word: string) => void;
   onRecordWordLookup: (cefr?: string, details?: { clip?: Clip | null; word?: string }) => void;
-  onComplete: (clipKey: string, record: PracticeRecord) => void;
+  onStageChange: (stage: number) => void;
+  onComplete: (completedClip: PracticeTabCompletedClip) => void;
   onDismiss: () => void;
-  onReturnFeed: () => void;
-  onPracticeAgain: () => void;
+  onNextClip: () => void;
+  onReturnListen: () => void;
 };
+
+const ATTRIBUTION_REASONS: PracticeTabReason[] = ['unknown', 'unclear', 'meaning'];
+
+function answerIndex(question: ClipQuestion) {
+  const normalized = String(question.answer || '').trim().toUpperCase();
+  if (/^[A-Z]$/.test(normalized)) {
+    return Math.max(0, normalized.charCodeAt(0) - 65);
+  }
+  if (/^\d+$/.test(normalized)) {
+    return Math.max(0, Number(normalized) - 1);
+  }
+  const optionIndex = (question.options || []).findIndex(option => option.trim().toUpperCase() === normalized);
+  return optionIndex >= 0 ? optionIndex : 0;
+}
 
 function stepLabel(step: Step, t: (key: string, params?: Record<string, string | number>) => string) {
   if (step === 1) return t('practiceSession.stepNativeLanguage');
@@ -83,6 +116,183 @@ function stepLabel(step: Step, t: (key: string, params?: Record<string, string |
 
 function hasReadableCharacters(value: string) {
   return /[A-Za-z]/.test(value);
+}
+
+function lineCandidateWords(line: Clip['lines'][number]) {
+  const seen = new Set<string>();
+  return (line.words || []).filter(word => {
+    const normalized = word.word.toLowerCase();
+    if (!normalized || seen.has(normalized)) return false;
+    if (!hasReadableCharacters(word.word)) return false;
+    seen.add(normalized);
+    return true;
+  });
+}
+
+function explanationForQuestion(
+  question: ClipQuestion,
+  unavailableMessage: string
+) {
+  return String(question.explanation_zh || '').trim() || unavailableMessage;
+}
+
+function attributionLabel(
+  reason: PracticeTabReason,
+  t: (key: string, params?: Record<string, string | number>) => string
+) {
+  if (reason === 'unknown') return t('practiceSession.reasonUnknown');
+  if (reason === 'unclear') return t('practiceSession.reasonUnclear');
+  return t('practiceSession.reasonMeaning');
+}
+
+function deriveStage5ReviewItems(
+  clip: Clip,
+  selectedVocabPicks: PracticeTabVocabPick[],
+  options?: {
+    allowFallback?: boolean;
+  }
+) {
+  const pickedItems = selectedVocabPicks.map(item => {
+    const line = clip.lines?.[item.sentenceIndex];
+    const matchingWord = line?.words?.find(word => word.word.toLowerCase() === item.word.toLowerCase());
+    return {
+      word: matchingWord?.word || item.word,
+      normalizedWord: item.word.toLowerCase(),
+      sentenceIndex: item.sentenceIndex,
+      line,
+      cefr: item.cefr || matchingWord?.cefr,
+    };
+  }).filter(item => item.line);
+
+  if (pickedItems.length > 0) {
+    return pickedItems;
+  }
+
+  if (!options?.allowFallback) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const fallback: Array<{
+    word: string;
+    normalizedWord: string;
+    sentenceIndex: number;
+    line: Clip['lines'][number];
+    cefr?: string;
+  }> = [];
+
+  clip.lines?.forEach((line, sentenceIndex) => {
+    lineCandidateWords(line).forEach(word => {
+      const normalizedWord = word.word.toLowerCase();
+      if (seen.has(normalizedWord)) return;
+      seen.add(normalizedWord);
+      fallback.push({
+        word: word.word,
+        normalizedWord,
+        sentenceIndex,
+        line,
+        cefr: word.cefr,
+      });
+    });
+  });
+
+  return fallback.slice(0, 3);
+}
+
+function noop() {}
+
+function practiceDebug(event: string, payload?: Record<string, unknown>) {
+  console.log('[practice-inline]', event, payload || {});
+}
+
+function normalizeToken(value: string) {
+  return String(value || '').replace(/^[^a-zA-Z]+|[^a-zA-Z'-]+$/g, '').toLowerCase();
+}
+
+function findActiveOrPreviousLineIndex(clip: Clip | null, timeSeconds: number) {
+  if (!clip?.lines?.length) return -1;
+  const exactIndex = findLineAtTime(clip, timeSeconds);
+  if (exactIndex >= 0) return exactIndex;
+  if (timeSeconds >= clip.lines[clip.lines.length - 1].end) {
+    return clip.lines.length - 1;
+  }
+  for (let index = clip.lines.length - 1; index >= 0; index -= 1) {
+    if (timeSeconds >= clip.lines[index].start) {
+      return index;
+    }
+  }
+  return 0;
+}
+
+function buildFadeText(line: Clip['lines'][number], targetWords: Set<string>) {
+  const parts = (line.en || '').split(/(\s+)/);
+  let nonTargetIndex = 0;
+  return parts.map((part, index) => {
+    if (!part.trim()) {
+      return {
+        key: `gap-${index}`,
+        text: part,
+        visible: true,
+        emphasis: false,
+      };
+    }
+    const normalized = normalizeToken(part);
+    const isTarget = targetWords.has(normalized);
+    if (!isTarget) nonTargetIndex += 1;
+    const visible = isTarget || nonTargetIndex % 3 !== 0;
+    return {
+      key: `part-${index}-${normalized || 'p'}`,
+      text: part,
+      visible,
+      emphasis: isTarget,
+    };
+  });
+}
+
+function PlaybackControlStrip({
+  uiStyles,
+  isPlaying,
+  onReplay,
+  onRewind,
+  onToggle,
+  replayLabel,
+  pauseLabel,
+  playLabel,
+}: {
+  uiStyles: {
+    playbackControlsWrap: object;
+    playbackSideButton: object;
+    playbackMainButton: object;
+  };
+  isPlaying: boolean;
+  onReplay: () => void;
+  onRewind: () => void;
+  onToggle: () => void;
+  replayLabel: string;
+  pauseLabel: string;
+  playLabel: string;
+}) {
+  return (
+    <View style={uiStyles.playbackControlsWrap}>
+      <ActionButton
+        label={replayLabel}
+        variant="secondary"
+        onPress={onReplay}
+        style={uiStyles.playbackSideButton}
+      />
+      <ActionButton
+        label={isPlaying ? pauseLabel : playLabel}
+        onPress={onToggle}
+        style={uiStyles.playbackMainButton}
+      />
+      <ActionButton
+        label="-3s"
+        variant="secondary"
+        onPress={onRewind}
+        style={uiStyles.playbackSideButton}
+      />
+    </View>
+  );
 }
 
 export function PracticeSessionModal({
@@ -109,10 +319,6 @@ export function PracticeSessionModal({
   const scrollRef = useRef<ScrollView | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
   const soundReadyRef = useRef(false);
-  const preparedAudioUriRef = useRef<string | null>(null);
-  const preparedAudioKeyRef = useRef('');
-  const prepareAudioPromiseRef = useRef<Promise<string | null> | null>(null);
-  const prepareRequestIdRef = useRef(0);
   const loadPromiseRef = useRef<Promise<boolean> | null>(null);
   const loadRequestIdRef = useRef(0);
   const playbackRequestRef = useRef(0);
@@ -137,9 +343,22 @@ export function PracticeSessionModal({
   const [lookedWordsList, setLookedWordsList] = useState<LookedWord[]>([]);
   const [fadePlaybackFinished, setFadePlaybackFinished] = useState(false);
   const [blindListenFinished, setBlindListenFinished] = useState(false);
-  const [quizIndex, setQuizIndex] = useState(0);
-  const [quizSelections, setQuizSelections] = useState<Record<number, string>>({});
-  const [quizCorrectCount, setQuizCorrectCount] = useState(0);
+  const [activeQuestionFlow, setActiveQuestionFlow] = useState<QuestionFlow>(null);
+  const [currentQuestionSelection, setCurrentQuestionSelection] = useState<number | null>(null);
+  const [quizResults, setQuizResults] = useState<QuizResults>({
+    stage0: [],
+    stage1: [],
+    stage2: [],
+    stage3: [],
+    stage4: [],
+  });
+  const [shownTranslations, setShownTranslations] = useState<Record<number, boolean>>({});
+  const [attributionReasons, setAttributionReasons] = useState<PracticeTabReason[]>([]);
+  const [attributionStep, setAttributionStep] = useState<AttributionStep>(null);
+  const [selectedVocabPicks, setSelectedVocabPicks] = useState<PracticeTabVocabPick[]>([]);
+  const [stage5Decisions, setStage5Decisions] = useState<Record<string, 'learned' | 'review'>>({});
+  const [stage5Cursor, setStage5Cursor] = useState(0);
+  const [expandedSentenceIndex, setExpandedSentenceIndex] = useState<number | null>(null);
   const [popup, setPopup] = useState<PopupState>(null);
 
   const clipKey = useMemo(() => {
@@ -150,6 +369,106 @@ export function PracticeSessionModal({
     () => (clip ? deriveChallengeWords(clip, level, knownWords) : []),
     [clip, knownWords, level]
   );
+  const previewLines = useMemo(() => {
+    return (clip?.lines || []).map((line, index) => ({
+      index,
+      line,
+      localized: nativeLanguage === 'english' ? line.en : line.zh || line.en,
+    }));
+  }, [clip?.lines, nativeLanguage]);
+  const transcriptPanelHeight = Math.min(
+    Math.max(metrics.windowHeight * 0.24, 190),
+    metrics.isTablet ? 360 : 260
+  );
+  const transcriptPanelTallHeight = Math.min(
+    transcriptPanelHeight + (metrics.isTablet ? 48 : 28),
+    metrics.isTablet ? 420 : 300
+  );
+  const transcriptPanelCompactHeight = Math.max(180, transcriptPanelHeight - 18);
+
+  const alignedPlaybackSeconds = status.positionMillis / 1000;
+  const currentLineIndex = findActiveOrPreviousLineIndex(clip, alignedPlaybackSeconds);
+  const currentLine = clip?.lines?.[currentLineIndex] || null;
+  const fadeTargetWords = useMemo(
+    () => new Set(challengeWords.map(item => normalizeToken(item.word))),
+    [challengeWords]
+  );
+  const stagePlaybackFinished = useMemo(() => {
+    if (stage !== 1 && stage !== 2 && stage !== 3) {
+      return stageAudioFinished;
+    }
+    const nearEnd = status.durationMillis > 0
+      && status.positionMillis >= Math.max(0, status.durationMillis - 180);
+    return stageAudioFinished || (nearEnd && !status.isPlaying && !status.isLoading);
+  }, [
+    stage,
+    stageAudioFinished,
+    status.durationMillis,
+    status.isLoading,
+    status.isPlaying,
+    status.positionMillis,
+  ]);
+  const blindStageFinished = blindListenStarted && blindListenFinished;
+  const currentQuestionFlow = useMemo<QuestionFlow>(() => {
+    if (activeQuestionFlow) return activeQuestionFlow;
+    const quizStage = quizStageFromStage(stage);
+    if (quizStage === null || quizStage === 0) return null;
+    if ((quizStage === 1 || quizStage === 2 || quizStage === 3) && !stagePlaybackFinished) {
+      return null;
+    }
+    if (quizStage === 4 && (!blindStageFinished || attributionStep !== null)) {
+      return null;
+    }
+    const questions = buckets[bucketKey(quizStage)];
+    const answered = quizResults[bucketKey(quizStage)].length;
+    if (questions.length <= answered) return null;
+    return { stage: quizStage, index: answered };
+  }, [activeQuestionFlow, attributionStep, blindStageFinished, buckets, quizResults, stage, stagePlaybackFinished]);
+  const currentQuestion = useMemo(() => {
+    if (!currentQuestionFlow) return null;
+    const key = bucketKey(currentQuestionFlow.stage);
+    return buckets[key][currentQuestionFlow.index] || null;
+  }, [buckets, currentQuestionFlow]);
+  const stage1AutoLoading = stage === 1
+    && !currentQuestionFlow
+    && !stagePlaybackFinished
+    && !status.isPlaying
+    && (status.isLoading || status.positionMillis <= 120);
+  const currentQuestionCorrectIndex = currentQuestion ? answerIndex(currentQuestion) : -1;
+  const currentQuestionAnswered = currentQuestionSelection !== null;
+  const currentQuestionCorrect = currentQuestionAnswered && currentQuestionSelection === currentQuestionCorrectIndex;
+  const currentQuestionCorrectOption = currentQuestion && currentQuestionCorrectIndex >= 0
+    ? currentQuestion.options?.[currentQuestionCorrectIndex] || ''
+    : '';
+  const currentQuestionExplanation = currentQuestion
+    ? explanationForQuestion(currentQuestion, t('practiceSession.explanationUnavailable'))
+    : '';
+  const vocabCandidatesBySentence = useMemo(() => {
+    return (clip?.lines || []).map((line, index) => ({
+      sentenceIndex: index,
+      line,
+      words: lineCandidateWords(line),
+    })).filter(item => item.words.length > 0);
+  }, [clip?.lines]);
+  const stage5ReviewItems = useMemo(() => (
+    clip
+      ? deriveStage5ReviewItems(
+          clip,
+          selectedVocabPicks,
+          { allowFallback: Boolean(readOnly && selectedVocabPicks.length === 0) }
+        )
+      : []
+  ), [clip, readOnly, selectedVocabPicks]);
+  const stage5PendingItems = useMemo(
+    () => stage5ReviewItems.filter(item => !stage5Decisions[`${item.normalizedWord}:${item.sentenceIndex}`]),
+    [stage5Decisions, stage5ReviewItems]
+  );
+  const activeStage5ReviewItem = stage5ReviewItems.length > 0
+    ? stage5ReviewItems[Math.min(stage5Cursor, stage5ReviewItems.length - 1)]
+    : null;
+  const activeStage5DecisionKey = activeStage5ReviewItem
+    ? `${activeStage5ReviewItem.normalizedWord}:${activeStage5ReviewItem.sentenceIndex}`
+    : '';
 
   useEffect(() => {
     stepRef.current = step;
@@ -162,6 +481,10 @@ export function PracticeSessionModal({
   useEffect(() => {
     wordsLookedRef.current = wordsLooked;
   }, [wordsLooked]);
+
+  useEffect(() => {
+    setStage5Cursor(prev => Math.max(0, Math.min(prev, Math.max(0, stage5ReviewItems.length - 1))));
+  }, [stage5ReviewItems.length]);
 
   const unloadSound = useCallback(async () => {
     soundReadyRef.current = false;
@@ -179,61 +502,7 @@ export function PracticeSessionModal({
     if (!clip) return null;
     const sourceUrl = resolveClipAudioUrl(clip);
     if (!sourceUrl) return null;
-    if (!/^https?:\/\//i.test(sourceUrl)) {
-      preparedAudioUriRef.current = sourceUrl;
-      preparedAudioKeyRef.current = sourceUrl;
-      return sourceUrl;
-    }
-
-    const cacheRoot = FileSystem.cacheDirectory;
-    if (!cacheRoot) return sourceUrl;
-
-    const cacheKey = hashPracticeAudioKey(sourceUrl);
-    if (preparedAudioKeyRef.current === cacheKey && preparedAudioUriRef.current) {
-      return preparedAudioUriRef.current;
-    }
-    if (prepareAudioPromiseRef.current) {
-      return prepareAudioPromiseRef.current;
-    }
-
-    const extensionMatch = sourceUrl.match(/\.([a-z0-9]+)(?:$|[?#])/i);
-    const extension = extensionMatch ? extensionMatch[1].toLowerCase() : 'mp3';
-    const cacheDir = `${cacheRoot}practice-audio/`;
-    const localUri = `${cacheDir}${cacheKey}.${extension}`;
-
-    const prepareRequestId = prepareRequestIdRef.current + 1;
-    prepareRequestIdRef.current = prepareRequestId;
-
-    const currentPrepare = (async () => {
-      try {
-        await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true });
-        const existing = await FileSystem.getInfoAsync(localUri);
-        if (existing.exists && !existing.isDirectory) {
-          preparedAudioUriRef.current = localUri;
-          preparedAudioKeyRef.current = cacheKey;
-          return localUri;
-        }
-        await FileSystem.downloadAsync(sourceUrl, localUri);
-        preparedAudioUriRef.current = localUri;
-        preparedAudioKeyRef.current = cacheKey;
-        return localUri;
-      } catch {
-        try {
-          await FileSystem.deleteAsync(localUri, { idempotent: true });
-        } catch {
-        }
-        preparedAudioUriRef.current = sourceUrl;
-        preparedAudioKeyRef.current = cacheKey;
-        return sourceUrl;
-      } finally {
-        if (prepareRequestIdRef.current === prepareRequestId) {
-          prepareAudioPromiseRef.current = null;
-        }
-      }
-    })();
-
-    prepareAudioPromiseRef.current = currentPrepare;
-    return currentPrepare;
+    return sourceUrl;
   }, [clip]);
 
   const finishPractice = useCallback(() => {
@@ -495,7 +764,85 @@ export function PracticeSessionModal({
         } catch {
         }
       }
-      await playSentence(sentenceIndex);
+    }
+    await playWholeClip(status.positionMillis, mode);
+  }, [pause, playWholeClip, status.isPlaying, status.positionMillis]);
+
+  const rewindThreeSeconds = useCallback(async () => {
+    if (!clip || !soundRef.current) return;
+    const clipWindowStartMillis = Math.floor(getClipAudioStartSeconds(clip) * 1000);
+    const currentAbsoluteMillis = clipWindowStartMillis + status.positionMillis;
+    const nextAbsoluteMillis = Math.max(clipWindowStartMillis, currentAbsoluteMillis - 3000);
+    try {
+      await soundRef.current.setPositionAsync(nextAbsoluteMillis);
+      const seekStatus = await soundRef.current.getStatusAsync();
+      handleStatus(seekStatus);
+    } catch {
+    }
+  }, [clip, handleStatus, status.positionMillis]);
+
+  const stageQuestions = useCallback((quizStage: QuizStage) => {
+    const key = bucketKey(quizStage);
+    return buckets[key];
+  }, [buckets]);
+
+  const openNextQuestionIfNeeded = useCallback((quizStage: QuizStage) => {
+    const questions = stageQuestions(quizStage);
+    const existing = quizResults[bucketKey(quizStage)];
+    practiceDebug('open-question-attempt', {
+      clipKey,
+      stage: quizStage,
+      totalQuestions: questions.length,
+      answeredQuestions: existing.length,
+      visible,
+      inline,
+    });
+    if (questions.length > existing.length) {
+      setActiveQuestionFlow({ stage: quizStage, index: existing.length });
+      setCurrentQuestionSelection(null);
+      practiceDebug('open-question-success', {
+        clipKey,
+        stage: quizStage,
+        questionIndex: existing.length,
+      });
+      return true;
+    }
+    practiceDebug('open-question-empty', {
+      clipKey,
+      stage: quizStage,
+      totalQuestions: questions.length,
+      answeredQuestions: existing.length,
+    });
+    return false;
+  }, [clipKey, inline, quizResults, stageQuestions, visible]);
+
+  const goToStage = useCallback((nextStage: Stage) => {
+    playbackRequestRef.current += 1;
+    playbackModeRef.current = null;
+    pendingPlaybackRef.current = null;
+    stageRunRef.current = '';
+    setStage(nextStage);
+    setStageAudioFinished(false);
+    setBlindListenStarted(false);
+    setBlindListenFinished(false);
+    setActiveQuestionFlow(null);
+    setCurrentQuestionSelection(null);
+    setAttributionStep(null);
+    setExpandedSentenceIndex(null);
+    if (nextStage !== 4) {
+      void pause();
+    }
+  }, [pause]);
+
+  const handleStartStage0Question = useCallback(() => {
+    if (!openNextQuestionIfNeeded(0)) {
+      goToStage(1);
+    }
+  }, [goToStage, openNextQuestionIfNeeded]);
+
+  const advanceFromQuizStage = useCallback((quizStage: QuizStage) => {
+    if (quizStage === 0) {
+      goToStage(1);
       return;
     }
     if (stepRef.current === 3) {
@@ -522,9 +869,6 @@ export function PracticeSessionModal({
     if (!visible || !clip) return;
 
     playbackRequestRef.current += 1;
-    preparedAudioUriRef.current = null;
-    preparedAudioKeyRef.current = '';
-    prepareAudioPromiseRef.current = null;
     loadPromiseRef.current = null;
     pendingPlaybackRef.current = null;
     completionSavedRef.current = false;
@@ -536,9 +880,22 @@ export function PracticeSessionModal({
     setLookedWordsList([]);
     setFadePlaybackFinished(false);
     setBlindListenFinished(false);
-    setQuizIndex(0);
-    setQuizSelections({});
-    setQuizCorrectCount(0);
+    setActiveQuestionFlow(null);
+    setCurrentQuestionSelection(null);
+    setQuizResults({
+      stage0: [],
+      stage1: [],
+      stage2: [],
+      stage3: [],
+      stage4: [],
+    });
+    setShownTranslations({});
+    setAttributionReasons(readOnly ? (completedRecord?.reasons || []) : []);
+    setAttributionStep(null);
+    setSelectedVocabPicks(readOnly ? (completedRecord?.vocabPicked || []) : []);
+    setStage5Decisions({});
+    setStage5Cursor(0);
+    setExpandedSentenceIndex(null);
     setPopup(null);
     wordsLookedRef.current = 0;
     hardSentencesRef.current = [];
@@ -596,71 +953,42 @@ export function PracticeSessionModal({
     });
   }, [step, visible]);
 
-  const lineCount = clip?.lines?.length || 0;
-  const clipDurationMillis = Math.max(
-    status.durationMillis,
-    Math.floor((clip ? getClipDurationSeconds(clip) : 0) * 1000)
-  );
-  const currentLineIndex = clip ? Math.max(0, findLineAtTime(clip, status.positionMillis / 1000)) : 0;
-  const currentLine = clip?.lines?.[currentLineIndex] || null;
-  const sentenceLine = clip?.lines?.[sentenceIndex] || null;
-  const markers = clip ? getSentenceMarkers(clip) : [];
-  const currentSentenceRange = clip ? getSentenceRange(clip, currentLineIndex) : null;
-  const hardRanges = useMemo(() => {
-    if (!clip || (step !== 4 && step !== 5)) return [];
-    return hardSentences
-      .map(lineIndex => {
-        const range = getSentenceRange(clip, lineIndex);
-        if (!range) return null;
-        return { ...range, color: 'rgba(139,156,247,0.22)', opacity: 1 };
-      })
-      .filter(Boolean) as { start: number; end: number; color?: string; opacity?: number }[];
-  }, [clip, hardSentences, step]);
-  const fadeDisplayLevel = useMemo<0 | 1 | 2>(() => {
-    if (step !== 3 || clipDurationMillis <= 0) return 0;
-    const progress = status.positionMillis / clipDurationMillis;
-    if (progress >= 0.66) return 2;
-    if (progress >= 0.33) return 1;
-    return 0;
-  }, [clipDurationMillis, status.positionMillis, step]);
-  const fadeSegments = useMemo(
-    () => (currentLine ? buildFadeSegments(currentLine, challengeWords, fadeDisplayLevel) : []),
-    [challengeWords, currentLine, fadeDisplayLevel]
-  );
-  const translationUnavailableLabel = t('common.translationUnavailable');
-  const previewLines = useMemo(() => {
-    return (clip?.lines || []).map((line, index) => {
-      const localizedText = String(line.zh || '').trim();
-      const hasLocalizedText = Boolean(
-        localizedText
-        && localizedText !== line.en
-        && localizedText !== translationUnavailableLabel
-      );
-      return {
-        index,
-        line,
-        translation: hasLocalizedText ? localizedText : line.en,
-        hasLocalizedText,
-      };
-    });
-  }, [clip?.lines, lineCount, translationUnavailableLabel]);
-  const fadeTapWords = useMemo(
-    () => (currentLine?.words || []).filter(word => hasReadableCharacters(word.word)),
-    [currentLine]
-  );
-  const previewUsesLocalizedContent = useMemo(() => {
-    if (nativeLanguage === 'english') return false;
-    return previewLines.some(item => item.hasLocalizedText);
-  }, [nativeLanguage, previewLines]);
-  const transcriptPanelHeight = Math.min(
-    Math.max(metrics.windowHeight * 0.24, 180),
-    metrics.isTablet ? 320 : 250
-  );
-  const reviewTranscriptHeight = Math.min(
-    Math.max(metrics.windowHeight * 0.28, 220),
-    metrics.isTablet ? 380 : 300
-  );
-  if (!clip) return null;
+  useEffect(() => {
+    if (inline && !isActive) return;
+    if (!visible || !clip || readOnly) return;
+    const runKey = `${clipKey}:${stage}`;
+    if (stageRunRef.current === runKey) return;
+    stageRunRef.current = runKey;
+    if (stage === 0) {
+      return;
+    }
+    if (stage === 1) {
+      void startPlaybackForStage(1, 0);
+      return;
+    }
+    if (stage === 2) {
+      void startPlaybackForStage(2, 0);
+      return;
+    }
+    if (stage === 3) {
+      void startPlaybackForStage(3, 0);
+      return;
+    }
+    if (stage === 4) {
+      playbackModeRef.current = null;
+      void pause();
+      return;
+    }
+    if (stage === 5) {
+      playbackModeRef.current = null;
+      void pause();
+      return;
+    }
+    if (stage === 6) {
+      playbackModeRef.current = null;
+      void pause();
+    }
+  }, [clip, clipKey, goToStage, inline, isActive, openNextQuestionIfNeeded, pause, readOnly, stage, startPlaybackForStage, visible]);
 
   const questions = clip.questions || [];
   const currentQuestion = questions[quizIndex] || null;
@@ -681,9 +1009,19 @@ export function PracticeSessionModal({
     setPopup({ word, contextEn, contextZh, lineIndex });
   };
 
-  const beginFadeStage = () => {
-    if (lineCount <= 0) {
-      setStep(4);
+  const handleToggleVocabPick = (word: string, sentenceIndex: number, cefr?: string) => {
+    setSelectedVocabPicks(prev => {
+      const exists = prev.some(item => item.word === word && item.sentenceIndex === sentenceIndex);
+      if (exists) {
+        return prev.filter(item => !(item.word === word && item.sentenceIndex === sentenceIndex));
+      }
+      return [...prev, { word, sentenceIndex, cefr }];
+    });
+  };
+
+  const handleContinueFromAttribution = () => {
+    if (attributionReasons.includes('unknown')) {
+      setAttributionStep(2);
       return;
     }
     setFadePlaybackFinished(false);
@@ -699,13 +1037,46 @@ export function PracticeSessionModal({
     beginFadeStage();
   };
 
-  const beginBlindStage = () => {
-    setBlindListenFinished(false);
-    setQuizIndex(0);
-    setQuizSelections({});
-    setQuizCorrectCount(0);
-    setStep(4);
+  const handleConsumeStage5Word = (decision: 'learned' | 'review') => {
+    if (!clip || !activeStage5ReviewItem) return;
+    const line = activeStage5ReviewItem.line;
+    const normalizedWord = activeStage5ReviewItem.normalizedWord;
+    onSaveVocab({
+      word: normalizedWord,
+      cefr: activeStage5ReviewItem.cefr || line?.words?.find(word => word.word.toLowerCase() === normalizedWord)?.cefr,
+      context: line?.en || '',
+      contextZh: line?.zh || '',
+      lineIndex: activeStage5ReviewItem.sentenceIndex,
+      clipKey,
+      clipTitle: clip.title,
+      tag: clip.tag,
+      sourceType: 'practice',
+      practiced: true,
+      reviewStatus: decision,
+      known: decision === 'learned',
+    });
+    if (decision === 'learned') {
+      onMarkKnown(normalizedWord);
+    }
+    setStage5Decisions(prev => {
+      const next = {
+        ...prev,
+        [activeStage5DecisionKey]: decision,
+      };
+      const nextPendingIndex = stage5ReviewItems.findIndex(item => !next[`${item.normalizedWord}:${item.sentenceIndex}`]);
+      if (nextPendingIndex < 0) {
+        setTimeout(() => goToStage(6), 0);
+      } else {
+        setStage5Cursor(nextPendingIndex);
+      }
+      return next;
+    });
   };
+
+  const handleStartBlindListen = useCallback(() => {
+    if (status.isPlaying || status.isLoading) return;
+    void startPlaybackForStage('blind', 0);
+  }, [startPlaybackForStage, status.isLoading, status.isPlaying]);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onDismiss}>
@@ -728,72 +1099,488 @@ export function PracticeSessionModal({
               style={styles.closeButton}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <Text style={styles.closeButtonText}>{t('common.close')}</Text>
-            </Pressable>
-            <Text style={styles.stepLabel}>{stepLabel(step, t)}</Text>
-            <View style={styles.stepDots}>
-              {[1, 2, 3, 4].map(item => (
-                <View
-                  key={item}
-                  style={[
-                    styles.stepDot,
-                    step === item && styles.stepDotActive,
-                    step > item && styles.stepDotDone,
-                  ]}
-                />
-              ))}
+              {currentQuestionCorrect
+                ? t('practiceSession.answerCorrectTitle')
+                : t('practiceSession.answerIncorrectTitle')}
+            </Text>
+            {!currentQuestionCorrect && currentQuestionCorrectOption ? (
+              <Text style={styles.answerFeedbackMeta}>
+                {t('practiceSession.correctAnswerLabel', { answer: currentQuestionCorrectOption })}
+              </Text>
+            ) : null}
+            <Text style={styles.explanationText}>{currentQuestionExplanation}</Text>
+          </View>
+        ) : null}
+      </View>
+    );
+  }, [
+    currentQuestion,
+    currentQuestionAnswered,
+    currentQuestionCorrect,
+    currentQuestionCorrectIndex,
+    currentQuestionCorrectOption,
+    currentQuestionExplanation,
+    currentQuestionFlow?.stage,
+    currentQuestionSelection,
+    styles.answerFeedbackCard,
+    styles.answerFeedbackCardCorrect,
+    styles.answerFeedbackCardIncorrect,
+    styles.answerFeedbackMeta,
+    styles.answerFeedbackTitle,
+    styles.answerFeedbackTitleCorrect,
+    styles.answerFeedbackTitleIncorrect,
+    styles.explanationText,
+    styles.inlineQuestionSection,
+    styles.optionButton,
+    styles.optionButtonCorrect,
+    styles.optionButtonIdleLocked,
+    styles.optionButtonIncorrect,
+    styles.optionButtonSelected,
+    styles.optionText,
+    styles.optionTextCorrect,
+    styles.optionTextIncorrect,
+    styles.optionsWrap,
+    styles.questionText,
+    t,
+  ]);
+
+  const playbackProgress = status.durationMillis > 0 ? status.positionMillis / status.durationMillis : 0;
+  const activePlaybackLineIndex = findActiveOrPreviousLineIndex(clip, alignedPlaybackSeconds);
+  const progressStep = practiceProgressStep(stage);
+  const replayableQuizStage = quizStageFromStage(stage);
+  const inlineFooterActions = inline ? (
+    (() => {
+      if (stage === 0) {
+        if (currentQuestionFlow?.stage === 0 && currentQuestion) {
+          return (
+            <ActionButton
+              label={t('common.continue')}
+              onPress={handleAdvanceQuestion}
+              disabled={currentQuestionSelection === null}
+            />
+          );
+        }
+        return <ActionButton label={t('practiceSession.startPrediction')} onPress={handleStartStage0Question} />;
+      }
+      if (stage === 1) {
+        if (currentQuestionFlow?.stage === 1 && currentQuestion) {
+          return (
+            <ActionButton
+              label={t('common.continue')}
+              onPress={handleAdvanceQuestion}
+            />
+          );
+        }
+        return (
+          <ActionButton
+            label={t('common.continue')}
+            onPress={() => goToStage(2)}
+            disabled={!stagePlaybackFinished}
+          />
+        );
+      }
+      if (stage === 2) {
+        return (
+          <View style={styles.inlineFooterStack}>
+            <PlaybackControlStrip
+              uiStyles={styles}
+              isPlaying={status.isPlaying}
+              onReplay={() => void playWholeClip(0, 2)}
+              onRewind={() => void rewindThreeSeconds()}
+              onToggle={() => void togglePlay(2)}
+              replayLabel={t('common.replay')}
+              pauseLabel={t('common.pause')}
+              playLabel={t('common.play')}
+            />
+            {currentQuestionFlow?.stage === 2 && currentQuestion ? (
+              <ActionButton
+                label={t('common.continue')}
+                onPress={handleAdvanceQuestion}
+                disabled={!stagePlaybackFinished}
+              />
+            ) : (
+              <ActionButton
+                label={t('common.continue')}
+                onPress={() => goToStage(3)}
+                disabled={!stagePlaybackFinished || status.isPlaying || status.isLoading}
+              />
+            )}
+          </View>
+        );
+      }
+      if (stage === 3) {
+        return (
+          <View style={styles.inlineFooterStack}>
+            <PlaybackControlStrip
+              uiStyles={styles}
+              isPlaying={status.isPlaying}
+              onReplay={() => void playWholeClip(0, 3)}
+              onRewind={() => void rewindThreeSeconds()}
+              onToggle={() => void togglePlay(3)}
+              replayLabel={t('common.replay')}
+              pauseLabel={t('common.pause')}
+              playLabel={t('common.play')}
+            />
+            {currentQuestionFlow?.stage === 3 && currentQuestion ? (
+              <ActionButton
+                label={t('common.continue')}
+                onPress={handleAdvanceQuestion}
+              />
+            ) : (
+              <ActionButton
+                label={t('common.continue')}
+                onPress={() => goToStage(4)}
+                disabled={!stagePlaybackFinished}
+              />
+            )}
+          </View>
+        );
+      }
+      if (stage === 4 && blindStageFinished) {
+        if (currentQuestionFlow?.stage === 4 && currentQuestion) {
+          return (
+            <ActionButton
+              label={t('common.continue')}
+              onPress={handleAdvanceQuestion}
+            />
+          );
+        }
+        if (attributionStep === 1) {
+          return (
+            <View style={styles.inlineFooterStack}>
+              <ActionButton
+                label={attributionReasons.length === 0 ? t('practiceSession.blindAllClear') : t('common.continue')}
+                onPress={handleContinueFromAttribution}
+              />
+              {attributionReasons.length > 0 ? (
+                <ActionButton label={t('practiceSession.blindAllClear')} variant="secondary" onPress={() => goToStage(6)} />
+              ) : null}
             </View>
           </View>
-        </View>
+        ) : null;
+      }
+      if (stage === 5) {
+        return stage5ReviewItems.length === 0
+          ? <ActionButton label={t('common.continue')} onPress={() => goToStage(6)} />
+          : null;
+      }
+      if (stage === 6) {
+        return (
+          <View style={styles.inlineFooterStack}>
+            <ActionButton label={t('practiceSession.finishReturn')} onPress={readOnly ? onReturnListen : onNextClip} />
+          </View>
+        );
+      }
+      return null;
+    })()
+  ) : null;
 
-        <ScrollView
-          ref={scrollRef}
-          contentContainerStyle={[
-            styles.body,
-            {
-              paddingHorizontal: metrics.pageHorizontalPadding,
-              paddingBottom: Math.max(insets.bottom + 40, 40),
-              maxWidth: metrics.modalMaxWidth,
-              alignSelf: 'center',
-              width: '100%',
-            },
-          ]}
-        >
-          {step === 1 ? (
-            <View style={styles.centerBlock}>
-              <View style={styles.sourceCard}>
-                <Text style={styles.sourceTitle}>{clip.title}</Text>
-                <Text style={styles.sourceMeta}>
-                  {getSourceLabel(clip.source)}
-                  {clip.tag ? ` · ${getLocalizedTopicLabel(clip.tag, t)}` : ''}
-                </Text>
-              </View>
+  if (!clip) return null;
 
-              {challengeWords.length > 0 ? (
-                <View style={styles.previewCard}>
-                  <Text style={styles.sectionEyebrow}>{t('practiceSession.challengeWordsTitle')}</Text>
-                  <ChallengeWordPills words={challengeWords} tone="practice" />
+  const selectedWordSaved = popup ? vocabWords.includes(popup.word.word.toLowerCase()) : false;
+  const selectedWordKnown = popup ? knownWords.includes(popup.word.word.toLowerCase()) : false;
+
+  const bodyHeader = (
+    <View
+      style={[
+        styles.header,
+        {
+          paddingTop: inline ? 12 : Math.max(insets.top + 8, 16),
+          paddingHorizontal: metrics.pageHorizontalPadding,
+        },
+      ]}
+    >
+      <View style={[styles.headerInner, { maxWidth: metrics.modalMaxWidth }]}>
+        <Text style={styles.headerTitle}>{clip.title}</Text>
+        <Text style={styles.headerMeta}>
+          {[getSourceLabel(clip.source), clip.tag ? getLocalizedTopicLabel(clip.tag, t) : ''].filter(Boolean).join(' · ')}
+        </Text>
+        <StepDots count={5} active={progressStep} />
+      </View>
+    </View>
+  );
+
+  const stageContent = (
+    <>
+        {stage === 0 ? (
+          <View style={styles.stageCard}>
+            {currentQuestionFlow?.stage === 0 && currentQuestion ? (
+              <GlassCard tone="practice" style={styles.cardBlock}>
+                <PracticeCardHeader label={stageLabel(0, t)} />
+                {renderQuestionBlock(0)}
+              </GlassCard>
+            ) : (
+              <>
+                <GlassCard tone="practice" style={styles.cardBlock}>
+                  <PracticeCardHeader label={stageLabel(0, t)} />
+                  {challengeWords.length > 0 ? (
+                    <ChallengeWordPills words={challengeWords} tone="practice" />
+                  ) : null}
+                  <Text style={styles.supportText}>{t('practiceSession.previewBody')}</Text>
+                </GlassCard>
+
+                <GlassCard tone="practice" style={styles.cardBlock}>
+                  <PracticeCardHeader label={t('practiceSession.meaningFirstLabel')} />
+                  <View style={[styles.transcriptPanel, { maxHeight: transcriptPanelCompactHeight }]}>
+                    <ScrollView nestedScrollEnabled showsVerticalScrollIndicator contentContainerStyle={styles.transcriptScrollContent}>
+                      {previewLines.map(item => (
+                        <View key={`gist-${item.index}`} style={styles.previewRow}>
+                          <Text style={styles.previewPrimary}>{item.localized}</Text>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  </View>
+                </GlassCard>
+              </>
+            )}
+          </View>
+        ) : null}
+
+        {stage === 1 ? (
+          <View style={styles.stageCard}>
+            <GlassCard tone="practice" style={styles.cardBlock}>
+              <PracticeCardHeader label={t('practiceSession.gistLabel')} />
+              {currentQuestionFlow?.stage === 1 && currentQuestion ? (
+                renderQuestionBlock(1, { onLayout: setStage1QuestionAnchorY })
+              ) : (
+                <>
+                  <Text style={styles.supportText}>{t('practiceSession.gistBody')}</Text>
+                  {replayableQuizStage === 1 ? (
+                    <View style={styles.stageUtilityRow}>
+                      <Pressable
+                        onPress={() => handleReplayStage(1)}
+                        style={styles.stageReplayButton}
+                        hitSlop={8}
+                      >
+                        <Text style={styles.stageReplayButtonText}>↻ {t('common.replay')}</Text>
+                      </Pressable>
+                      {stage1AutoLoading ? (
+                        <View style={styles.stageUtilitySpinner}>
+                          <ActivityIndicator size="small" color={colors.accentPractice} />
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
+                  <PracticeTranscriptPanel
+                    lines={clip.lines || []}
+                    currentTime={alignedPlaybackSeconds}
+                    maxHeight={transcriptPanelHeight}
+                    renderLine={({ index, isActive }) => (
+                      <Text
+                        style={[
+                          styles.previewPrimary,
+                          isActive && styles.previewPrimaryActive,
+                        ]}
+                      >
+                        {previewLines[index]?.localized || clip.lines?.[index]?.en || ''}
+                      </Text>
+                    )}
+                  />
+                  <View style={styles.heroButtonWrap}>
+                    <CircularProgressPlayButton
+                      progress={playbackProgress}
+                      isPlaying={status.isPlaying}
+                      onPress={() => void togglePlay(1)}
+                      size={84}
+                      buttonSize={68}
+                      color={colors.accentPractice}
+                    />
+                  </View>
+                </>
+              )}
+            </GlassCard>
+
+          </View>
+        ) : null}
+
+        {stage === 2 ? (
+          <View style={styles.stageCard}>
+            <GlassCard tone="practice" style={styles.cardBlock}>
+              <PracticeCardHeader label={t('practiceSession.decodeLabel')} />
+              {currentQuestionFlow?.stage === 2 && currentQuestion ? (
+                renderQuestionBlock(2)
+              ) : (
+                <>
+                  <Text style={styles.supportText}>{t('practiceSession.decodeBody')}</Text>
+                  <PracticeTranscriptPanel
+                    lines={clip.lines || []}
+                    currentTime={alignedPlaybackSeconds}
+                    maxHeight={transcriptPanelTallHeight}
+                    renderLine={({ line, index, isActive }) => (
+                      <Pressable
+                        onPress={() => setShownTranslations(prev => ({ ...prev, [index]: !prev[index] }))}
+                        style={[
+                          styles.decodeLine,
+                          isActive && styles.decodeLineActive,
+                        ]}
+                      >
+                        <WordLine
+                          line={line}
+                          currentTime={isActive ? alignedPlaybackSeconds : 0}
+                          isActive={isActive}
+                          showZh={Boolean(shownTranslations[index])}
+                          compact
+                          onWordTap={(word, tappedLine) => handleWordTap(word, tappedLine.en, tappedLine.zh || '', index)}
+                        />
+                      </Pressable>
+                    )}
+                  />
+                </>
+              )}
+            </GlassCard>
+          </View>
+        ) : null}
+
+        {stage === 3 ? (
+          <View style={styles.stageCard}>
+            {currentQuestionFlow?.stage === 3 && currentQuestion ? null : (
+              <GlassCard tone="practice" style={[styles.cardBlock, styles.fadeCard]}>
+                <PracticeCardHeader label={t('practiceSession.fadeTitle')} />
+                {challengeWords.length > 0 ? (
+                  <ChallengeWordPills words={challengeWords} tone="practice" singleRow />
+                ) : null}
+                <Text style={styles.supportText}>{t('practiceSession.fadeBody')}</Text>
+              </GlassCard>
+            )}
+
+            <GlassCard tone="practice" style={[styles.cardBlock, styles.fadeTranscriptCard]}>
+              <PracticeCardHeader label={t('practiceSession.fadeTitle')} />
+              {currentQuestionFlow?.stage === 3 && currentQuestion ? (
+                renderQuestionBlock(3)
+              ) : (
+                <PracticeTranscriptPanel
+                  lines={clip.lines || []}
+                  currentTime={alignedPlaybackSeconds}
+                  maxHeight={Math.max(transcriptPanelHeight, transcriptPanelTallHeight)}
+                  renderLine={({ line, isActive }) => {
+                    const fadeTokens = buildFadeText(line, fadeTargetWords);
+                    return (
+                      <View style={styles.fadeLineBlock}>
+                        <Text
+                          style={[
+                            styles.fadeTranscriptLine,
+                            !isActive && styles.fadeTranscriptLineIdle,
+                          ]}
+                        >
+                          {fadeTokens.map(token => (
+                            <Text
+                              key={token.key}
+                              style={[
+                                styles.fadeToken,
+                                token.emphasis && styles.fadeTokenEmphasis,
+                                !token.visible && styles.fadeTokenMasked,
+                              ]}
+                            >
+                              {token.visible ? token.text : '····'}
+                            </Text>
+                          ))}
+                        </Text>
+                      </View>
+                    );
+                  }}
+                />
+              )}
+            </GlassCard>
+          </View>
+        ) : null}
+
+        {stage === 4 ? (
+          <View style={styles.stageCard}>
+            {!blindStageFinished ? (
+              <GlassCard tone="practice" style={styles.cardBlock}>
+                <PracticeCardHeader label={t('practiceSession.blindTitle')} />
+                <Text style={styles.supportText}>{t('practiceSession.blindBody')}</Text>
+                <View style={styles.heroButtonWrap}>
+                  <CircularProgressPlayButton
+                    progress={playbackProgress}
+                    isPlaying={status.isPlaying}
+                    onPress={handleStartBlindListen}
+                    size={84}
+                    buttonSize={68}
+                    color={colors.accentPractice}
+                  />
                 </View>
-              ) : null}
-
-              <View style={styles.previewCard}>
-                <Text style={styles.sectionEyebrow}>{t('practiceSession.previewTitle')}</Text>
-                <Text style={styles.previewHint}>
-                  {previewUsesLocalizedContent || nativeLanguage === 'english'
-                    ? t('practiceSession.previewBody')
-                    : t('practiceSession.previewFallbackBody')}
-                </Text>
-                <View style={[styles.transcriptPanel, { maxHeight: transcriptPanelHeight }]}>
-                  <ScrollView
-                    nestedScrollEnabled
-                    showsVerticalScrollIndicator
-                    contentContainerStyle={styles.transcriptScrollContent}
-                  >
-                    {previewLines.map(item => (
-                      <View key={`preview-${item.index}`} style={styles.previewItem}>
-                        <Text style={styles.previewPrimary}>{item.translation}</Text>
-                        {item.hasLocalizedText ? (
-                          <Text style={styles.previewSecondary}>{item.line.en}</Text>
+                {!blindListenStarted ? (
+                  <View style={styles.blindLaunchWrap}>
+                    <ActionButton
+                      label={t('common.play')}
+                      onPress={handleStartBlindListen}
+                      style={styles.blindLaunchButton}
+                    />
+                  </View>
+                ) : null}
+              </GlassCard>
+            ) : currentQuestionFlow?.stage === 4 && currentQuestion ? (
+              <GlassCard tone="practice" style={styles.cardBlock}>
+                <PracticeCardHeader label={t('practiceSession.blindTitle')} />
+                {renderQuestionBlock(4)}
+              </GlassCard>
+            ) : attributionStep === 1 ? (
+              <GlassCard tone="practice" style={styles.cardBlock}>
+                <PracticeCardHeader label={t('practiceSession.attributionTitle')} />
+                <Text style={styles.supportText}>{t('practiceSession.attributionBody')}</Text>
+                <View style={styles.reasonGrid}>
+                  {ATTRIBUTION_REASONS.map(reason => (
+                    <Pressable
+                      key={reason}
+                      onPress={() => handleToggleReason(reason)}
+                      style={[
+                        styles.reasonChip,
+                        attributionReasons.includes(reason) && styles.reasonChipActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.reasonChipText,
+                          attributionReasons.includes(reason) && styles.reasonChipTextActive,
+                        ]}
+                      >
+                        {attributionLabel(reason, t)}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </GlassCard>
+            ) : (
+              <GlassCard tone="practice" style={styles.cardBlock}>
+                <PracticeCardHeader label={t('practiceSession.wordDrillTitle')} />
+                <Text style={styles.supportText}>{t('practiceSession.wordDrillBody')}</Text>
+                <View style={[styles.transcriptPanel, { maxHeight: transcriptPanelTallHeight }]}>
+                  <ScrollView nestedScrollEnabled showsVerticalScrollIndicator contentContainerStyle={styles.transcriptScrollContent}>
+                    {vocabCandidatesBySentence.map(({ sentenceIndex, line, words }) => (
+                      <View key={`candidate-${sentenceIndex}`} style={styles.candidateBlock}>
+                        <Pressable
+                          onPress={() => setExpandedSentenceIndex(prev => (prev === sentenceIndex ? null : sentenceIndex))}
+                          style={styles.candidateHeader}
+                        >
+                          <Text style={styles.candidateSentence}>{line.en}</Text>
+                        </Pressable>
+                        {expandedSentenceIndex === sentenceIndex ? (
+                          <View style={styles.candidateWordWrap}>
+                            {words.map(word => {
+                              const picked = selectedVocabPicks.some(
+                                item => item.word === word.word.toLowerCase() && item.sentenceIndex === sentenceIndex
+                              );
+                              const cefr = String(word.cefr || '').toUpperCase();
+                              const showCefr = cefr === 'B1' || cefr === 'B2' || cefr === 'C1' || cefr === 'C2';
+                              return (
+                                <Pressable
+                                  key={`${sentenceIndex}-${word.word}`}
+                                  onPress={() => handleToggleVocabPick(word.word.toLowerCase(), sentenceIndex, word.cefr)}
+                                  style={[styles.wordChip, picked && styles.wordChipActive]}
+                                >
+                                  <Text style={[styles.wordChipText, picked && styles.wordChipTextActive]}>
+                                    {word.word}
+                                  </Text>
+                                  {showCefr ? (
+                                    <Text style={[styles.wordChipCefr, picked && styles.wordChipTextActive]}>
+                                      {cefr}
+                                    </Text>
+                                  ) : null}
+                                </Pressable>
+                              );
+                            })}
+                          </View>
                         ) : null}
                       </View>
                     ))}
@@ -801,453 +1588,123 @@ export function PracticeSessionModal({
                 </View>
               </View>
 
-              {status.errorMessage ? <Text style={styles.practiceErrorText}>{status.errorMessage}</Text> : null}
-
-              <View style={styles.waveRow}>
-                {Array.from({ length: 8 }).map((_, index) => (
-                  <View
-                    key={`wave-${index}`}
-                    style={[
-                      styles.waveBar,
-                      { height: 18 + ((index % 4) + 1) * 9, opacity: status.isPlaying ? 0.95 : 0.4 },
-                    ]}
-                  />
-                ))}
-              </View>
-
-              <View style={styles.primaryPlayWrap}>
-                <CircularProgressPlayButton
-                  progress={clipDurationMillis > 0 ? status.positionMillis / clipDurationMillis : 0}
-                  isPlaying={status.isPlaying}
-                  onPress={() => {
-                    triggerMediumHaptic();
-                    if (status.isPlaying) {
-                      void pause();
-                      return;
-                    }
-                    const restart = status.positionMillis >= Math.max(0, clipDurationMillis - 300);
-                    void playWholeClip(restart ? 0 : status.positionMillis);
-                  }}
-                  size={80}
-                  buttonSize={64}
-                  color={colors.accentPractice}
-                />
-              </View>
-
-              <View style={styles.fullWidthActions}>
-                <Pressable
-                  onPress={() => {
-                    triggerUiFeedback('primary');
-                    void pause();
-                    setStep(lineCount > 0 ? 2 : 4);
-                  }}
-                  style={[styles.choiceButton, styles.choiceButtonPrimary]}
-                >
-                  <Text style={styles.choiceButtonPrimaryText}>{t('common.continue')}</Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : null}
-
-          {step === 2 && sentenceLine ? (
-            <View style={styles.centerBlock}>
-              <View style={styles.previewCard}>
-                <Text style={styles.sectionEyebrow}>{t('practiceSession.englishDrillTitle')}</Text>
-                <Text style={styles.previewHint}>{t('practiceSession.englishDrillBody')}</Text>
-              </View>
-
-              <Text style={styles.progressText}>
-                {t('practiceSession.sentenceProgress', { current: sentenceIndex + 1, total: lineCount })}
-              </Text>
-
-              <View style={[styles.practiceLineWrap, styles.transcriptPanel]}>
-                <ScrollView
-                  nestedScrollEnabled
-                  showsVerticalScrollIndicator
-                  contentContainerStyle={styles.transcriptScrollContent}
-                >
-                  <WordLine
-                    line={sentenceLine}
-                    currentTime={status.positionMillis / 1000}
-                    isActive
-                    showZh={false}
-                    compact
-                    onWordTap={(word, line) => handleWordTap(word, line.en, line.zh || '', sentenceIndex)}
-                  />
-                </ScrollView>
-              </View>
-
-              {status.errorMessage ? <Text style={styles.practiceErrorText}>{status.errorMessage}</Text> : null}
-
-              <View style={styles.controlsRow}>
-                <Pressable
-                  onPress={() => {
-                    triggerMediumHaptic();
-                    void playSentence(sentenceIndex);
-                  }}
-                  style={styles.secondaryCircle}
-                >
-                  <Text style={styles.secondaryCircleText}>{t('common.replay')}</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    triggerMediumHaptic();
-                    void togglePlay();
-                  }}
-                  style={styles.secondaryCircle}
-                >
-                  <Text style={styles.secondaryCircleText}>{status.isPlaying ? t('common.pause') : t('common.play')}</Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.actionRow}>
-                <Pressable
-                  onPress={() => {
-                    triggerUiFeedback('correct');
-                    void pause();
-                    moveToNextSentence();
-                  }}
-                  style={[styles.actionButton, styles.actionButtonEasy]}
-                >
-                  <Text style={[styles.actionButtonText, styles.actionButtonTextEasy]}>{t('practiceSession.easy')}</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    triggerUiFeedback('error');
-                    void pause();
-                    const nextHard = hardSentencesRef.current.includes(sentenceIndex)
-                      ? hardSentencesRef.current
-                      : [...hardSentencesRef.current, sentenceIndex];
-                    hardSentencesRef.current = nextHard;
-                    setHardSentences(nextHard);
-                    moveToNextSentence();
-                  }}
-                  style={[styles.actionButton, styles.actionButtonHard]}
-                >
-                  <Text style={[styles.actionButtonText, styles.actionButtonTextHard]}>{t('practiceSession.hard')}</Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : null}
-
-          {step === 3 ? (
-            <View style={styles.centerBlock}>
-              <View style={styles.previewCard}>
-                <Text style={styles.sectionEyebrow}>{t('practiceSession.fadeTitle')}</Text>
-                <Text style={styles.previewHint}>{t('practiceSession.fadeBody')}</Text>
-              </View>
-
-              <View style={styles.fadeCard}>
-                {currentLine ? (
-                  <View style={styles.fadeSentenceRow}>
-                    {fadeSegments.map((segment, index) => {
-                      const word = fadeTapWords[index];
-                      const visible = segment.visible;
-                      return (
-                        <Pressable
-                          key={segment.key}
-                          disabled={!visible || !word}
-                          onPress={() => {
-                            if (!word || !visible) return;
-                            handleWordTap(word, currentLine.en, currentLine.zh || '', currentLineIndex);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.fadeToken,
-                              !visible && styles.fadeTokenMasked,
-                              segment.emphasis && styles.fadeTokenEmphasis,
-                            ]}
-                          >
-                            {segment.text}{' '}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ) : (
-                  <Text style={styles.previewHint}>{t('practiceSession.replayPreparing')}</Text>
-                )}
-              </View>
-
-              {status.errorMessage ? <Text style={styles.practiceErrorText}>{status.errorMessage}</Text> : null}
-
-              <View style={styles.progressWrap}>
-                <ProgressBar
-                  progress={status.durationMillis > 0 ? status.positionMillis / status.durationMillis : 0}
-                  markers={markers}
-                  currentSentenceRange={currentSentenceRange}
-                  highlightRanges={hardRanges}
-                  onSeek={ratio => {
-                    if (!soundRef.current || !status.durationMillis) return;
-                    const nextRelativeMillis = Math.floor(status.durationMillis * ratio);
-                    void soundRef.current.setPositionAsync(
-                      Math.floor(clipRelativeToSourceSeconds(clip, nextRelativeMillis / 1000) * 1000)
-                    );
-                  }}
-                />
-              </View>
-
-              <View style={styles.controlsRow}>
-                <Pressable
-                  onPress={() => {
-                    triggerMediumHaptic();
-                    void playWholeClip(0);
-                  }}
-                  style={styles.secondaryCircle}
-                >
-                  <Text style={styles.secondaryCircleText}>{t('common.replay')}</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    triggerMediumHaptic();
-                    void togglePlay();
-                  }}
-                  style={styles.secondaryCircle}
-                >
-                  <Text style={styles.secondaryCircleText}>{status.isPlaying ? t('common.pause') : t('common.play')}</Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.fullWidthActions}>
-                <Pressable
-                  onPress={() => {
-                    triggerUiFeedback('primary');
-                    void pause();
-                    beginBlindStage();
-                  }}
-                  disabled={!fadePlaybackFinished}
-                  style={[
-                    styles.choiceButton,
-                    styles.choiceButtonPrimary,
-                    !fadePlaybackFinished && styles.choiceButtonDisabled,
-                  ]}
-                >
-                  <Text style={styles.choiceButtonPrimaryText}>{t('common.continue')}</Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : null}
-
-          {step === 4 ? (
-            <View style={styles.centerBlock}>
-              <View style={styles.previewCard}>
-                <Text style={styles.sectionEyebrow}>{t('practiceSession.blindTitle')}</Text>
-                <Text style={styles.previewHint}>{t('practiceSession.blindBody')}</Text>
-              </View>
-
-              {status.errorMessage ? <Text style={styles.practiceErrorText}>{status.errorMessage}</Text> : null}
-
-              {!blindListenFinished ? (
-                <>
-                  <View style={styles.waveRow}>
-                    {Array.from({ length: 8 }).map((_, index) => (
-                      <View
-                        key={`blind-wave-${index}`}
-                        style={[
-                          styles.waveBar,
-                          { height: 18 + ((index % 4) + 1) * 9, opacity: status.isPlaying ? 0.95 : 0.4 },
-                        ]}
-                      />
-                    ))}
-                  </View>
-
-                  <View style={styles.progressWrap}>
-                    <ProgressBar
-                      progress={status.durationMillis > 0 ? status.positionMillis / status.durationMillis : 0}
-                      markers={markers}
-                      currentSentenceRange={currentSentenceRange}
-                      highlightRanges={hardRanges}
-                      onSeek={ratio => {
-                        if (!soundRef.current || !status.durationMillis) return;
-                        const nextRelativeMillis = Math.floor(status.durationMillis * ratio);
-                        void soundRef.current.setPositionAsync(
-                          Math.floor(clipRelativeToSourceSeconds(clip, nextRelativeMillis / 1000) * 1000)
-                        );
-                      }}
-                    />
-                  </View>
-
-                  <View style={styles.controlsRow}>
-                    <Pressable
-                      onPress={() => {
-                        triggerMediumHaptic();
-                        void playWholeClip(0);
-                      }}
-                      style={styles.secondaryCircle}
-                    >
-                      <Text style={styles.secondaryCircleText}>{t('common.replay')}</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => {
-                        triggerMediumHaptic();
-                        void togglePlay();
-                      }}
-                      style={styles.secondaryCircle}
-                    >
-                      <Text style={styles.secondaryCircleText}>{status.isPlaying ? t('common.pause') : t('common.play')}</Text>
-                    </Pressable>
-                  </View>
-                </>
-              ) : questions.length > 0 && currentQuestion ? (
-                <View style={styles.quizCard}>
-                  <Text style={styles.compLabel}>
-                    {t('practiceSession.quizLabel', { current: quizIndex + 1, total: questions.length })}
-                  </Text>
-                  <Text style={styles.compQuestion}>{currentQuestion.question}</Text>
-                  <View style={styles.compOptions}>
-                    {currentQuestion.options.map(option => {
-                      const letter = option.trim().charAt(0).toUpperCase();
-                      const picked = currentSelection === letter;
-                      const answered = Boolean(currentSelection);
-                      const isCorrect = letter === currentAnswer;
-                      return (
-                        <Pressable
-                          key={option}
-                          disabled={answered}
-                          onPress={() => {
-                            triggerMediumHaptic();
-                            setQuizSelections(prev => ({ ...prev, [quizIndex]: letter }));
-                            if (letter === currentAnswer) {
-                              setQuizCorrectCount(prev => prev + 1);
-                            }
-                          }}
-                          style={[
-                            styles.compOption,
-                            answered && isCorrect ? styles.compOptionCorrect : null,
-                            answered && picked && !isCorrect ? styles.compOptionWrong : null,
-                            answered && !picked && !isCorrect ? styles.compOptionDimmed : null,
-                          ]}
-                        >
-                          <Text style={styles.compOptionText}>
-                            {answered && isCorrect ? `✓ ${option}` : option}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  {currentSelection ? (
-                    <>
-                      {currentQuestion.explanation_zh ? (
-                        <Text style={styles.compExplanation}>{currentQuestion.explanation_zh}</Text>
-                      ) : null}
-                      <Pressable
-                        onPress={() => {
-                          triggerUiFeedback('primary');
-                          if (quizIndex >= questions.length - 1) {
-                            finishPractice();
-                          } else {
-                            setQuizIndex(prev => prev + 1);
-                          }
-                        }}
-                        style={styles.compNextButton}
-                      >
-                        <Text style={styles.compNextButtonText}>
-                          {quizIndex >= questions.length - 1
-                            ? t('practiceSession.finishPractice')
-                            : t('practiceSession.nextQuestion')}
+        {stage === 5 ? (
+          <View style={styles.stageCard}>
+            <GlassCard tone="practice" style={styles.cardBlock}>
+              <PracticeCardHeader label={t('practiceSession.vocabConsumeTitle')} />
+              <Text style={styles.supportText}>{t('practiceSession.vocabConsumeBody')}</Text>
+              {activeStage5ReviewItem ? (
+                <View style={[styles.transcriptPanel, styles.vocabWorkspace, { maxHeight: transcriptPanelTallHeight }]}>
+                  <View style={styles.vocabWorkspaceInner}>
+                    <View style={styles.vocabWorkspaceBanner}>
+                      <Text style={styles.vocabWorkspaceBannerText}>
+                        {t('practiceSession.vocabConsumedCount', {
+                          current: stage5ReviewItems.length - stage5PendingItems.length + 1,
+                          total: stage5ReviewItems.length,
+                        })}
+                      </Text>
+                    </View>
+                    <GlassCard style={styles.vocabReviewCard}>
+                      <Text style={styles.vocabWord}>
+                        {activeStage5ReviewItem.word}
+                        {activeStage5ReviewItem.cefr ? (
+                          <Text style={styles.vocabWordCefr}> {activeStage5ReviewItem.cefr}</Text>
+                        ) : null}
+                      </Text>
+                      {stage5Translations[activeStage5ReviewItem.normalizedWord] ? (
+                        <Text style={styles.vocabWordTranslation}>
+                          {stage5Translations[activeStage5ReviewItem.normalizedWord]}
                         </Text>
-                      </Pressable>
-                    </>
-                  ) : null}
+                      ) : null}
+                      <View style={styles.vocabContextBlock}>
+                        <Text style={styles.vocabContext}>{activeStage5ReviewItem.line?.en || ''}</Text>
+                        {activeStage5ReviewItem.line?.zh ? (
+                          <Text style={styles.vocabContextZh}>{activeStage5ReviewItem.line.zh}</Text>
+                        ) : null}
+                      </View>
+                      <View style={[styles.controlsRow, styles.vocabCardActions]}>
+                        <ActionButton
+                          label={t('practiceSession.rememberedLabel')}
+                          onPress={() => handleConsumeStage5Word('learned')}
+                        />
+                        <ActionButton
+                          label={t('practiceSession.reviewAgainLabel')}
+                          variant="secondary"
+                          onPress={() => handleConsumeStage5Word('review')}
+                        />
+                      </View>
+                    </GlassCard>
+                  </View>
                 </View>
               ) : (
-                <View style={styles.fullWidthActions}>
-                  <Text style={styles.hintText}>
-                    {t('practiceSession.afterListenCheck')}
-                  </Text>
-                  <Pressable
-                    onPress={() => {
-                      triggerUiFeedback('primary');
-                      finishPractice();
-                    }}
-                    style={[styles.choiceButton, styles.choiceButtonPrimary]}
-                  >
-                    <Text style={styles.choiceButtonPrimaryText}>{t('common.continue')}</Text>
-                  </Pressable>
+                <View style={styles.emptyStateCard}>
+                  <Text style={styles.supportText}>{t('practiceSession.vocabReviewBody')}</Text>
                 </View>
               )}
-            </View>
-          ) : null}
+            </GlassCard>
+          </View>
+        ) : null}
 
-          {step === 5 ? (
-            <View style={styles.summaryScreen}>
-              <View style={styles.summaryCenter}>
-                <Text style={styles.summaryTitle}>{t('practiceSession.summaryTitle')}</Text>
-                <View style={styles.summaryRows}>
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryValue}>{wordsLooked}</Text>
-                    <Text style={styles.summaryLabel}>{t('practiceSession.summaryWords')}</Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryValue}>{lineCount}</Text>
-                    <Text style={styles.summaryLabel}>{t('practiceSession.summarySentences')}</Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={[styles.summaryValue, styles.summaryValueHard]}>{hardSentences.length}</Text>
-                    <Text style={styles.summaryLabel}>{t('practiceSession.summaryHard')}</Text>
-                  </View>
-                </View>
-                {lookedWordsList.length > 0 ? (
-                  <View style={styles.summaryWordList}>
-                    {lookedWordsList.slice(0, 6).map(item => (
-                      <View key={`looked-${item.word}`} style={styles.summaryWordPill}>
-                        <Text style={styles.summaryWordText}>{item.word}</Text>
-                        {item.cefr ? <Text style={styles.summaryWordBadge}>{item.cefr}</Text> : null}
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-                {questions.length > 0 ? (
-                  <View style={styles.reviewSection}>
-                    <Text style={styles.sectionEyebrow}>{t('practiceSession.quizLabel', { current: quizCorrectCount, total: questions.length })}</Text>
-                    <View style={styles.reviewList}>
-                      {questions.map((question, index) => {
-                        const selection = quizSelections[index] || '';
-                        const answer = question.answer?.trim().charAt(0).toUpperCase() || '';
-                        const correct = selection === answer;
-                        return (
-                          <View key={`review-question-${index}`} style={styles.reviewItem}>
-                            <Text style={styles.reviewQuestion}>{question.question}</Text>
-                            <Text style={[styles.reviewAnswer, !correct && styles.reviewAnswerWrong]}>
-                              {correct
-                                ? `✓ ${selection || answer}`
-                                : `${selection || '—'} → ${answer}`}
-                            </Text>
-                            {!correct && question.explanation_zh ? (
-                              <Text style={styles.reviewExplanation}>{question.explanation_zh}</Text>
-                            ) : null}
-                          </View>
-                        );
-                      })}
+        {stage === 6 ? (
+          <View style={styles.stageCard}>
+            <GlassCard tone="practice" style={styles.cardBlock}>
+              <PracticeCardHeader label={t('practice.completedTitle')} />
+              <Text style={styles.questionText}>{clip.title}</Text>
+              <Text style={styles.supportText}>
+                {completedRecord
+                  ? new Date(completedRecord.completedAt).toLocaleDateString()
+                  : t('practiceSession.clipFinishedBody')}
+              </Text>
+            </GlassCard>
+
+            <GlassCard tone="practice" style={styles.cardBlock}>
+              <PracticeCardHeader label={t('practiceSession.transcriptTitle')} />
+              <View style={[styles.transcriptPanel, { maxHeight: transcriptPanelTallHeight }]}>
+                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator contentContainerStyle={styles.transcriptScrollContent}>
+                  {(clip.lines || []).map((line, index) => (
+                    <View key={`summary-${index}`} style={styles.summaryLine}>
+                      <Text style={styles.summaryPrimary}>{line.en}</Text>
+                      <Text style={styles.summarySecondary}>{line.zh || ''}</Text>
                     </View>
-                  </View>
-                ) : null}
-                <View style={styles.reviewSection}>
-                  <Text style={styles.sectionEyebrow}>{t('practiceSession.previewTitle')}</Text>
-                  <View style={[styles.transcriptPanel, { maxHeight: reviewTranscriptHeight }]}>
-                    <ScrollView
-                      nestedScrollEnabled
-                      showsVerticalScrollIndicator
-                      contentContainerStyle={styles.transcriptScrollContent}
-                    >
-                      <View style={styles.reviewList}>
-                        {(clip.lines || []).map((line, index) => (
-                          <View
-                            key={`review-line-${index}-${line.start}`}
-                            style={[
-                              styles.reviewItem,
-                              hardSentences.includes(index) && styles.reviewItemHard,
-                            ]}
-                          >
-                            <Text style={styles.reviewPrimary}>{line.en}</Text>
-                            {line.zh ? <Text style={styles.reviewSecondary}>{line.zh}</Text> : null}
-                          </View>
-                        ))}
-                      </View>
-                    </ScrollView>
-                  </View>
+                  ))}
+                </ScrollView>
+              </View>
+            </GlassCard>
+
+            {(completedRecord?.reasons?.length || attributionReasons.length > 0) ? (
+              <GlassCard tone="practice" style={styles.cardBlock}>
+                <PracticeCardHeader label={t('practiceSession.attributionTitle')} />
+                <View style={styles.reasonSummaryWrap}>
+                  {(completedRecord?.reasons || attributionReasons).map(reason => (
+                    <View key={`summary-reason-${reason}`} style={styles.reasonSummaryChip}>
+                      <Text style={styles.reasonSummaryText}>{attributionLabel(reason, t)}</Text>
+                    </View>
+                  ))}
                 </View>
+              </GlassCard>
+            ) : null}
+
+            {(completedRecord?.vocabPicked?.length || selectedVocabPicks.length > 0) ? (
+              <GlassCard tone="practice" style={styles.cardBlock}>
+                <PracticeCardHeader label={t('practiceSession.pickedWordsTitle')} />
+                <View style={styles.reasonSummaryWrap}>
+                  {(completedRecord?.vocabPicked || selectedVocabPicks).map(item => (
+                    <View key={`summary-word-${item.word}-${item.sentenceIndex}`} style={styles.reasonSummaryChip}>
+                      <Text style={styles.reasonSummaryText}>{item.word}</Text>
+                    </View>
+                  ))}
+                </View>
+              </GlassCard>
+            ) : null}
+
+            {!inline ? (
+              <View style={styles.buttonStack}>
+                {readOnly ? (
+                  <ActionButton label={t('practiceSession.finishReturn')} onPress={onReturnListen} />
+                ) : (
+                  <ActionButton label={t('practiceSession.finishReturn')} onPress={onNextClip} />
+                )}
+                <ActionButton label={t('common.close')} variant="secondary" onPress={onDismiss} />
               </View>
               <View style={styles.summaryActions}>
                 <Pressable onPress={() => {
@@ -1301,670 +1758,545 @@ export function PracticeSessionModal({
 
 function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
   return StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.bgApp,
-  },
-  header: {
-    paddingBottom: 8,
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  headerInner: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  closeButton: {
-    borderRadius: 999,
-    minWidth: 44,
-    minHeight: 44,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.bgSurface2,
-  },
-  closeButtonText: {
-    color: colors.textPrimary,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  stepLabel: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  stepDots: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  stepDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: colors.textFaint,
-  },
-  stepDotActive: {
-    width: 20,
-    borderRadius: 6,
-    backgroundColor: colors.accentPractice,
-  },
-  stepDotDone: {
-    backgroundColor: 'rgba(168,85,247,0.5)',
-  },
-  body: {
-    flexGrow: 1,
-    paddingBottom: 40,
-    justifyContent: 'center',
-  },
-  centerBlock: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 560,
-  },
-  sourceCard: {
-    width: '100%',
-    borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    backgroundColor: 'rgba(168,85,247,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(168,85,247,0.24)',
-    gap: 6,
-  },
-  sourceTitle: {
-    color: colors.textPrimary,
-    fontSize: 18,
-    lineHeight: 26,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  sourceMeta: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  previewCard: {
-    width: '100%',
-    marginTop: 18,
-    borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    backgroundColor: colors.bgSurface1,
-    borderWidth: 1,
-    borderColor: colors.stroke,
-    gap: 10,
-  },
-  transcriptPanel: {
-    width: '100%',
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: colors.bgApp,
-    borderWidth: 1,
-    borderColor: colors.stroke,
-    overflow: 'hidden',
-  },
-  transcriptScrollContent: {
-    gap: 12,
-    paddingBottom: 4,
-  },
-  sectionEyebrow: {
-    color: colors.textTertiary,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1.1,
-  },
-  previewHint: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  previewList: {
-    gap: 12,
-  },
-  previewItem: {
-    gap: 4,
-  },
-  previewPrimary: {
-    color: colors.textPrimary,
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: '600',
-  },
-  previewSecondary: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  challengeWordsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  challengeWordPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(168,85,247,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(168,85,247,0.22)',
-  },
-  challengeWordText: {
-    color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  challengeWordBadge: {
-    color: colors.accentPractice,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  hintText: {
-    marginTop: 20,
-    color: colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-  practiceErrorText: {
-    marginTop: 10,
-    color: colors.accentError,
-    fontSize: 13,
-    lineHeight: 18,
-    textAlign: 'center',
-  },
-  waveRow: {
-    marginTop: 32,
-    marginBottom: 28,
-    height: 72,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  waveBar: {
-    width: 5,
-    borderRadius: 999,
-    backgroundColor: colors.accentPractice,
-  },
-  primaryPlayWrap: {
-    marginBottom: 12,
-  },
-  choiceRow: {
-    marginTop: 36,
-    width: '100%',
-    gap: 12,
-  },
-  fullWidthActions: {
-    marginTop: 22,
-    width: '100%',
-    gap: 12,
-  },
-  choiceButton: {
-    borderRadius: 18,
-    paddingVertical: 15,
-    alignItems: 'center',
-    backgroundColor: colors.bgSurface2,
-    borderWidth: 1,
-    borderColor: colors.stroke,
-  },
-  choiceButtonPrimary: {
-    backgroundColor: colors.accentPractice,
-    borderColor: colors.accentPractice,
-  },
-  choiceButtonDisabled: {
-    opacity: 0.45,
-  },
-  quizStartButton: {
-    marginTop: 36,
-    width: '100%',
-  },
-  choiceButtonText: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  choiceButtonPrimaryText: {
-    color: colors.textOnAccent,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  quizCard: {
-    marginTop: 28,
-    width: '100%',
-    borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingVertical: 20,
-    backgroundColor: colors.bgSurface1,
-    borderWidth: 1,
-    borderColor: colors.stroke,
-    gap: 14,
-  },
-  compLabel: {
-    color: colors.textTertiary,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    textAlign: 'center',
-  },
-  compQuestion: {
-    color: colors.textPrimary,
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  compOptions: {
-    gap: 10,
-  },
-  compOption: {
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: colors.bgSurface2,
-    borderWidth: 1,
-    borderColor: colors.stroke,
-  },
-  compOptionCorrect: {
-    borderColor: '#4ADE80',
-    backgroundColor: 'rgba(74,222,128,0.10)',
-  },
-  compOptionWrong: {
-    borderColor: '#F87171',
-    backgroundColor: 'rgba(248,113,113,0.08)',
-  },
-  compOptionDimmed: {
-    opacity: 0.35,
-  },
-  compOptionText: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  compExplanation: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  compNextButton: {
-    alignSelf: 'stretch',
-    borderRadius: 18,
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: colors.accentPractice,
-  },
-  compNextButtonText: {
-    color: colors.textOnAccent,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  quizResultCard: {
-    marginTop: 28,
-    width: '100%',
-    borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingVertical: 24,
-    backgroundColor: colors.bgSurface1,
-    borderWidth: 1,
-    borderColor: colors.stroke,
-    gap: 14,
-    alignItems: 'center',
-  },
-  compResultSub: {
-    color: colors.textSecondary,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  compResultMsg: {
-    color: colors.textPrimary,
-    fontSize: 20,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  compRetryText: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    textDecorationLine: 'underline',
-  },
-  progressText: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  practiceLineWrap: {
-    marginTop: 24,
-    minHeight: 140,
-    width: '100%',
-  },
-  translationToggle: {
-    marginTop: 10,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: colors.bgSurface2,
-  },
-  translationToggleText: {
-    color: colors.textPrimary,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  controlsRow: {
-    marginTop: 26,
-    flexDirection: 'row',
-    gap: 12,
-  },
-  secondaryCircle: {
-    minWidth: 88,
-    borderRadius: 999,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    alignItems: 'center',
-    backgroundColor: colors.bgSurface2,
-  },
-  secondaryCircleText: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  actionRow: {
-    marginTop: 22,
-    width: '100%',
-    flexDirection: 'row',
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    borderRadius: 18,
-    paddingVertical: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  actionButtonEasy: {
-    borderColor: 'rgba(76,175,80,0.28)',
-    backgroundColor: 'rgba(76,175,80,0.08)',
-  },
-  actionButtonHard: {
-    borderColor: 'rgba(244,67,54,0.28)',
-    backgroundColor: 'rgba(244,67,54,0.08)',
-  },
-  actionButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  actionButtonTextEasy: {
-    color: '#6EE7B7',
-  },
-  actionButtonTextHard: {
-    color: '#FCA5A5',
-  },
-  flashCard: {
-    width: '100%',
-    borderRadius: 24,
-    paddingHorizontal: 22,
-    paddingVertical: 28,
-    backgroundColor: 'rgba(168,85,247,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(168,85,247,0.22)',
-    alignItems: 'center',
-  },
-  fadeCard: {
-    width: '100%',
-    borderRadius: 24,
-    paddingHorizontal: 22,
-    paddingVertical: 28,
-    backgroundColor: 'rgba(168,85,247,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(168,85,247,0.22)',
-    alignItems: 'center',
-  },
-  flashLabel: {
-    color: colors.textTertiary,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1.1,
-  },
-  flashEn: {
-    marginTop: 16,
-    color: colors.textPrimary,
-    fontSize: 20,
-    lineHeight: 30,
-    textAlign: 'center',
-  },
-  flashPlayButton: {
-    marginTop: 20,
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: colors.bgSurface2,
-  },
-  flashPlayButtonText: {
-    color: colors.accentPractice,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  flashHint: {
-    marginTop: 12,
-    color: colors.textTertiary,
-    fontSize: 12,
-  },
-  flashDivider: {
-    width: 46,
-    height: 1,
-    marginVertical: 18,
-    backgroundColor: colors.strokeStrong,
-  },
-  flashZh: {
-    color: colors.textSecondary,
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-  flashMeta: {
-    marginTop: 14,
-    color: colors.textTertiary,
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
-  },
-  fadeSentenceRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  fadeToken: {
-    color: colors.textPrimary,
-    fontSize: 22,
-    lineHeight: 34,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  fadeTokenMasked: {
-    color: 'transparent',
-    backgroundColor: colors.maskBg,
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    marginHorizontal: 1,
-    marginVertical: 2,
-  },
-  fadeTokenEmphasis: {
-    color: colors.accentPractice,
-  },
-  hardWordsRow: {
-    marginTop: 16,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  hardWordPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: colors.bgSurface2,
-  },
-  hardWordText: {
-    color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  hardWordLevel: {
-    color: colors.accentPractice,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  progressWrap: {
-    width: '100%',
-    marginTop: 22,
-  },
-  summaryScreen: {
-    minHeight: 560,
-    width: '100%',
-    justifyContent: 'space-between',
-  },
-  summaryCenter: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 24,
-  },
-  summaryTitle: {
-    color: colors.textPrimary,
-    fontSize: 22,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  summaryRows: {
-    gap: 12,
-    alignItems: 'center',
-  },
-  summaryWordList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  summaryWordPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: colors.bgSurface2,
-    borderWidth: 1,
-    borderColor: colors.stroke,
-  },
-  summaryWordText: {
-    color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  summaryWordBadge: {
-    color: colors.accentPractice,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  reviewSection: {
-    width: '100%',
-    gap: 10,
-  },
-  reviewList: {
-    width: '100%',
-    gap: 10,
-  },
-  reviewItem: {
-    width: '100%',
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: colors.bgSurface1,
-    borderWidth: 1,
-    borderColor: colors.stroke,
-    gap: 6,
-  },
-  reviewItemHard: {
-    borderColor: 'rgba(168,85,247,0.35)',
-    backgroundColor: 'rgba(168,85,247,0.08)',
-  },
-  reviewQuestion: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    lineHeight: 21,
-    fontWeight: '600',
-  },
-  reviewAnswer: {
-    color: colors.accentPractice,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  reviewAnswerWrong: {
-    color: colors.accentError,
-  },
-  reviewExplanation: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  reviewPrimary: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    lineHeight: 22,
-    fontWeight: '600',
-  },
-  reviewSecondary: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  summaryValue: {
-    color: colors.accentPractice,
-    fontSize: 28,
-    fontWeight: '700',
-  },
-  summaryValueHard: {
-    color: colors.accentError,
-  },
-  summaryLabel: {
-    color: colors.textSecondary,
-    fontSize: 14,
-  },
-  summaryActions: {
-    gap: 10,
-  },
-  summaryButton: {
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.textFaint,
-    backgroundColor: 'transparent',
-  },
-  summaryButtonPrimary: {
-    backgroundColor: colors.accentPractice,
-    borderColor: colors.accentPractice,
-  },
-  summaryButtonText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  summaryButtonTextPrimary: {
-    color: colors.textPrimary,
-  },
+    inlineRoot: {
+      flex: 1,
+      minHeight: 0,
+      overflow: 'hidden',
+      backgroundColor: colors.bgApp,
+    },
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.bgApp,
+    },
+    header: {
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.stroke,
+      backgroundColor: colors.bgApp,
+    },
+    headerInner: {
+      width: '100%',
+      alignSelf: 'center',
+      gap: 8,
+      paddingBottom: 12,
+    },
+    headerTitle: {
+      color: colors.textPrimary,
+      fontSize: 20,
+      fontWeight: '700',
+    },
+    headerMeta: {
+      color: colors.textSecondary,
+      fontSize: 13,
+    },
+    body: {
+      gap: 14,
+      paddingTop: 14,
+      width: '100%',
+    },
+    bodyInline: {
+      minHeight: '100%',
+    },
+    bodyInlineScroller: {
+      flex: 1,
+      minHeight: 0,
+    },
+    stageCard: {
+      gap: 12,
+    },
+    cardBlock: {
+      gap: 12,
+    },
+    eyebrow: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      fontWeight: '700',
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
+    },
+      supportText: {
+      color: colors.textSecondary,
+      fontSize: 14,
+      lineHeight: 21,
+    },
+    stageUtilityRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+      gap: 10,
+      marginTop: -2,
+      marginBottom: 2,
+    },
+    stageUtilitySpinner: {
+      height: 32,
+      justifyContent: 'center',
+    },
+    stageReplayButton: {
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.strokeStrong,
+      backgroundColor: colors.bgSurface2,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+    },
+    stageReplayButtonText: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: '600',
+    },
+    transcriptPanel: {
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: colors.strokeStrong,
+      backgroundColor: colors.bgSurface2,
+      overflow: 'hidden',
+    },
+    transcriptScrollContent: {
+      gap: 12,
+      padding: 16,
+    },
+    scrollCueWrap: {
+      alignItems: 'center',
+      paddingTop: 10,
+      paddingBottom: 4,
+    },
+    scrollCue: {
+      width: 42,
+      height: 5,
+      borderRadius: 999,
+      backgroundColor: colors.strokeStrong,
+      opacity: 0.9,
+    },
+    previewRow: {
+      gap: 6,
+      borderRadius: 14,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderWidth: 1,
+      borderColor: 'transparent',
+    },
+    previewRowActive: {
+      borderColor: colors.accentPractice,
+      backgroundColor: `${colors.accentPractice}14`,
+    },
+    previewPrimary: {
+      color: colors.textPrimary,
+      fontSize: 20,
+      lineHeight: 30,
+      fontWeight: '600',
+    },
+    previewPrimaryActive: {
+      color: colors.accentPractice,
+    },
+    heroButtonWrap: {
+      alignItems: 'center',
+      paddingTop: 10,
+      paddingBottom: 4,
+    },
+    inlineQuestionSection: {
+      gap: 12,
+      paddingTop: 4,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: colors.strokeStrong,
+      backgroundColor: colors.bgSurface2,
+    },
+    inlineQuestionDivider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.stroke,
+      marginTop: 2,
+      marginBottom: 2,
+    },
+    blindLaunchWrap: {
+      alignItems: 'center',
+      paddingTop: 4,
+    },
+    blindLaunchButton: {
+      width: '100%',
+      maxWidth: 188,
+    },
+    questionText: {
+      color: colors.textPrimary,
+      fontSize: 18,
+      lineHeight: 26,
+      fontWeight: '700',
+    },
+    optionsWrap: {
+      gap: 10,
+    },
+    optionButton: {
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.strokeStrong,
+      backgroundColor: colors.bgSurface3,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+    },
+    optionButtonSelected: {
+      borderColor: colors.accentPractice,
+      backgroundColor: `${colors.accentPractice}18`,
+    },
+    optionButtonCorrect: {
+      borderColor: colors.accentSuccess,
+      backgroundColor: `${colors.accentSuccess}16`,
+    },
+    optionButtonIncorrect: {
+      borderColor: colors.accentError,
+      backgroundColor: `${colors.accentError}14`,
+    },
+    optionButtonIdleLocked: {
+      opacity: 0.72,
+    },
+    optionText: {
+      color: colors.textPrimary,
+      fontSize: 15,
+      lineHeight: 22,
+      fontWeight: '600',
+    },
+    optionTextCorrect: {
+      color: colors.accentSuccess,
+    },
+    optionTextIncorrect: {
+      color: colors.accentError,
+    },
+    answerFeedbackCard: {
+      borderRadius: 16,
+      borderWidth: 1,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      gap: 6,
+    },
+    answerFeedbackCardCorrect: {
+      borderColor: `${colors.accentSuccess}55`,
+      backgroundColor: `${colors.accentSuccess}12`,
+    },
+    answerFeedbackCardIncorrect: {
+      borderColor: `${colors.accentError}55`,
+      backgroundColor: `${colors.accentError}10`,
+    },
+    answerFeedbackTitle: {
+      fontSize: 15,
+      lineHeight: 22,
+      fontWeight: '800',
+    },
+    answerFeedbackTitleCorrect: {
+      color: colors.accentSuccess,
+    },
+    answerFeedbackTitleIncorrect: {
+      color: colors.accentError,
+    },
+    answerFeedbackMeta: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      lineHeight: 19,
+      fontWeight: '600',
+    },
+    explanationText: {
+      color: colors.textSecondary,
+      fontSize: 14,
+      lineHeight: 21,
+    },
+    controlsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
+    playbackControlsWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+      alignSelf: 'center',
+      width: '100%',
+      maxWidth: 420,
+    },
+    playbackSideButton: {
+      flex: 1,
+      minWidth: 88,
+      maxWidth: 104,
+    },
+    playbackMainButton: {
+      flex: 1.35,
+      minWidth: 124,
+      maxWidth: 164,
+    },
+    inlineFooter: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.stroke,
+      backgroundColor: colors.bgApp,
+      paddingTop: 10,
+      alignItems: 'center',
+    },
+    inlineFooterInner: {
+      width: '100%',
+      alignSelf: 'center',
+    },
+    inlineFooterStack: {
+      gap: 10,
+    },
+    decodeLine: {
+      borderRadius: 14,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderWidth: 1,
+      borderColor: 'transparent',
+    },
+    decodeLineActive: {
+      borderColor: colors.accentPractice,
+      backgroundColor: `${colors.accentPractice}14`,
+    },
+    fadeCard: {
+      backgroundColor: 'rgba(168,85,247,0.10)',
+      borderColor: 'rgba(168,85,247,0.22)',
+    },
+    fadeTranscriptCard: {
+      backgroundColor: colors.bgSurface1,
+    },
+    fadeLineBlock: {
+      gap: 4,
+      alignItems: 'center',
+    },
+    fadeTranscriptLine: {
+      color: colors.textPrimary,
+      fontSize: 18,
+      lineHeight: 28,
+      textAlign: 'center',
+    },
+    fadeTranscriptLineIdle: {
+      opacity: 0.92,
+    },
+    fadeToken: {
+      color: colors.textPrimary,
+    },
+    fadeTokenEmphasis: {
+      color: '#D8B4FE',
+    },
+    fadeTokenMasked: {
+      color: colors.textTertiary,
+    },
+    reasonGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
+    reasonChip: {
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.stroke,
+      backgroundColor: colors.bgSurface1,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+    },
+    reasonChipActive: {
+      backgroundColor: `${colors.accentPractice}18`,
+      borderColor: colors.accentPractice,
+    },
+    reasonChipText: {
+      color: colors.textPrimary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    reasonChipTextActive: {
+      color: colors.accentPractice,
+    },
+    buttonStack: {
+      gap: 10,
+    },
+    candidateBlock: {
+      gap: 10,
+      paddingBottom: 4,
+    },
+    candidateHeader: {
+      borderRadius: 12,
+      backgroundColor: colors.bgSurface2,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    candidateSentence: {
+      color: colors.textPrimary,
+      fontSize: 15,
+      lineHeight: 22,
+      fontWeight: '600',
+    },
+    candidateWordWrap: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    wordChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.stroke,
+      backgroundColor: colors.bgSurface1,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    wordChipActive: {
+      backgroundColor: `${colors.accentPractice}18`,
+      borderColor: colors.accentPractice,
+    },
+    wordChipText: {
+      color: colors.textPrimary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    wordChipTextActive: {
+      color: colors.accentPractice,
+    },
+    wordChipCefr: {
+      color: colors.textTertiary,
+      fontSize: 10,
+      lineHeight: 12,
+      fontWeight: '800',
+      letterSpacing: 0.4,
+    },
+    vocabWorkspace: {
+      backgroundColor: `${colors.accentPractice}10`,
+      borderColor: `${colors.accentPractice}45`,
+      borderWidth: 1.5,
+    },
+    vocabWorkspaceScrollContent: {
+      paddingTop: 8,
+      gap: 12,
+      paddingHorizontal: 16,
+      paddingBottom: 16,
+    },
+    vocabWorkspaceInner: {
+      gap: 12,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: `${colors.strokeStrong}CC`,
+      backgroundColor: colors.bgSurface2,
+      padding: 12,
+    },
+    vocabWorkspaceBanner: {
+      alignSelf: 'flex-start',
+      borderRadius: 999,
+      backgroundColor: `${colors.accentPractice}18`,
+      borderWidth: 1,
+      borderColor: `${colors.accentPractice}38`,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+    },
+    vocabWorkspaceBannerText: {
+      color: colors.accentPractice,
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: '700',
+      letterSpacing: 0.3,
+    },
+    vocabReviewList: {
+      gap: 12,
+    },
+    vocabReviewCard: {
+      gap: 10,
+      backgroundColor: colors.bgApp,
+      borderWidth: 1.5,
+      borderColor: `${colors.strokeStrong}EE`,
+      shadowColor: colors.textPrimary,
+      shadowOpacity: 0.08,
+      shadowOffset: { width: 0, height: 8 },
+      shadowRadius: 16,
+      elevation: 2,
+    },
+    vocabWord: {
+      color: colors.textPrimary,
+      fontSize: 20,
+      fontWeight: '700',
+    },
+    vocabWordCefr: {
+      color: colors.textTertiary,
+      fontSize: 12,
+      fontWeight: '800',
+      letterSpacing: 0.4,
+    },
+    vocabWordTranslation: {
+      color: colors.accentPractice,
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '600',
+      marginTop: -4,
+    },
+    vocabContext: {
+      color: colors.textPrimary,
+      fontSize: 15,
+      lineHeight: 22,
+    },
+    vocabContextBlock: {
+      gap: 6,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.stroke,
+      backgroundColor: colors.bgSurface2,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+    },
+    vocabContextZh: {
+      color: colors.textSecondary,
+      fontSize: 14,
+      lineHeight: 21,
+    },
+    vocabCardActions: {
+      paddingTop: 4,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.stroke,
+    },
+    emptyStateCard: {
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.stroke,
+      backgroundColor: colors.bgSurface2,
+      paddingHorizontal: 14,
+      paddingVertical: 16,
+    },
+    summaryLine: {
+      gap: 6,
+      paddingBottom: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.stroke,
+    },
+    summaryPrimary: {
+      color: colors.textPrimary,
+      fontSize: 18,
+      lineHeight: 26,
+      fontWeight: '600',
+    },
+    summarySecondary: {
+      color: colors.textSecondary,
+      fontSize: 14,
+      lineHeight: 21,
+    },
+    reasonSummaryWrap: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
+    reasonSummaryChip: {
+      borderRadius: 999,
+      backgroundColor: colors.bgSurface1,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    reasonSummaryText: {
+      color: colors.textPrimary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    footer: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.stroke,
+      backgroundColor: colors.bgApp,
+      paddingTop: 12,
+    },
+    footerButton: {
+      alignSelf: 'center',
+      width: '100%',
+      maxWidth: 520,
+    },
   });
 }
