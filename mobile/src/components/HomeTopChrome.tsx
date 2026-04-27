@@ -1,23 +1,21 @@
 import React from 'react';
-import { Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { radii, spacing } from '../design';
+import { radii, spacing, typography } from '../design';
 import { triggerUiFeedback } from '../feedback';
+import { useUiI18n } from '../i18n';
 import { useResponsiveLayout } from '../responsive';
 import { useAppTheme } from '../theme';
-import type { HomeMode } from '../types';
-import { HomeModeTabs } from './HomeModeTabs';
 
 type Props = {
-  mode: HomeMode;
-  onChangeMode: (mode: HomeMode) => void;
   onOpenMenu: () => void;
   onLayout?: (event: LayoutChangeEvent) => void;
 };
 
-export function HomeTopChrome({ mode, onChangeMode, onOpenMenu, onLayout }: Props) {
+export function HomeTopChrome({ onOpenMenu, onLayout }: Props) {
   const { colors } = useAppTheme();
+  const { t } = useUiI18n();
   const metrics = useResponsiveLayout();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
 
@@ -46,8 +44,9 @@ export function HomeTopChrome({ mode, onChangeMode, onOpenMenu, onLayout }: Prop
           >
             <Feather name="menu" size={18} color={colors.textSecondary} />
           </Pressable>
-          <View style={styles.tabsWrap}>
-            <HomeModeTabs mode={mode} onChangeMode={onChangeMode} />
+          <View style={styles.titleWrap}>
+            <Text style={styles.title}>{t('home.learnTab')}</Text>
+            <View style={styles.titleUnderline} />
           </View>
         </View>
       </SafeAreaView>
@@ -76,8 +75,22 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       paddingTop: spacing.sm,
       paddingBottom: spacing.sm,
     },
-    tabsWrap: {
+    titleWrap: {
       flex: 1,
+      alignItems: 'center',
+      gap: 6,
+      paddingRight: 44,
+    },
+    title: {
+      color: colors.textPrimary,
+      fontSize: typography.body,
+      fontWeight: '800',
+    },
+    titleUnderline: {
+      width: 132,
+      height: 3,
+      borderRadius: 999,
+      backgroundColor: colors.textPrimary,
     },
     menuButton: {
       width: 44,

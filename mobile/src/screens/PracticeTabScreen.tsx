@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   FlatList,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -21,7 +20,9 @@ import { useUiI18n } from '../i18n';
 import { radii, spacing, typography } from '../design';
 import { useResponsiveLayout } from '../responsive';
 import { useAppTheme } from '../theme';
-import type { Clip, ClipQuestion, Level, PracticeTabState } from '../types';
+import type { Clip, Level, PracticeTabState } from '../types';
+
+const PRIMING_SECONDS = 3;
 
 type Props = {
   clips: Clip[];
@@ -33,6 +34,7 @@ type Props = {
   onStartPractice: (clipIndex: number) => void;
   onOpenCompletedClip: (clipIndex: number) => void;
   onVisibleClipChange?: (clipIndex: number) => void;
+  isPracticeSessionActive?: boolean;
   renderInlineSession?: (args: {
     clip: Clip;
     clipIndex: number;
@@ -61,26 +63,6 @@ function buildPracticePreviewBody(clip: Clip) {
   return '';
 }
 
-function answerIndex(question: ClipQuestion) {
-  const normalized = String(question.answer || '').trim().toUpperCase();
-  if (/^[A-Z]$/.test(normalized)) {
-    return Math.max(0, normalized.charCodeAt(0) - 65);
-  }
-  if (/^\d+$/.test(normalized)) {
-    return Math.max(0, Number(normalized) - 1);
-  }
-  const optionIndex = (question.options || []).findIndex(option => option.trim().toUpperCase() === normalized);
-  return optionIndex >= 0 ? optionIndex : 0;
-}
-
-function getStageZeroQuestion(clip: Clip) {
-  const questions = Array.isArray(clip.questions) ? clip.questions : [];
-  if (questions.some(question => typeof question.stage === 'number')) {
-    return questions.find(question => question.stage === 0) || null;
-  }
-  return questions[0] || null;
-}
-
 export function PracticeTabScreen({
   clips,
   clipKeys = [],
@@ -91,6 +73,7 @@ export function PracticeTabScreen({
   onStartPractice,
   onOpenCompletedClip,
   onVisibleClipChange,
+  isPracticeSessionActive = false,
   renderInlineSession,
 }: Props) {
   const { colors } = useAppTheme();
@@ -102,8 +85,9 @@ export function PracticeTabScreen({
   const currentPageIndexRef = useRef(0);
   const cursorHydratedRef = useRef(false);
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 75 });
-  const [previewAnswers, setPreviewAnswers] = useState<Record<string, number>>({});
   const [listViewportHeight, setListViewportHeight] = useState(0);
+  const longPressConsumedRef = useRef(false);
+  const startedPrimingKeyRef = useRef<string | null>(null);
 
   const completedByKey = useMemo(() => {
     const map = new Map<string, PracticeTabState['completed_clips'][number]>();
@@ -126,6 +110,11 @@ export function PracticeTabScreen({
   }, [clipKeys, clips, completedByKey]);
 
   const safeCursor = Math.max(0, Math.min(practiceState.practice_cursor || 0, Math.max(0, pages.length - 1)));
+  const [primingState, setPrimingState] = useState({
+    clipIndex: safeCursor,
+    remaining: PRIMING_SECONDS,
+    paused: false,
+  });
   const resolvedViewportHeight = Math.max(
     0,
     listViewportHeight || contentViewportHeight || metrics.windowHeight
@@ -139,6 +128,17 @@ export function PracticeTabScreen({
     onVisibleClipChange?.(clipIndex);
   }, [onVisibleClipChange]);
 
+  const startPrimingPage = useCallback((page: PracticePage) => {
+    if (isPracticeSessionActive) return;
+    if (startedPrimingKeyRef.current === page.key) return;
+    startedPrimingKeyRef.current = page.key;
+    if (page.completedRecord) {
+      onOpenCompletedClip(page.clipIndex);
+      return;
+    }
+    onStartPractice(page.clipIndex);
+  }, [isPracticeSessionActive, onOpenCompletedClip, onStartPractice]);
+
   useEffect(() => {
     if (!pages.length) {
       cursorHydratedRef.current = false;
@@ -150,6 +150,37 @@ export function PracticeTabScreen({
     currentPageIndexRef.current = safeCursor;
     onVisibleClipChange?.(safeCursor);
   }, [onVisibleClipChange, pages.length, safeCursor]);
+
+  useEffect(() => {
+    if (!pages.length || isPracticeSessionActive) return;
+    startedPrimingKeyRef.current = null;
+    setPrimingState({
+      clipIndex: safeCursor,
+      remaining: PRIMING_SECONDS,
+      paused: false,
+    });
+  }, [isPracticeSessionActive, pages.length, safeCursor]);
+
+  useEffect(() => {
+    if (!pages.length || isPracticeSessionActive) return;
+    if (primingState.clipIndex !== safeCursor || primingState.paused) return;
+    const page = pages[primingState.clipIndex];
+    if (!page) return;
+    if (primingState.remaining <= 0) {
+      startPrimingPage(page);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setPrimingState(prev => {
+        if (prev.clipIndex !== primingState.clipIndex || prev.paused) return prev;
+        return {
+          ...prev,
+          remaining: Math.max(0, prev.remaining - 1),
+        };
+      });
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [isPracticeSessionActive, pages, primingState, safeCursor, startPrimingPage]);
 
   useEffect(() => {
     if (!pages.length) return;
@@ -217,25 +248,23 @@ export function PracticeTabScreen({
       );
     }
 
-    const previewBody = buildPracticePreviewBody(item.clip);
+    const hookBody = buildPracticePreviewBody(item.clip);
     const challengeWords = deriveChallengeWords(item.clip, level, knownWords).slice(0, 3);
-    const previewQuestion = getStageZeroQuestion(item.clip);
-    const selectedPreviewAnswer = previewQuestion ? previewAnswers[item.key] : undefined;
-    const previewQuestionAnswered = Number.isInteger(selectedPreviewAnswer);
-    const correctPreviewAnswer = previewQuestion ? answerIndex(previewQuestion) : -1;
-    const previewQuestionCorrect = previewQuestionAnswered && selectedPreviewAnswer === correctPreviewAnswer;
-    const previewQuestionCorrectOption = previewQuestion && correctPreviewAnswer >= 0
-      ? previewQuestion.options?.[correctPreviewAnswer] || ''
-      : '';
-    const previewExplanation = previewQuestion
-      ? String(previewQuestion.explanation_zh || '').trim()
-      : '';
     const statusLabel = item.completedRecord
       ? t('practice.statusPracticed', { words: item.completedRecord.vocabPicked.length })
       : t('practice.statusFresh');
     const completedAtLabel = item.completedRecord
       ? new Date(item.completedRecord.completedAt).toLocaleDateString()
       : '';
+    const isPrimingVisible = isVisible && !isPracticeSessionActive;
+    const primingRemaining = isPrimingVisible && primingState.clipIndex === item.clipIndex
+      ? primingState.remaining
+      : PRIMING_SECONDS;
+    const primingPaused = isPrimingVisible
+      && primingState.clipIndex === item.clipIndex
+      && primingState.paused;
+    const primingProgress = (PRIMING_SECONDS - primingRemaining) / PRIMING_SECONDS;
+    const startCurrentPage = () => startPrimingPage(item);
 
     return (
       <View style={[styles.page, { height: pageHeight }]}>
@@ -258,7 +287,7 @@ export function PracticeTabScreen({
             ]}
           >
             <View style={styles.previewContent}>
-              <Text style={styles.eyebrow}>{t('home.learnTab')}</Text>
+              <Text style={styles.eyebrow}>{t('practicePriming.eyebrow')}</Text>
               <View style={styles.progressRow}>
                 <Text style={styles.progressText}>
                   {`${item.clipIndex + 1} / ${pages.length}`}
@@ -277,83 +306,18 @@ export function PracticeTabScreen({
                 ].filter(Boolean).join(' · ')}
               </Text>
 
-              {previewBody ? (
-                <Text style={styles.body}>{previewBody}</Text>
+              {hookBody ? (
+                <Text style={styles.body}>{hookBody}</Text>
               ) : null}
 
               {challengeWords.length > 0 ? (
                 <View style={styles.challengeWrap}>
-                  <Text style={styles.challengeLabel}>{t('practiceSession.challengeWordsTitle')}</Text>
+                  <Text style={styles.challengeLabel}>{t('practicePriming.keywords')}</Text>
                   <ChallengeWordPills words={challengeWords} tone="practice" />
                 </View>
               ) : null}
 
-              {previewQuestion && !item.completedRecord ? (
-                <View style={styles.questionRegion}>
-                  <GlassCard tone="practice" style={styles.questionCard}>
-                    <ScrollView
-                      style={styles.questionScroll}
-                      contentContainerStyle={styles.questionScrollContent}
-                      nestedScrollEnabled
-                      showsVerticalScrollIndicator
-                      keyboardShouldPersistTaps="handled"
-                    >
-                      <Text style={styles.challengeLabel}>{t('practiceSession.questionLabel')}</Text>
-                      <Text style={styles.questionText}>{previewQuestion.question}</Text>
-                      {previewQuestionAnswered ? (
-                        <View
-                          style={[
-                            styles.feedbackSwap,
-                            previewQuestionCorrect ? styles.feedbackSwapCorrect : styles.feedbackSwapWrong,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.feedbackTitle,
-                              previewQuestionCorrect ? styles.feedbackTitleCorrect : styles.feedbackTitleWrong,
-                            ]}
-                          >
-                            {previewQuestionCorrect
-                              ? t('practiceSession.answerCorrectTitle')
-                              : t('practiceSession.answerIncorrectTitle')}
-                          </Text>
-                          {!previewQuestionCorrect && previewQuestionCorrectOption ? (
-                            <Text style={styles.feedbackAnswer}>
-                              {t('practiceSession.correctAnswerLabel', { answer: previewQuestionCorrectOption })}
-                            </Text>
-                          ) : null}
-                          {previewExplanation ? (
-                            <Text style={styles.explanationText}>{previewExplanation}</Text>
-                          ) : null}
-                        </View>
-                      ) : (
-                        <View style={styles.optionsWrap}>
-                          {(previewQuestion.options || []).map((option, index) => (
-                            <Pressable
-                              key={`${item.key}-preview-opt-${index}`}
-                              hitSlop={8}
-                              onPress={() => {
-                                setPreviewAnswers(prev => ({
-                                  ...prev,
-                                  [item.key]: index,
-                                }));
-                              }}
-                              style={[
-                                styles.optionButton,
-                                styles.optionButtonCompact,
-                              ]}
-                            >
-                              <Text style={styles.optionText}>
-                                {option}
-                              </Text>
-                            </Pressable>
-                          ))}
-                        </View>
-                      )}
-                    </ScrollView>
-                  </GlassCard>
-                </View>
-              ) : null}
+              <View style={styles.primingSpacer} />
 
               {item.completedRecord ? (
                 <Text style={styles.completedMeta}>{completedAtLabel}</Text>
@@ -361,16 +325,54 @@ export function PracticeTabScreen({
             </View>
 
             <View style={styles.actions}>
-              <ActionButton
-                label={item.completedRecord ? t('practice.viewCompleted') : t('common.continue')}
-                onPress={() => (
-                  item.completedRecord
-                    ? onOpenCompletedClip(item.clipIndex)
-                    : onStartPractice(item.clipIndex)
-                )}
-                disabled={Boolean(previewQuestion && !item.completedRecord && !previewQuestionAnswered)}
-                style={styles.primaryAction}
-              />
+              <Text style={styles.swipeHint}>{t('practicePriming.swipeHint')}</Text>
+              <Pressable
+                hitSlop={10}
+                onPressIn={() => {
+                  longPressConsumedRef.current = false;
+                }}
+                onLongPress={() => {
+                  longPressConsumedRef.current = true;
+                  setPrimingState(prev => (
+                    prev.clipIndex === item.clipIndex
+                      ? { ...prev, paused: true }
+                      : prev
+                  ));
+                }}
+                onPressOut={() => {
+                  setPrimingState(prev => (
+                    prev.clipIndex === item.clipIndex && prev.paused
+                      ? { ...prev, paused: false }
+                      : prev
+                  ));
+                }}
+                onPress={() => {
+                  if (longPressConsumedRef.current) {
+                    longPressConsumedRef.current = false;
+                    return;
+                  }
+                  startCurrentPage();
+                }}
+                style={[
+                  styles.primingRing,
+                  { borderColor: primingPaused ? colors.textSecondary : colors.accentPractice },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.primingRingFill,
+                    { opacity: Math.max(0.12, Math.min(0.42, primingProgress * 0.42)) },
+                  ]}
+                />
+                <Text style={styles.primingNumber}>
+                  {primingPaused
+                    ? t('practicePriming.paused')
+                    : String(Math.max(1, primingRemaining))}
+                </Text>
+              </Pressable>
+              <Text style={styles.primingHint}>
+                {item.completedRecord ? t('practice.viewCompleted') : t('practicePriming.holdHint')}
+              </Text>
             </View>
           </GlassCard>
         </View>
@@ -385,11 +387,15 @@ export function PracticeTabScreen({
     onStartPractice,
     pageHeight,
     pages.length,
-    previewAnswers,
     previewCardHeight,
+    primingState,
     practiceState.practice_cursor,
     renderInlineSession,
+    isPracticeSessionActive,
+    startPrimingPage,
     styles,
+    colors.accentPractice,
+    colors.textSecondary,
     t,
   ]);
 
@@ -406,7 +412,7 @@ export function PracticeTabScreen({
       <FlatList
         ref={listRef}
         data={pages}
-        extraData={previewAnswers}
+        extraData={primingState}
         keyExtractor={item => item.key}
         renderItem={renderItem}
         style={styles.list}
@@ -549,6 +555,10 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: typography.caption,
       fontWeight: '700',
     },
+    primingSpacer: {
+      flex: 1,
+      minHeight: spacing.lg,
+    },
     questionCard: {
       gap: spacing.xs,
       backgroundColor: colors.bgSurface1,
@@ -660,10 +670,44 @@ function createStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: typography.micro,
     },
     actions: {
+      alignItems: 'center',
+      gap: spacing.sm,
       paddingTop: spacing.sm,
       paddingBottom: spacing.sm,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: colors.stroke,
+    },
+    swipeHint: {
+      color: colors.textTertiary,
+      fontSize: typography.micro,
+      fontWeight: '700',
+    },
+    primingRing: {
+      width: 112,
+      height: 112,
+      borderRadius: 56,
+      borderWidth: 3,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      backgroundColor: colors.bgSurface1,
+    },
+    primingRingFill: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: colors.accentPractice,
+    },
+    primingNumber: {
+      color: colors.textPrimary,
+      fontSize: 30,
+      lineHeight: 34,
+      fontWeight: '800',
+      textAlign: 'center',
+    },
+    primingHint: {
+      color: colors.textSecondary,
+      fontSize: typography.caption,
+      fontWeight: '700',
+      textAlign: 'center',
     },
     primaryAction: {
       width: '100%',

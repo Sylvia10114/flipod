@@ -170,18 +170,16 @@ function questionBuckets(clip: Clip | null): QuestionBuckets {
 
   (clip?.questions || []).forEach((question, index) => {
     if (typeof question.stage === 'number') {
-      if (question.stage === 0) buckets.stage0.push(question);
-      else if (question.stage === 1) buckets.stage1.push(question);
+      if (question.stage === 0 || question.stage === 1) buckets.stage1.push(question);
       else if (question.stage === 2) buckets.stage2.push(question);
       else if (question.stage === 3) buckets.stage3.push(question);
       else buckets.stage4.push(question);
       return;
     }
 
-    if (index === 0) buckets.stage0.push(question);
-    else if (index === 1) buckets.stage1.push(question);
-    else if (index === 2) buckets.stage2.push(question);
-    else if (index === 3) buckets.stage3.push(question);
+    if (index === 0) buckets.stage1.push(question);
+    else if (index === 1) buckets.stage2.push(question);
+    else if (index === 2) buckets.stage3.push(question);
     else buckets.stage4.push(question);
   });
 
@@ -379,7 +377,7 @@ export function PracticeSessionModal({
   isActive = true,
   clip,
   clipIndex,
-  initialStage = 0,
+  initialStage = 1,
   inline = false,
   level,
   nativeLanguage,
@@ -419,7 +417,7 @@ export function PracticeSessionModal({
   const completionSavedRef = useRef(false);
   const stageRunRef = useRef('');
 
-  const [stage, setStage] = useState<Stage>(readOnly ? 6 : (Math.max(0, Math.min(initialStage, 6)) as Stage));
+  const [stage, setStage] = useState<Stage>(readOnly ? 6 : (Math.max(1, Math.min(initialStage, 6)) as Stage));
   const [status, setStatus] = useState({
     isPlaying: false,
     isLoading: false,
@@ -936,7 +934,7 @@ export function PracticeSessionModal({
     prepareAudioPromiseRef.current = null;
     loadPromiseRef.current = null;
     pendingPlaybackRef.current = null;
-    setStage(readOnly ? 6 : (Math.max(0, Math.min(initialStage, 6)) as Stage));
+    setStage(readOnly ? 6 : (Math.max(1, Math.min(initialStage, 6)) as Stage));
     setStatus({
       isPlaying: false,
       isLoading: false,
@@ -1051,10 +1049,6 @@ export function PracticeSessionModal({
     const runKey = `${clipKey}:${stage}`;
     if (stageRunRef.current === runKey) return;
     stageRunRef.current = runKey;
-    if (stage === 0) {
-      void openNextQuestionIfNeeded(0);
-      return;
-    }
     if (stage === 1) {
       void startPlaybackForStage(1, 0);
       return;
@@ -1449,7 +1443,7 @@ export function PracticeSessionModal({
         return (
           <View style={styles.inlineFooterStack}>
             {!readOnly ? <ActionButton label={t('practiceSession.nextClip')} onPress={onNextClip} /> : null}
-            <ActionButton label={t('home.listenTab')} variant="secondary" onPress={onReturnListen} />
+            <ActionButton label={t('practiceSession.backToFlow')} variant="secondary" onPress={onReturnListen} />
           </View>
         );
       }
@@ -1887,7 +1881,7 @@ export function PracticeSessionModal({
                 {!readOnly ? (
                   <ActionButton label={t('practiceSession.nextClip')} onPress={onNextClip} />
                 ) : null}
-                <ActionButton label={t('home.listenTab')} variant="secondary" onPress={onReturnListen} />
+                <ActionButton label={t('practiceSession.backToFlow')} variant="secondary" onPress={onReturnListen} />
                 <ActionButton label={t('common.close')} variant="secondary" onPress={onDismiss} />
               </View>
             ) : null}

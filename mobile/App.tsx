@@ -56,11 +56,10 @@ import {
   shouldRefreshGeneratedPracticeTitle,
   withGeneratedPracticesAppended,
 } from './src/generated-practice';
-import { FeedScreen } from './src/screens/FeedScreen';
 import { AccountScreen } from './src/screens/AccountScreen';
-import { FirstUseBridgeScreen } from './src/screens/FirstUseBridgeScreen';
 import { LibraryScreen } from './src/screens/LibraryScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
+import { LaunchPracticeDemoScreen } from './src/screens/LaunchPracticeDemoScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { PracticeScreen } from './src/screens/PracticeScreen';
 import { PracticeTabScreen } from './src/screens/PracticeTabScreen';
@@ -368,6 +367,7 @@ export default function App() {
   const [activeScreen, setActiveScreen] = useState<MenuScreen>('feed');
   const [menuOpen, setMenuOpen] = useState(false);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [launchPracticeDemoDone, setLaunchPracticeDemoDone] = useState(false);
   const [feedState, setFeedState] = useState<'loading' | 'normal' | 'rerank' | 'fallback'>('loading');
   const [activeGeneratedPracticeSession, setActiveGeneratedPracticeSession] = useState<{
     id: string;
@@ -673,7 +673,7 @@ export default function App() {
         setDeviceId(nextDeviceId);
         setGuestMode(nextGuestMode);
         const normalizedPracticeTabState = localPracticeTabState || createDefaultPracticeTabState();
-        const restoredHomeMode = normalizedPracticeTabState.ui_state.current_tab || localSettings.homeMode;
+        const restoredHomeMode: HomeMode = 'practice';
         const nextSettings = {
           ...localSettings,
           homeMode: restoredHomeMode,
@@ -1268,7 +1268,8 @@ export default function App() {
     await saveSettings(nextSettings);
   }, []);
 
-  const handleHomeModeChange = useCallback((mode: HomeMode) => {
+  const handleHomeModeChange = useCallback((_mode: HomeMode = 'practice') => {
+    const mode: HomeMode = 'practice';
     if (settings.homeMode === mode && activeScreen === 'feed') return;
     const nextSettings: AppSettings = {
       ...settings,
@@ -1329,6 +1330,7 @@ export default function App() {
     setMenuOpen(false);
     setShowAuthSheet(false);
     setAuthError('');
+    setLaunchPracticeDemoDone(false);
     triggerUiFeedback('success');
   }, [applyAuthSnapshot, localMigrationPayload]);
 
@@ -1442,15 +1444,6 @@ export default function App() {
 
     setActiveScreen(getHomeModeScreen(settings.homeMode));
   };
-
-  const handleCompleteFirstUseBridge = useCallback(() => {
-    if (settings.firstUseBridgeSeen) return;
-    const nextSettings: AppSettings = {
-      ...settings,
-      firstUseBridgeSeen: true,
-    };
-    void persistSettings(nextSettings);
-  }, [persistSettings, settings]);
 
   const markFeedCoachSeen = useCallback((key: 'feedCoachListenSeen' | 'feedCoachNavSeen') => {
     if (settings[key]) return;
@@ -2070,7 +2063,7 @@ export default function App() {
 
   const handleReturnFeed = useCallback(() => {
     setActiveGeneratedPracticeSession(null);
-    handleHomeModeChange('just_listen');
+    handleHomeModeChange('practice');
   }, [handleHomeModeChange]);
 
   const handlePracticeAgain = useCallback(() => {
@@ -2130,15 +2123,27 @@ export default function App() {
     }
     setActiveScreen('feed');
     setActiveClipPracticeSession({ clipIndex, clipKey, readOnly });
+    if (!readOnly) {
+      handleClipStarted(clip, clipIndex);
+    }
     requestPracticeClipTranslations(clipIndex);
-  }, [persistSettings, practiceClips, practiceFeedKeys, requestPracticeClipTranslations, settings, updatePracticeTabState]);
+  }, [
+    handleClipStarted,
+    persistSettings,
+    practiceClips,
+    practiceFeedKeys,
+    requestPracticeClipTranslations,
+    settings,
+    updatePracticeTabState,
+  ]);
 
   const handleDismissClipPractice = useCallback(() => {
     setActiveClipPracticeSession(null);
   }, []);
 
   const handleReturnListenFromClipPractice = useCallback(() => {
-    handleHomeModeChange('just_listen');
+    setActiveClipPracticeSession(null);
+    handleHomeModeChange('practice');
   }, [handleHomeModeChange]);
 
   const handleClipPracticeStageChange = useCallback((clipIndex: number, stage: number) => {
@@ -2169,6 +2174,11 @@ export default function App() {
   }, [practiceFeedKeys, updatePracticeTabState]);
 
   const handleClipPracticeComplete = useCallback((completedClip: PracticeTabCompletedClip) => {
+    const completedClipIndex = practiceFeedKeys.indexOf(completedClip.clipKey);
+    const completedPracticeClip = completedClipIndex >= 0 ? practiceClips[completedClipIndex] : null;
+    if (completedPracticeClip) {
+      handleClipCompleted(completedPracticeClip, completedClipIndex, 1);
+    }
     updatePracticeTabState(prev => {
       const nextCompleted = [
         ...prev.completed_clips.filter(item => item.clipKey !== completedClip.clipKey),
@@ -2210,7 +2220,7 @@ export default function App() {
         },
       };
     });
-  }, [updatePracticeTabState]);
+  }, [handleClipCompleted, practiceClips, practiceFeedKeys, updatePracticeTabState]);
 
   const handlePracticeNextClip = useCallback(() => {
     if (!activeClipPracticeSession) {
@@ -2224,8 +2234,28 @@ export default function App() {
       setActiveClipPracticeSession(null);
       return;
     }
-    handleStartClipPractice(nextIndex, false);
-  }, [activeClipPracticeSession, practiceClips.length, practiceFeedKeys, handleStartClipPractice]);
+    const nextClipKey = practiceFeedKeys[nextIndex];
+    setActiveClipPracticeSession(null);
+    updatePracticeTabState(prev => ({
+      ...prev,
+      practice_cursor: nextIndex,
+      session: null,
+      ui_state: {
+        ...prev.ui_state,
+        current_tab: 'practice',
+        last_active_at: new Date().toISOString(),
+      },
+    }));
+    if (nextClipKey) {
+      requestPracticeClipTranslations(nextIndex);
+    }
+  }, [
+    activeClipPracticeSession,
+    practiceClips.length,
+    practiceFeedKeys,
+    requestPracticeClipTranslations,
+    updatePracticeTabState,
+  ]);
 
   const handleTryGuest = useCallback(async () => {
     await saveGuestMode(true);
@@ -2292,6 +2322,7 @@ export default function App() {
     setShowHowItWorks(false);
     setActiveGeneratedPracticeSession(null);
     setActiveClipPracticeSession(null);
+    setLaunchPracticeDemoDone(false);
     setAuthError('');
   }, [authToken]);
 
@@ -2341,6 +2372,7 @@ export default function App() {
     setShowHowItWorks(false);
     setActiveGeneratedPracticeSession(null);
     setActiveClipPracticeSession(null);
+    setLaunchPracticeDemoDone(false);
     setAuthError('');
     showToast(ui.t('app.toastAccountDeleted'));
   }, [authToken, showToast, ui]);
@@ -2367,8 +2399,8 @@ export default function App() {
     );
   } else if (!profile.onboardingDone) {
     content = <OnboardingScreen initialProfile={profile} onSubmit={handleProfileSubmit} />;
-  } else if (!settings.firstUseBridgeSeen) {
-    content = <FirstUseBridgeScreen onContinue={handleCompleteFirstUseBridge} />;
+  } else if (isAuthenticated && !launchPracticeDemoDone) {
+    content = <LaunchPracticeDemoScreen onComplete={() => setLaunchPracticeDemoDone(true)} />;
   } else if (!clipsLoaded) {
     content = (
       <View style={styles.centered}>
@@ -2451,8 +2483,6 @@ export default function App() {
     content = (
       <View style={styles.homeModeHost}>
         <HomeTopChrome
-          mode={settings.homeMode}
-          onChangeMode={handleHomeModeChange}
           onOpenMenu={() => setMenuOpen(true)}
           onLayout={event => {
             const nextHeight = event.nativeEvent.layout.height;
@@ -2467,145 +2497,79 @@ export default function App() {
             setHomeContentHeight(prev => (Math.abs(prev - nextHeight) > 0.5 ? nextHeight : prev));
           }}
         >
-          <View
-            style={[
-              styles.homeModePane,
-              settings.homeMode === 'practice' ? styles.homeModePaneActive : styles.homeModePaneHidden,
-            ]}
-            pointerEvents={settings.homeMode === 'practice' ? 'auto' : 'none'}
-          >
-            {practiceTabState.practice_feed_keys.length === 0 ? (
-              <View style={styles.homeModeLoadingState}>
-                <ActivityIndicator size="large" color="#8B9CF7" />
-                <Text style={styles.loadingText}>{ui.t('app.initializing')}</Text>
-              </View>
-            ) : (
-              <PracticeTabScreen
-                clips={practiceClips}
-                clipKeys={practiceFeedKeys}
-                practiceState={practiceTabState}
-                level={profile.level}
-                knownWords={knownWords}
-                contentViewportHeight={resolvedHomeViewportHeight}
-                onStartPractice={clipIndex => handleStartClipPractice(clipIndex, false)}
-                onOpenCompletedClip={clipIndex => handleStartClipPractice(clipIndex, true)}
-                onVisibleClipChange={clipIndex => {
-                  updatePracticeTabState(prev => {
-                    if (prev.practice_cursor === clipIndex && prev.ui_state.current_tab === 'practice') {
-                      return prev;
-                    }
-                    return {
-                      ...prev,
-                      practice_cursor: clipIndex,
-                      ui_state: {
-                        ...prev.ui_state,
-                        current_tab: 'practice',
-                        last_active_at: new Date().toISOString(),
-                      },
-                    };
-                  });
-                }}
-                renderInlineSession={({ clip, clipIndex, completedRecord, isVisible }) => {
-                  const renderClipKey = practiceFeedKeys[clipIndex] || buildClipKey(clip, clipIndex);
-                  if (!activeClipPracticeSession || activeClipPracticeSession.clipKey !== renderClipKey) {
-                    return null;
-                  }
-                  return (
-                    <PracticeSessionModal
-                      inline
-                      visible
-                      isActive={isVisible && settings.homeMode === 'practice'}
-                      clip={clip}
-                      clipIndex={clipIndex}
-                      initialStage={
-                        !activeClipPracticeSession.readOnly
-                        && practiceTabState.session?.active_clip_key === renderClipKey
-                          ? Math.max(1, practiceTabState.session.current_stage)
-                          : 1
-                      }
-                      level={profile.level}
-                      nativeLanguage={profile.nativeLanguage}
-                      vocabWords={vocabWords}
-                      knownWords={knownWords}
-                      onSaveVocab={handleSaveVocab}
-                      onMarkKnown={handleMarkKnown}
-                      onRecordWordLookup={handleRecordWordLookup}
-                      completedRecord={activeClipPracticeSession.readOnly ? completedRecord : null}
-                      readOnly={Boolean(activeClipPracticeSession.readOnly)}
-                      onStageChange={stage => {
-                        if (!activeClipPracticeSession.readOnly) {
-                          handleClipPracticeStageChange(clipIndex, stage);
-                        }
-                      }}
-                      onComplete={handleClipPracticeComplete}
-                      onDismiss={handleDismissClipPractice}
-                      onNextClip={handlePracticeNextClip}
-                      onReturnListen={handleReturnListenFromClipPractice}
-                    />
-                  );
-                }}
-              />
-            )}
-          </View>
-
-          <View
-            style={[
-              styles.homeModePane,
-              settings.homeMode === 'just_listen' ? styles.homeModePaneActive : styles.homeModePaneHidden,
-            ]}
-            pointerEvents={settings.homeMode === 'just_listen' ? 'auto' : 'none'}
-          >
-            <FeedScreen
-              clips={currentClips}
-              visibleClipCount={visibleFeedClips.length}
-              hasMoreClips={visibleFeedClips.length < currentClips.length}
-              profile={profile}
-              contentViewportHeight={resolvedHomeViewportHeight}
-              dominantHand={settings.dominantHand}
-              playbackRate={settings.playbackRate}
-              subtitleSize={settings.subtitleSize}
-              feedState={feedState}
-              bookmarkedKeys={bookmarkedKeys}
-              likedKeys={likedClipKeys}
-              recoTag={recoTag}
-              minutesListened={minutesListened}
-              reviewState={reviewState}
-              vocabEntries={vocabList}
-              vocabWords={vocabWords}
+          {practiceTabState.practice_feed_keys.length === 0 ? (
+            <View style={styles.homeModeLoadingState}>
+              <ActivityIndicator size="large" color="#8B9CF7" />
+              <Text style={styles.loadingText}>{ui.t('app.initializing')}</Text>
+            </View>
+          ) : (
+            <PracticeTabScreen
+              clips={practiceClips}
+              clipKeys={practiceFeedKeys}
+              practiceState={practiceTabState}
+              level={profile.level}
               knownWords={knownWords}
-              clipsPlayed={clipsPlayed}
-              isForeground={settings.homeMode === 'just_listen'}
-              showListenCoach={!settings.feedCoachListenSeen}
-              showNavCoach={!settings.feedCoachNavSeen}
-              showWordCoach={!settings.feedCoachWordSeen}
-              onToggleLike={handleToggleLike}
-              onToggleBookmark={handleToggleBookmark}
-              onSaveVocab={handleSaveVocab}
-              onMarkKnown={handleMarkKnown}
-              onDismissListenCoach={() => markFeedCoachSeen('feedCoachListenSeen')}
-              onDismissNavCoach={() => markFeedCoachSeen('feedCoachNavSeen')}
-              onShowWordCoach={handleShowWordCoach}
-              onRecordWordLookup={handleRecordWordLookup}
-              onReviewAction={handleReviewAction}
-              onLoadMoreClips={handleLoadMoreFeed}
-              onPlaybackRateChange={handlePlaybackRateChange}
-              onSubtitleSizeChange={handleSubtitleSizeChange}
-              onClipStarted={handleClipStarted}
-              onClipCompleted={handleClipCompleted}
-              onClipSkipped={handleClipSkipped}
-              onVisibleClipChange={(clip, index) => {
-                updatePracticeTabState(prev => ({
-                  ...prev,
-                  listen_cursor: index,
-                }));
-                const nextTargets = [{ clip: currentRawClips[index] || clip, index }];
-                if (currentRawClips[index + 1]) {
-                  nextTargets.push({ clip: currentRawClips[index + 1], index: index + 1 });
+              contentViewportHeight={resolvedHomeViewportHeight}
+              isPracticeSessionActive={Boolean(activeClipPracticeSession)}
+              onStartPractice={clipIndex => handleStartClipPractice(clipIndex, false)}
+              onOpenCompletedClip={clipIndex => handleStartClipPractice(clipIndex, true)}
+              onVisibleClipChange={clipIndex => {
+                updatePracticeTabState(prev => {
+                  if (prev.practice_cursor === clipIndex && prev.ui_state.current_tab === 'practice') {
+                    return prev;
+                  }
+                  return {
+                    ...prev,
+                    practice_cursor: clipIndex,
+                    ui_state: {
+                      ...prev.ui_state,
+                      current_tab: 'practice',
+                      last_active_at: new Date().toISOString(),
+                    },
+                  };
+                });
+              }}
+              renderInlineSession={({ clip, clipIndex, completedRecord, isVisible }) => {
+                const renderClipKey = practiceFeedKeys[clipIndex] || buildClipKey(clip, clipIndex);
+                if (!activeClipPracticeSession || activeClipPracticeSession.clipKey !== renderClipKey) {
+                  return null;
                 }
-                void requestContentTranslations(nextTargets, profile.nativeLanguage);
+                return (
+                  <PracticeSessionModal
+                    inline
+                    visible
+                    isActive={isVisible}
+                    clip={clip}
+                    clipIndex={clipIndex}
+                    initialStage={
+                      !activeClipPracticeSession.readOnly
+                      && practiceTabState.session?.active_clip_key === renderClipKey
+                        ? Math.max(1, practiceTabState.session.current_stage)
+                        : 1
+                    }
+                    level={profile.level}
+                    nativeLanguage={profile.nativeLanguage}
+                    vocabWords={vocabWords}
+                    knownWords={knownWords}
+                    onSaveVocab={handleSaveVocab}
+                    onMarkKnown={handleMarkKnown}
+                    onRecordWordLookup={handleRecordWordLookup}
+                    completedRecord={activeClipPracticeSession.readOnly ? completedRecord : null}
+                    readOnly={Boolean(activeClipPracticeSession.readOnly)}
+                    onStageChange={stage => {
+                      if (!activeClipPracticeSession.readOnly) {
+                        handleClipPracticeStageChange(clipIndex, stage);
+                      }
+                    }}
+                    onComplete={handleClipPracticeComplete}
+                    onDismiss={handleDismissClipPractice}
+                    onNextClip={handlePracticeNextClip}
+                    onReturnListen={handleReturnListenFromClipPractice}
+                  />
+                );
               }}
             />
-          </View>
+          )}
         </View>
       </View>
     );
@@ -2634,7 +2598,8 @@ export default function App() {
                   onClose={() => setMenuOpen(false)}
                   onNavigate={screen => {
                     if (screen === 'feed') {
-                      handleHomeModeChange('just_listen');
+                      setActiveScreen('feed');
+                      setMenuOpen(false);
                       return;
                     }
                     if (screen === 'practice') {
@@ -2732,17 +2697,6 @@ const styles = StyleSheet.create({
   homeModeContentHost: {
     flex: 1,
     position: 'relative',
-  },
-  homeModePane: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  homeModePaneActive: {
-    zIndex: 2,
-    opacity: 1,
-  },
-  homeModePaneHidden: {
-    zIndex: 0,
-    opacity: 0,
   },
   homeModeLoadingState: {
     flex: 1,
